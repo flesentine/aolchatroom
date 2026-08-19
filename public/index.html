@@ -1,0 +1,68 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>People Connection - Town Square</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="desktop">
+    <section class="aol-shell" aria-label="1996 online chat recreation">
+      <header class="app-titlebar">
+        <div class="brand-orb">A</div>
+        <strong>America Online</strong>
+        <div class="window-controls"><button>_</button><button>□</button><button>×</button></div>
+      </header>
+
+      <nav class="toolbar" aria-label="AOL toolbar">
+        <button><span>♥</span>Welcome</button>
+        <button><span>✉</span>Mail</button>
+        <button><span>👥</span>People</button>
+        <button><span>⌂</span>Places</button>
+        <button><span>☰</span>Services</button>
+        <button><span>?</span>Help</button>
+        <label class="keyword">Keyword <input value="People Connection" readonly></label>
+      </nav>
+
+      <section class="chat-window">
+        <header class="chat-titlebar">
+          <span>People Connection: Town Square</span>
+          <div class="window-controls"><button>_</button><button>□</button><button>×</button></div>
+        </header>
+
+        <div class="room-body">
+          <section class="transcript-wrap">
+            <div id="transcript" class="transcript" role="log" aria-live="polite"></div>
+            <div class="composer">
+              <textarea id="message" maxlength="320" aria-label="Message"></textarea>
+              <button id="send">Send</button>
+            </div>
+          </section>
+
+          <aside class="people-panel">
+            <div class="panel-title">People Here: <span id="count">0</span></div>
+            <select id="people" size="18" aria-label="People Here"></select>
+            <button>Private</button>
+            <button>Ignore</button>
+            <button>Profile</button>
+          </aside>
+        </div>
+
+        <footer class="statusbar">
+          <span id="status">Connecting...</span>
+          <span id="clock">November 22, 1996</span>
+        </footer>
+      </section>
+    </section>
+
+    <section id="signin" class="signin-card">
+      <div class="signin-title">Sign On</div>
+      <label>Screen Name <input id="screenName" maxlength="16" autocomplete="nickname"></label>
+      <button id="signOn">Sign On</button>
+      <small>This is an AI-powered fan recreation, not AOL.</small>
+    </section>
+  </main>
+  <script type="module" src="/app.js"></script>
+</body>
+</html>
