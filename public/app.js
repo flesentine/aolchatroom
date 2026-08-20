@@ -14,6 +14,7 @@ const profileTitle = document.querySelector("#profileTitle");
 const profileBody = document.querySelector("#profileBody");
 const closeProfile = document.querySelector("#closeProfile");
 const closeProfileBottom = document.querySelector("#closeProfileBottom");
+const debugPanel = document.querySelector("#debugPanel");
 
 let socket;
 let pulseTimer;
@@ -21,6 +22,7 @@ const debug = new URLSearchParams(location.search).get("debug") === "1";
 
 screenName.value = localStorage.getItem("aol96-screen-name") || "";
 screenName.focus();
+if (debug && debugPanel) debugPanel.classList.remove("hidden");
 
 function cleanName(value) {
   return String(value || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
@@ -40,12 +42,13 @@ function addLine(item) {
       const meta = document.createElement("span");
       meta.className = "debug-meta";
       const target = item.target && item.target !== "room" ? ` → ${item.target}` : "";
-      meta.textContent = ` [${item.source}/${item.intent || "chat"}${target}]`;
+      const thread = item.threadId ? ` • ${item.threadId}/${item.topic || "general"}` : item.topic ? ` • ${item.topic}` : "";
+      meta.textContent = ` [${item.source}/${item.intent || "chat"}${target}${thread}]`;
       row.append(meta);
     }
   }
   transcript.append(row);
-  while (transcript.children.length > 180) transcript.firstElementChild.remove();
+  while (transcript.children.length > 220) transcript.firstElementChild.remove();
   transcript.scrollTop = transcript.scrollHeight;
 }
 
@@ -65,7 +68,8 @@ function connect() {
   const name = cleanName(screenName.value);
   localStorage.setItem("aol96-screen-name", name);
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
-  const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}`;
+  const debugArg = debug ? "&debug=1" : "";
+  const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}${debugArg}`;
   socket = new WebSocket(url);
   status.textContent = "Connecting...";
 
@@ -94,10 +98,13 @@ function connect() {
       if (data.message?.source === "groq") status.textContent = "Connected · Groq active";
     } else if (data.type === "presence") {
       setUsers(data.users || []);
+      if (data.simulatedDate) clock.textContent = data.simulatedDate;
     } else if (data.type === "ai_status") {
       status.textContent = `Connected · ${data.status}`;
     } else if (data.type === "profile") {
       showProfile(data.profile, data.requestedName);
+    } else if (data.type === "social_debug") {
+      renderDebug(data.state);
     }
   });
 
@@ -143,6 +150,9 @@ function showProfile(profile, requestedName) {
       ["Interests", (profile.interests || []).join(", ")],
       ["About Me", profile.about]
     ];
+    if (profile.schedule) rows.push(["Usually Online", profile.schedule]);
+    if (profile.connection) rows.push(["You & Member", profile.connection]);
+
     for (const [label, value] of rows) {
       const row = document.createElement("div");
       row.className = "profile-row";
@@ -156,6 +166,14 @@ function showProfile(profile, requestedName) {
   }
 
   profileDialog.classList.remove("hidden");
+}
+
+function renderDebug(state) {
+  if (!debug || !debugPanel || !state) return;
+  debugPanel.classList.remove("hidden");
+  const threads = (state.threads || []).map((thread) => `${thread.id}:${thread.topic}(${thread.people.join("/")})×${thread.turns}`).join(" | ") || "none";
+  const relationships = (state.relationships || []).join(" | ") || "none yet";
+  debugPanel.textContent = `PASS ${state.pass || "?"} · ${state.simulated || ""} · bots ${state.roster || 0}\nthreads: ${threads}\nmemory: ${state.memory || "none"}\nrelationships: ${relationships}`;
 }
 
 signOn.addEventListener("click", connect);
