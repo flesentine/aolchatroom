@@ -1,7 +1,8 @@
 const TZ_OFFSETS = { ET: -5, CT: -6, MT: -7, PT: -8 };
 const REAL_ANCHOR = Date.UTC(2026, 7, 19, 7, 0, 0);
 const WORLD_ANCHOR = Date.UTC(1996, 10, 22, 8, 0, 0);
-const WORLD_YEAR_MS = 366 * 24 * 60 * 60 * 1000;
+const WORLD_YEAR_START = Date.UTC(1996, 0, 1, 8, 0, 0);
+const WORLD_YEAR_MS = Date.UTC(1997, 0, 1, 8, 0, 0) - WORLD_YEAR_START;
 const THREAD_TTL_MS = 6 * 60 * 1000;
 const MAX_THREADS = 7;
 const MAX_FACTS_PER_HUMAN = 18;
@@ -81,7 +82,9 @@ function memorySafe(value) {
 
 export function simulatedWorldMs(now = Date.now()) {
   const elapsed = ((now - REAL_ANCHOR) % WORLD_YEAR_MS + WORLD_YEAR_MS) % WORLD_YEAR_MS;
-  return WORLD_ANCHOR + elapsed;
+  const anchorOffset = WORLD_ANCHOR - WORLD_YEAR_START;
+  const yearOffset = (anchorOffset + elapsed) % WORLD_YEAR_MS;
+  return WORLD_YEAR_START + yearOffset;
 }
 
 export function simulatedDateLabel(now = Date.now()) {
@@ -219,14 +222,14 @@ function seedRelationships(characters) {
 
 export function createSocialState(characters, coreNames, now = Date.now()) {
   return {
-    version: 2,
+    version: 3,
     createdAt: now,
     relationships: seedRelationships(characters),
     humans: {},
     threads: [],
     threadSeq: 0,
     presence: {
-      online: [...coreNames],
+      online: [],
       lastChangeAt: now,
       lastChurnAt: now
     }
@@ -234,7 +237,7 @@ export function createSocialState(characters, coreNames, now = Date.now()) {
 }
 
 export function normalizeSocialState(raw, characters, coreNames, now = Date.now()) {
-  if (!raw || raw.version !== 2) return createSocialState(characters, coreNames, now);
+  if (!raw || raw.version !== 3) return createSocialState(characters, coreNames, now);
   raw.relationships ||= seedRelationships(characters);
   raw.humans ||= {};
   raw.threads = Array.isArray(raw.threads) ? raw.threads : [];
