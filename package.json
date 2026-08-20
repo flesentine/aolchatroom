@@ -1,12 +1,12 @@
 {
   "name": "aolchatroom",
-  "version": "0.8.0",
+  "version": "0.9.0",
   "private": true,
   "type": "module",
   "scripts": {
     "dev": "wrangler dev",
     "deploy": "wrangler deploy",
-    "check": "node --check src/characters.js && node --check src/chatter.js && node --check src/calendar.js && node --check src/social.js && node --check src/director.js && node --check src/typing.js && node --check src/culture.js && node --check src/index.js && node --check src/index_v06.js && node --check src/index_v07.js && node --check src/index_v08.js && node --check public/app.js"
+    "check": "node --check src/characters.js && node --check src/chatter.js && node --check src/calendar.js && node --check src/social.js && node --check src/director.js && node --check src/typing.js && node --check src/culture.js && node --check src/timing.js && node --check src/index.js && node --check src/index_v06.js && node --check src/index_v07.js && node --check src/index_v08.js && node --check src/index_v09.js && node --check public/app.js"
   },
   "devDependencies": {
     "wrangler": "^4.102.0"
