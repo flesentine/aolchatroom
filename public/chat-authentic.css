@@ -1,0 +1,86 @@
+/* Transcript typography tuned to the look of mid-1990s AOL chat windows.
+   AOL's chat font control commonly showed 10pt Arial; in a browser that maps
+   much closer to ~13px than the smaller 11-12px web defaults. */
+
+.transcript {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13.33px;
+  line-height: 1.24;
+  letter-spacing: 0;
+  padding-top: 6px;
+}
+
+.line {
+  margin-bottom: 1px;
+}
+
+.line .name {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13.33px;
+  line-height: 1.24;
+  font-weight: bold;
+  color: #000080;
+}
+
+.line.system {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  line-height: 1.25;
+}
+
+.composer textarea {
+  font-family: Arial, Helvetica, sans-serif;
+  font-size: 13.33px;
+  line-height: 1.2;
+}
+
+.people-panel select {
+  font-family: "MS Sans Serif", Arial, Helvetica, sans-serif;
+  font-size: 12px;
+  line-height: 1.2;
+}
+
+.pane-caption,
+.panel-title {
+  font-size: 11px;
+}
+
+.chat-menu-strip button,
+.menu-bar button,
+.statusbar,
+.format-strip,
+.keyword,
+.tool > span:last-child {
+  font-size: 11px;
+}
+
+/* Slightly more breathing room around the actual conversation while retaining
+   the dense 800x600-era window proportions. */
+.transcript,
+.people-panel select {
+  height: 330px;
+}
+
+.people-panel {
+  grid-template-rows: 19px 330px auto;
+}
+
+@media (max-width: 720px) {
+  .transcript {
+    font-size: 13px;
+  }
+
+  .line .name,
+  .composer textarea {
+    font-size: 13px;
+  }
+
+  .transcript,
+  .people-panel select {
+    height: 55vh;
+  }
+
+  .people-panel {
+    grid-template-rows: 19px 55vh auto;
+  }
+}
