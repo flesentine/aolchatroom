@@ -8,9 +8,16 @@ const message = document.querySelector("#message");
 const send = document.querySelector("#send");
 const status = document.querySelector("#status");
 const clock = document.querySelector("#clock");
+const profileButton = document.querySelector("#profileButton");
+const profileDialog = document.querySelector("#profileDialog");
+const profileTitle = document.querySelector("#profileTitle");
+const profileBody = document.querySelector("#profileBody");
+const closeProfile = document.querySelector("#closeProfile");
+const closeProfileBottom = document.querySelector("#closeProfileBottom");
 
 let socket;
 let pulseTimer;
+const debug = new URLSearchParams(location.search).get("debug") === "1";
 
 screenName.value = localStorage.getItem("aol96-screen-name") || "";
 screenName.focus();
@@ -29,18 +36,28 @@ function addLine(item) {
     name.className = "name";
     name.textContent = `${item.from}: `;
     row.append(name, document.createTextNode(item.text));
+    if (debug && item.source) {
+      const meta = document.createElement("span");
+      meta.className = "debug-meta";
+      const target = item.target && item.target !== "room" ? ` → ${item.target}` : "";
+      meta.textContent = ` [${item.source}/${item.intent || "chat"}${target}]`;
+      row.append(meta);
+    }
   }
   transcript.append(row);
-  while (transcript.children.length > 120) transcript.firstElementChild.remove();
+  while (transcript.children.length > 180) transcript.firstElementChild.remove();
   transcript.scrollTop = transcript.scrollHeight;
 }
 
 function setUsers(users = []) {
+  const selected = people.value;
   people.replaceChildren(...users.map((user) => {
     const option = document.createElement("option");
     option.textContent = user;
+    option.value = user;
     return option;
   }));
+  if ([...people.options].some((option) => option.value === selected)) people.value = selected;
   count.textContent = String(users.length);
 }
 
@@ -65,6 +82,7 @@ function connect() {
     if (event.data === "pong") return;
     let data;
     try { data = JSON.parse(event.data); } catch { return; }
+
     if (data.type === "hello") {
       transcript.replaceChildren();
       for (const item of data.history || []) addLine(item);
@@ -78,6 +96,8 @@ function connect() {
       setUsers(data.users || []);
     } else if (data.type === "ai_status") {
       status.textContent = `Connected · ${data.status}`;
+    } else if (data.type === "profile") {
+      showProfile(data.profile, data.requestedName);
     }
   });
 
@@ -100,6 +120,44 @@ function sendMessage() {
   message.focus();
 }
 
+function requestProfile() {
+  const selected = people.value;
+  if (!selected || !socket || socket.readyState !== WebSocket.OPEN) return;
+  socket.send(JSON.stringify({ type: "profile", name: selected }));
+}
+
+function showProfile(profile, requestedName) {
+  profileBody.replaceChildren();
+  profileTitle.textContent = `Member Profile: ${requestedName || profile?.name || "Unknown"}`;
+
+  if (!profile) {
+    const p = document.createElement("p");
+    p.textContent = "This member has not shared a profile.";
+    profileBody.append(p);
+  } else {
+    const rows = [
+      ["Screen Name", profile.name],
+      ["Age / Sex", `${profile.age} / ${profile.sex === "female" ? "F" : profile.sex === "male" ? "M" : profile.sex}`],
+      ["Location", profile.location],
+      ["Occupation", profile.occupation],
+      ["Interests", (profile.interests || []).join(", ")],
+      ["About Me", profile.about]
+    ];
+    for (const [label, value] of rows) {
+      const row = document.createElement("div");
+      row.className = "profile-row";
+      const strong = document.createElement("strong");
+      strong.textContent = `${label}:`;
+      const span = document.createElement("span");
+      span.textContent = value || "";
+      row.append(strong, span);
+      profileBody.append(row);
+    }
+  }
+
+  profileDialog.classList.remove("hidden");
+}
+
 signOn.addEventListener("click", connect);
 screenName.addEventListener("keydown", (event) => {
   if (event.key === "Enter") connect();
@@ -111,3 +169,7 @@ message.addEventListener("keydown", (event) => {
     sendMessage();
   }
 });
+profileButton.addEventListener("click", requestProfile);
+people.addEventListener("dblclick", requestProfile);
+closeProfile.addEventListener("click", () => profileDialog.classList.add("hidden"));
+closeProfileBottom.addEventListener("click", () => profileDialog.classList.add("hidden"));
