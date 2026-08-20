@@ -121,3 +121,12 @@
 .icon-help::after {
   display: none;
 }
+
+/* Remove the generic inner icon tile while preserving the exact 29x26 slot. */
+.icon-mail,
+.icon-people,
+.icon-help {
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+}
