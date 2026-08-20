@@ -73,8 +73,11 @@ function connect() {
       status.textContent = `Connected · ${data.provider || "1996 chatter"}`;
     } else if (data.type === "message") {
       addLine(data.message);
+      if (data.message?.source === "groq") status.textContent = "Connected · Groq active";
     } else if (data.type === "presence") {
       setUsers(data.users || []);
+    } else if (data.type === "ai_status") {
+      status.textContent = `Connected · ${data.status}`;
     }
   });
 
