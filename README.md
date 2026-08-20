@@ -26,6 +26,8 @@ The browser sends lightweight `pulse` events while someone is in the room. That 
 
 After the Git integration is connected, future pushes to `main` can deploy automatically.
 
+If the live room still says `Built-in 1996 chatter` after `GROQ_API_KEY` appears in Cloudflare as a Secret, trigger a fresh production deployment so the Durable Object is restarted with the current environment.
+
 ## Local development (optional)
 
 ```bash
