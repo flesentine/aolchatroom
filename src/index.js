@@ -24,7 +24,6 @@ const TRANSIENTS = [
 ];
 
 const TOS_NAMES = ["TOSSteve", "TOSGina", "TOSMike", "TOSKaren", "TOSDan", "TOSLisa"];
-
 const FALLBACK_LINES = [
   ["JennJenn", "anyone watch friends last night"],
   ["DaBomb96", "this room is dead"],
@@ -39,7 +38,6 @@ const FALLBACK_LINES = [
   ["xXBabyGirlXx", "omg brb phone"],
   ["SoCalGuy", "anybody been to the block yet"]
 ];
-
 const ARGUMENT_LINES = [
   ["DaBomb96", "shut up mike"],
   ["NYMike23", "lol make me"],
@@ -47,7 +45,6 @@ const ARGUMENT_LINES = [
   ["DaBomb96", "whatever loser"],
   ["CoolChick17", "omg stop already"]
 ];
-
 const CHILL_LINES = [
   ["JennJenn", "hi tos"],
   ["DaBomb96", "..."],
@@ -59,39 +56,34 @@ const CHILL_LINES = [
 const MODERN_TERMS = /\b(iphone|youtube|facebook|tiktok|instagram|reddit|bitcoin|spotify|netflix|tesla|discord|snapchat|wikipedia|gmail|android|uber|lyft|twitter|x\.com|chatgpt|openai|covid|9\/11|september 11)\b/i;
 const FUTURE_YEAR = /\b(199[7-9]|20\d\d)\b/;
 const HEAT_WORDS = /\b(shut up|idiot|loser|moron|stupid|sucks|screw you|stfu|asshole|bitch|fuck|shit)\b/i;
+const HUMAN_AI_COOLDOWN_MS = 7000;
+const BACKGROUND_AI_COOLDOWN_MS = 90000;
 
-function randomOf(items) {
-  return items[Math.floor(Math.random() * items.length)];
-}
-
-function clamp(n, min, max) {
-  return Math.max(min, Math.min(max, n));
-}
-
+function randomOf(items) { return items[Math.floor(Math.random() * items.length)]; }
+function clamp(n, min, max) { return Math.max(min, Math.min(max, n)); }
 function cleanScreenName(value) {
-  return String(value || "Guest")
-    .replace(/[^A-Za-z0-9_.-]/g, "")
-    .slice(0, 16) || "Guest";
+  return String(value || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
 }
-
 function sanitizeText(value) {
   return String(value || "").replace(/[\r\n]+/g, " ").trim().slice(0, 320);
 }
-
 function botLineAllowed(text) {
   if (FUTURE_YEAR.test(text)) return false;
   if (!MODERN_TERMS.test(text)) return true;
-  return /\b(what|whats|what's|huh|wtf|never heard|is that|sounds fake|made that up)\b/i.test(text);
+  return /\b(what|whats|what's|huh|wtf|never heard|is that|sounds fake|made that up|what is)\b/i.test(text);
 }
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-
     if (url.pathname === "/api/health") {
-      return Response.json({ ok: true, room: "Town Square", simulatedDate: env.SIMULATED_DATE });
+      return Response.json({
+        ok: true,
+        room: "Town Square",
+        simulatedDate: env.SIMULATED_DATE,
+        groqConfigured: Boolean(env.GROQ_API_KEY)
+      });
     }
-
     if (url.pathname === "/ws") {
       if (request.headers.get("Upgrade") !== "websocket") {
         return new Response("Expected WebSocket", { status: 426 });
@@ -100,7 +92,6 @@ export default {
       const id = env.CHAT_ROOMS.idFromName(roomName);
       return env.CHAT_ROOMS.get(id).fetch(request);
     }
-
     return env.ASSETS.fetch(request);
   }
 };
@@ -111,17 +102,17 @@ export class ChatRoom extends DurableObject {
     this.ctx = ctx;
     this.env = env;
     this.aiQueue = [];
+    this.pendingHuman = null;
     this.nextBotAt = Date.now() + 2500;
     this.targetOccupancy = 23;
     this.targetChangesAt = Date.now() + 90000;
     this.heat = 0;
     this.tos = null;
-    this.lastAiBatchAt = 0;
+    this.lastHumanAiAt = 0;
+    this.lastBackgroundAiAt = 0;
     this.history = [];
-
-    this.ctx.setWebSocketAutoResponse(
-      new WebSocketRequestResponsePair("ping", "pong")
-    );
+    this.aiStatus = env.GROQ_API_KEY ? "Groq configured" : "Built-in 1996 chatter";
+    this.ctx.setWebSocketAutoResponse(new WebSocketRequestResponsePair("ping", "pong"));
   }
 
   async fetch(request) {
@@ -129,48 +120,40 @@ export class ChatRoom extends DurableObject {
     const name = cleanScreenName(url.searchParams.get("name"));
     const pair = new WebSocketPair();
     const [client, server] = Object.values(pair);
-
     server.serializeAttachment({ name, joinedAt: Date.now() });
     this.ctx.acceptWebSocket(server);
-
     await this.ensureHistory();
     this.system(`${name} has entered the room.`);
     this.broadcastPresence();
-
     server.send(JSON.stringify({
       type: "hello",
       room: "Town Square",
       simulatedDate: this.env.SIMULATED_DATE || "November 22, 1996",
       history: this.history.slice(-40),
       users: this.visibleUsers(),
-      provider: this.env.GROQ_API_KEY ? "Groq" : "Built-in 1996 chatter"
+      provider: this.aiStatus
     }));
-
     return new Response(null, { status: 101, webSocket: client });
   }
 
   async webSocketMessage(ws, message) {
     const raw = typeof message === "string" ? message : new TextDecoder().decode(message);
-    if (raw === "pulse") {
-      await this.tick();
-      return;
-    }
-
+    if (raw === "pulse") { await this.tick(); return; }
     let data;
-    try {
-      data = JSON.parse(raw);
-    } catch {
-      return;
-    }
-
+    try { data = JSON.parse(raw); } catch { return; }
     if (data.type !== "chat") return;
     const attachment = ws.deserializeAttachment() || {};
     const from = cleanScreenName(attachment.name);
     const text = sanitizeText(data.text);
     if (!text) return;
 
-    this.say(from, text, "human");
+    this.say(from, text, "human", "human");
     if (HEAT_WORDS.test(text)) this.heat = clamp(this.heat + 2, 0, 10);
+
+    if (this.env.GROQ_API_KEY) {
+      this.pendingHuman = { from, text, at: Date.now() };
+      this.nextBotAt = Math.min(this.nextBotAt, Date.now() + 900);
+    }
     await this.tick(true);
   }
 
@@ -180,10 +163,7 @@ export class ChatRoom extends DurableObject {
     this.system(`${name} has left the room.`);
     this.broadcastPresence();
   }
-
-  webSocketError(ws) {
-    try { ws.close(1011, "socket error"); } catch {}
-  }
+  webSocketError(ws) { try { ws.close(1011, "socket error"); } catch {} }
 
   async ensureHistory() {
     if (this.history.length) return;
@@ -212,36 +192,33 @@ export class ChatRoom extends DurableObject {
       try { ws.send(encoded); } catch {}
     }
   }
-
   broadcastPresence() {
     const users = this.visibleUsers();
     this.broadcast({ type: "presence", users, count: users.length });
+  }
+  setAiStatus(status) {
+    this.aiStatus = status;
+    this.broadcast({ type: "ai_status", status });
   }
 
   async persistHistory() {
     this.history = this.history.slice(-60);
     await this.ctx.storage.put("history", this.history);
   }
-
   pushMessage(message) {
     const item = { ...message, at: Date.now() };
     this.history.push(item);
     this.broadcast({ type: "message", message: item });
     this.persistHistory().catch(() => {});
   }
-
-  say(from, text, kind = "bot") {
-    this.pushMessage({ from, text, kind });
+  say(from, text, kind = "bot", source = "built-in") {
+    this.pushMessage({ from, text, kind, source });
     if (HEAT_WORDS.test(text)) this.heat = clamp(this.heat + 1, 0, 10);
   }
-
-  system(text) {
-    this.pushMessage({ from: "", text, kind: "system" });
-  }
+  system(text) { this.pushMessage({ from: "", text, kind: "system", source: "system" }); }
 
   async tick(forceSoon = false) {
     const now = Date.now();
-
     if (now >= this.targetChangesAt) {
       this.targetOccupancy = 18 + Math.floor(Math.random() * 8);
       this.targetChangesAt = now + 60000 + Math.floor(Math.random() * 120000);
@@ -250,7 +227,7 @@ export class ChatRoom extends DurableObject {
 
     if (this.tos) {
       if (!this.tos.warned && now - this.tos.enteredAt > 7000) {
-        this.say(this.tos.name, "Please keep the conversation appropriate. Thanks.", "tos");
+        this.say(this.tos.name, "Please keep the conversation appropriate. Thanks.", "tos", "tos");
         this.tos.warned = true;
         this.heat = 1;
       }
@@ -269,42 +246,63 @@ export class ChatRoom extends DurableObject {
       return;
     }
 
-    if (forceSoon && this.nextBotAt - now > 3500) this.nextBotAt = now + 1200;
+    if (forceSoon && this.nextBotAt - now > 1200) this.nextBotAt = now + 900;
     if (now < this.nextBotAt) return;
 
-    if (this.env.GROQ_API_KEY && !this.aiQueue.length && now - this.lastAiBatchAt >= 120000) {
-      this.lastAiBatchAt = now;
+    if (this.env.GROQ_API_KEY && this.pendingHuman) {
+      const wait = HUMAN_AI_COOLDOWN_MS - (now - this.lastHumanAiAt);
+      if (wait > 0) {
+        this.nextBotAt = now + Math.min(1500, Math.max(500, wait));
+        return;
+      }
+      const latestHuman = this.pendingHuman;
+      this.pendingHuman = null;
+      this.lastHumanAiAt = now;
+      const generated = await this.generateGroqHumanReply(latestHuman);
+      if (generated.length) this.aiQueue.unshift(...generated);
+    }
+
+    if (this.env.GROQ_API_KEY && !this.pendingHuman && !this.aiQueue.length && now - this.lastBackgroundAiAt >= BACKGROUND_AI_COOLDOWN_MS) {
+      this.lastBackgroundAiAt = now;
       const generated = await this.generateGroqBatch();
       if (generated.length) this.aiQueue.push(...generated);
     }
 
     let line;
+    let source = "built-in";
     if (this.tos) {
       line = randomOf(CHILL_LINES);
     } else if (this.aiQueue.length) {
       const next = this.aiQueue.shift();
       line = [next.speaker, next.text];
+      source = "groq";
     } else if (this.heat >= 3 && Math.random() < 0.5) {
       line = randomOf(ARGUMENT_LINES);
     } else {
       line = randomOf(FALLBACK_LINES);
     }
 
-    if (line) this.say(line[0], line[1], "bot");
+    if (line) this.say(line[0], line[1], "bot", source);
     this.heat = clamp(this.heat - 0.25, 0, 10);
-    this.nextBotAt = now + 3500 + Math.floor(Math.random() * 7000);
+    this.nextBotAt = now + 2800 + Math.floor(Math.random() * 5200);
   }
 
-  async generateGroqBatch() {
+  recentTranscript(limit = 18) {
+    return this.history.slice(-limit).map((m) => m.kind === "system" ? `[system] ${m.text}` : `${m.from}: ${m.text}`).join("\n");
+  }
+  personalityBlock() { return REGULARS.map((r) => `${r.name}: ${r.vibe}`).join("\n"); }
+
+  parseGroqMessages(content, max = 5) {
+    const parsed = JSON.parse(content);
+    const allowedNames = new Set(REGULARS.map((x) => x.name));
+    return (Array.isArray(parsed.messages) ? parsed.messages : [])
+      .map((m) => ({ speaker: cleanScreenName(m.speaker), text: sanitizeText(m.text) }))
+      .filter((m) => allowedNames.has(m.speaker) && m.text && m.text.length <= 140 && botLineAllowed(m.text))
+      .slice(0, max);
+  }
+
+  async callGroq(prompt, maxTokens = 260, maxMessages = 5) {
     try {
-      const recent = this.history.slice(-18).map((m) => {
-        if (m.kind === "system") return `[system] ${m.text}`;
-        return `${m.from}: ${m.text}`;
-      }).join("\n");
-
-      const personalities = REGULARS.map((r) => `${r.name}: ${r.vibe}`).join("\n");
-      const prompt = `You are directing a messy AOL chat room on November 22, 1996.\n\n${personalities}\n\nRecent room:\n${recent || "The room just opened."}\n\nGenerate 3 to 5 plausible next chat lines. Characters talk to each other, not just the human. Messages are usually 1-12 words, casual, lowercase often, typos allowed, no polished assistant language, no explanations, no markdown. They may ignore questions. Knowledge ends on November 22, 1996. Never state knowledge of later events or technology. If a human mentions something from the future, characters can only be confused or think it is made up. Do not make every line a 1990s reference. Output JSON only: {"messages":[{"speaker":"JennJenn","text":"..."}]}. Use only these speakers: ${REGULARS.map((r) => r.name).join(", ")}.`;
-
       const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -319,23 +317,37 @@ export class ChatRoom extends DurableObject {
           ],
           response_format: { type: "json_object" },
           reasoning_effort: "low",
-          max_completion_tokens: 260,
+          max_completion_tokens: maxTokens,
           temperature: 0.95
         })
       });
 
-      if (!response.ok) return [];
+      if (!response.ok) {
+        this.setAiStatus(`Groq error ${response.status}`);
+        return [];
+      }
       const data = await response.json();
       const content = data?.choices?.[0]?.message?.content;
-      if (!content) return [];
-      const parsed = JSON.parse(content);
-      const allowedNames = new Set(REGULARS.map((x) => x.name));
-      return (Array.isArray(parsed.messages) ? parsed.messages : [])
-        .map((m) => ({ speaker: cleanScreenName(m.speaker), text: sanitizeText(m.text) }))
-        .filter((m) => allowedNames.has(m.speaker) && m.text && m.text.length <= 140 && botLineAllowed(m.text))
-        .slice(0, 5);
+      if (!content) {
+        this.setAiStatus("Groq response error");
+        return [];
+      }
+      const messages = this.parseGroqMessages(content, maxMessages);
+      this.setAiStatus(messages.length ? "Groq active" : "Groq returned no usable chat");
+      return messages;
     } catch {
+      this.setAiStatus("Groq connection error");
       return [];
     }
+  }
+
+  async generateGroqHumanReply(human) {
+    const prompt = `You are directing a messy AOL chat room on November 22, 1996.\n\n${this.personalityBlock()}\n\nRecent room:\n${this.recentTranscript(20) || "The room just opened."}\n\nThe latest HUMAN message is:\n${human.from}: ${human.text}\n\nGenerate 1 to 3 plausible NEXT chat lines. At least ONE line must naturally respond to or acknowledge the human's latest message, unless it is impossible to understand. Other lines may react to each other. Do not make everyone answer the human. Messages are usually 1-12 words, casual, lowercase often, typos allowed, no polished assistant language, no explanations, no markdown. Characters can disagree, tease, misunderstand, or give short answers. Knowledge ends on November 22, 1996. If the human mentions future technology or events, characters must be confused, skeptical, or think it is made up. Do not make every line a 1990s reference.\n\nOutput JSON only: {"messages":[{"speaker":"JennJenn","text":"..."}]}\n\nUse only these speakers: ${REGULARS.map((r) => r.name).join(", ")}.`;
+    return this.callGroq(prompt, 220, 3);
+  }
+
+  async generateGroqBatch() {
+    const prompt = `You are directing a messy AOL chat room on November 22, 1996.\n\n${this.personalityBlock()}\n\nRecent room:\n${this.recentTranscript(18) || "The room just opened."}\n\nGenerate 3 to 5 plausible next chat lines. Characters mostly talk to each other instead of acting like assistants. Messages are usually 1-12 words, casual, lowercase often, typos allowed, no polished assistant language, no explanations, no markdown. They may ignore questions. Knowledge ends on November 22, 1996. Never state knowledge of later events or technology. If a human mentions something from the future, characters can only be confused or think it is made up. Do not make every line a 1990s reference.\n\nOutput JSON only: {"messages":[{"speaker":"JennJenn","text":"..."}]}\n\nUse only these speakers: ${REGULARS.map((r) => r.name).join(", ")}.`;
+    return this.callGroq(prompt, 260, 5);
   }
 }
