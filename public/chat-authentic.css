@@ -147,3 +147,20 @@
 .icon-places::after {
   display: none;
 }
+
+/* Next safe swap: Services only. */
+.icon-services {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAB4UlEQVR4nO2UsWtUQRDGv5ndd+/0QCFgUFL4F8Ta7kC0ECshV+QPMBjQUuVQW1ttYiEogqQwidErTDQEO9ELoh6kFBEtjCDxNCR3b99+9yxyxkfuaZ5aer9qGdj5Zr+ZHaBPnzQCxCLiNo89RALE/ySgqn7hcYNBUPDp+OD+A0vra47TM8/5N3kdNisTABuNxgeOjt7eSlQul62LHG/dfMIwHPLbL2sOgaRWe6XFYjFOkiRcWVlFhx5dQdTr9fbY2dnk8sVLKJVaA3kq3u6jjIyMc/7Ra87Nv2S1WuOdyacMrGmrqjt96i4BNPMkBgBYG3hkNFEgBMAjRydZvTBFgfDe/WcUkXbu5ADQ/NokgB4vu2hgbSwibG3EtCb4c4FjxyeoarKmQaxI3EnICAFRCHnu/Cynp5ZoVF2lApNL4MTJKzTG9ggI4PyN63wB5TcYPoDQmEK87+AwO/4hA4WvIIfI+NgEhweHDqdjKhpxbZ3LMGxZy0WABmgDwMerIN9Z8o1w765fWvuTFsDlsMTdqu9/xNowXIXhZ4ALEAoQbb1M4JJagZ23ln4GuT6ad2pZTDX6kBp+EXBOhJIxACLwn64pF89I7p/skfJzANijgP/NrpGu8M4W/TdkreusWJ+d+Q5/ts+QoxtKcwAAAABJRU5ErkJggg==");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 24px 24px;
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  image-rendering: pixelated;
+}
+
+.icon-services::before,
+.icon-services::after {
+  display: none;
+}
