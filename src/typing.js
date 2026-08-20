@@ -36,6 +36,9 @@ const PROTECTED = new Set([
   "x-files", "mtv", "cd", "vhs"
 ]);
 
+const HAPPY_FACES = [":)", ";)", ":P", "<g>", ":-)"];
+const SAD_FACES = [":(", ":-("];
+
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
 }
@@ -101,6 +104,47 @@ function applyShorthand(text, character) {
   return out;
 }
 
+function applyEraCaps(text, character) {
+  const personality = character?.personality || {};
+  const argumentative = Number(personality.argumentative || 0.4);
+  const confidence = Number(personality.confidence || 0.5);
+  let out = text;
+
+  const shoutChance = 0.008 + argumentative * 0.022 + confidence * 0.006;
+  if (out.length <= 88 && Math.random() < shoutChance) return out.toUpperCase();
+
+  if (Math.random() < 0.075) {
+    const words = out.split(/(\s+)/);
+    const candidates = [];
+    for (let i = 0; i < words.length; i += 2) {
+      const bare = words[i].replace(/[^A-Za-z]/g, "");
+      if (bare.length >= 3 && !PROTECTED.has(bare.toLowerCase())) candidates.push(i);
+    }
+    if (candidates.length) {
+      const i = pick(candidates);
+      words[i] = words[i].toUpperCase();
+      out = words.join("");
+    }
+  }
+
+  if (/\blol\b/i.test(out) && Math.random() < 0.16) out = out.replace(/\blol\b/i, "LOL");
+  return out;
+}
+
+function applyEraEmoticon(text, character) {
+  if (/(?:^|\s)(?:[:;]-?[)(Pp]|<g>|:>)(?:\s|$)/.test(text)) return text;
+  const personality = character?.personality || {};
+  const sociability = Number(personality.sociability || 0.5);
+  const sarcasm = Number(personality.sarcasm || 0.4);
+  const chance = 0.018 + sociability * 0.045 + sarcasm * 0.012;
+  if (Math.random() >= chance) return text;
+
+  const negative = /\b(sucks|ugh|hate|awful|terrible|sorry|sad|lost|broke|mad)\b/i.test(text);
+  const teasing = /\b(lol|haha|nerd|loser|whatever|sure|right)\b/i.test(text);
+  const face = negative && Math.random() < 0.55 ? pick(SAD_FACES) : teasing ? pick([";)", ":P", "<g>", ":)"]) : pick(HAPPY_FACES);
+  return `${text} ${face}`;
+}
+
 export function applyTypingStyle(character, input) {
   if (!character || !input) return input;
   const typing = character.typing || {};
@@ -141,5 +185,7 @@ export function applyTypingStyle(character, input) {
     }
   }
 
+  text = applyEraCaps(text, character);
+  text = applyEraEmoticon(text, character);
   return text.replace(/\s{2,}/g, " ").trim();
 }
