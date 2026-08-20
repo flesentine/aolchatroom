@@ -130,3 +130,20 @@
   border-color: transparent;
   box-shadow: none;
 }
+
+/* Next safe swap: Places only. */
+.icon-places {
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAAB+klEQVR4nO2TT0hUURTGf+fNnZeN6WIwW2QEIdhCrNBFBEFRWpsYxvZS0MIIImnTomWLNkGL2gRDQRT9gSAiJptoo7go+4MRRJuIchIhGt7MODre826LFCZ9kv0jAr/dPdz7fef7zrmwgv8V8jcYA0/EnhhU3XlBVYgpYP+EmMRW1bnzYzOWdFWlN9TdL09py/Bmuy63SYl7lk7iSz32fkwvk/suF8J88hxbT3fhQkf+9TDBR8F6hrrMBuQ5Uz/TsX7Hb/zZO8XruvdNq7bc61DSNmR/QTlU1Lm7ypZXGk0VlZ9gcZj54+FbZS11dZO9eoTSaB8Iglg3cSngw/vPVKaFtU31tLdvrGoYrl5Itzgih6uVmywLdzNHmc43O2M88Bx+tpF06grbOtu4aFs51n9bbtwc8peVD0ZqN0O6M2UlpUrfJ2171qocKGoQFPVdSTX10GpvzurBnA0rU4XImBY5MAPN4gnVeT+5/iaHU3Yc30NlRlh/sgs/bhgYCYk5JzFBru0S55ZY1kUCYcIjrK3PTo+TzzNyZgy1wvjZpzQkEqQnhhAH6nAvnrylPtEUKRA1ZJ2bg6mpzrI98FhTBpPE8w1msJ4H90cRhJ6eDsqNDfiFQizaxzLgeVQApSGrJB8p4qt8+8kAXx4vWO/fRVTiv979Clbwb/EVCfvJCRCU0SUAAAAASUVORK5CYII=");
+  background-repeat: no-repeat;
+  background-position: center;
+  background-size: 24px 24px;
+  background-color: transparent;
+  border-color: transparent;
+  box-shadow: none;
+  image-rendering: pixelated;
+}
+
+.icon-places::before,
+.icon-places::after {
+  display: none;
+}
