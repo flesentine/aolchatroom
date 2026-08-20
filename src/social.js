@@ -1,8 +1,10 @@
-const TZ_OFFSETS = { ET: -5, CT: -6, MT: -7, PT: -8 };
-const REAL_ANCHOR = Date.UTC(2026, 7, 19, 7, 0, 0);
-const WORLD_ANCHOR = Date.UTC(1996, 10, 22, 8, 0, 0);
-const WORLD_YEAR_START = Date.UTC(1996, 0, 1, 8, 0, 0);
-const WORLD_YEAR_MS = Date.UTC(1997, 0, 1, 8, 0, 0) - WORLD_YEAR_START;
+import {
+  mirrorWorldMs,
+  mirrorDateLabel,
+  mirrorDateTimeLabel,
+  mirrorLocalParts,
+  calendarContext
+} from "./calendar.js";
 const THREAD_TTL_MS = 6 * 60 * 1000;
 const MAX_THREADS = 7;
 const MAX_FACTS_PER_HUMAN = 18;
@@ -81,44 +83,20 @@ function memorySafe(value) {
 }
 
 export function simulatedWorldMs(now = Date.now()) {
-  const elapsed = ((now - REAL_ANCHOR) % WORLD_YEAR_MS + WORLD_YEAR_MS) % WORLD_YEAR_MS;
-  const anchorOffset = WORLD_ANCHOR - WORLD_YEAR_START;
-  const yearOffset = (anchorOffset + elapsed) % WORLD_YEAR_MS;
-  return WORLD_YEAR_START + yearOffset;
+  return mirrorWorldMs(now);
 }
 
 export function simulatedDateLabel(now = Date.now()) {
-  const d = new Date(simulatedWorldMs(now) - 8 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    month: "long",
-    day: "numeric",
-    year: "numeric"
-  }).format(d);
+  return mirrorDateLabel(now);
 }
 
 export function simulatedDateTimeLabel(now = Date.now()) {
-  const d = new Date(simulatedWorldMs(now) - 8 * 60 * 60 * 1000);
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone: "UTC",
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true
-  }).format(d);
+  const context = calendarContext(now, "PT");
+  return `${mirrorDateTimeLabel(now)}. ${context.prompt} Mirror-calendar rule: month, day, weekday, time, and holiday status follow the live calendar; everyone still believes the year is 1996.`;
 }
 
 function localWorldParts(character, now = Date.now()) {
-  const offset = TZ_OFFSETS[character?.timezone] ?? -5;
-  const d = new Date(simulatedWorldMs(now) + offset * 60 * 60 * 1000);
-  return {
-    day: d.getUTCDay(),
-    hour: d.getUTCHours() + d.getUTCMinutes() / 60,
-    dateKey: `${d.getUTCFullYear()}-${d.getUTCMonth() + 1}-${d.getUTCDate()}`
-  };
+  return mirrorLocalParts(character?.timezone || "ET", now);
 }
 
 function occupationClass(character) {
@@ -163,13 +141,14 @@ function hourInWindow(hour, start, end) {
 export function scheduleScore(character, now = Date.now()) {
   const local = localWorldParts(character, now);
   const schedule = scheduleProfile(character);
-  const weekend = local.day === 0 || local.day === 6;
+  const calendar = calendarContext(now, character?.timezone || "ET");
+  const weekend = local.day === 0 || local.day === 6 || calendar.dayOff;
   const start = weekend ? schedule.weekendStart : schedule.weekdayStart;
   const end = weekend ? schedule.weekendEnd : schedule.weekdayEnd;
   const inside = hourInWindow(local.hour, start, end);
   const slot = Math.floor(local.hour * 2);
   const stableNoise = (hashString(`${character.name}:${local.dateKey}:${slot}`) % 21) - 10;
-  return (inside ? 76 : 15) + stableNoise + (character.personality?.sociability || 0.5) * 12;
+  return (inside ? 76 : 15) + stableNoise + (character.personality?.sociability || 0.5) * 12 + (calendar.dayOff ? 8 : 0);
 }
 
 function formatHour(hour) {

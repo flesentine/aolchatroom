@@ -15,6 +15,7 @@ import {
   isTooSimilar,
   topicNamesForPrompt
 } from "./chatter.js";
+import { calendarChatterLine } from "./calendar.js";
 import {
   normalizeSocialState,
   rememberHumanVisit,
@@ -123,6 +124,7 @@ export default {
         simulatedDateTime: simulatedDateTimeLabel(),
         groqConfigured: Boolean(env.GROQ_API_KEY),
         characterCount: CHARACTERS.length,
+        calendarMode: "live-calendar-mirrored-to-1996",
         pass: 2
       });
     }
@@ -563,7 +565,10 @@ export class ChatRoom extends DurableObject {
       if (recent && recent.from === character.name) continue;
       const react = recent && (thread || Math.random() < 0.48);
       const text = chooseDistinctLine(
-        () => react ? renderReaction(character, recent) : renderAmbient(character),
+        () => {
+          const seasonal = Math.random() < 0.28 ? calendarChatterLine(character, Date.now()) : null;
+          return seasonal || (react ? renderReaction(character, recent) : renderAmbient(character));
+        },
         this.history,
         character.name,
         28

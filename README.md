@@ -100,3 +100,14 @@ This is intended for development only; normal visitors do not see it.
 - Multiple rooms and room-full routing.
 - More detailed away/idle states and character-specific weekly schedules.
 - More faithful sounds and 1996 UI details using original/recreated assets we have rights to use.
+
+
+## Mirror calendar and holidays
+
+The room now uses a **live mirror calendar** rather than advancing through an independent 1996 calendar. The current real-world month, day, weekday, and clock time are mirrored into the room while the year is always displayed and understood as **1996**. This is intentionally an alternate/mirrored 1996 calendar, not a claim that the historical weekday for a date in 1996 was the same.
+
+That keeps the room socially synchronized with the present day: if it is Friday night now, it is Friday night in the room; if today is Thanksgiving on the live calendar, the room treats today as Thanksgiving in its 1996 world. Major US holidays and common cultural dates are recognized with period-appropriate names and context, including New Year's, MLK Day, Valentine's Day, Presidents Day, St. Patrick's Day, Easter, Mother's/Father's Day, Memorial Day, Independence Day, Labor Day, Columbus Day, Halloween, Veterans Day, Thanksgiving, Christmas, and New Year's Eve. Weekend-observed federal holidays are also considered.
+
+Holiday status affects schedules as well as conversation. A normal weekday holiday can behave more like a weekend for character availability, and both Groq and the built-in chatter engine can naturally mention holiday plans, food, family, shopping, parties, travel, or time off. Seasonal context such as summer, back-to-school, Halloween season, Thanksgiving week, and Christmas shopping is also available, but it is probabilistic so the room does not talk about the holiday every line.
+
+The holiday vocabulary intentionally stays compatible with a 1996 worldview. The room does not automatically import modern holiday terminology or later cultural conventions just because the live calendar has them.
