@@ -10,7 +10,7 @@
   <main class="desktop">
     <section class="aol-shell" aria-label="1996 online chat recreation">
       <header class="app-titlebar">
-        <div class="brand-orb" aria-hidden="true">A</div>
+        <div class="brand-orb" aria-hidden="true"><span>A</span></div>
         <strong>America Online</strong>
         <div class="window-controls" aria-hidden="true"><button tabindex="-1">_</button><button tabindex="-1">□</button><button tabindex="-1">×</button></div>
       </header>
@@ -20,18 +20,19 @@
       </nav>
 
       <nav class="toolbar" aria-label="AOL toolbar">
-        <button class="tool welcome"><span class="tool-icon">♥</span><span>Welcome</span></button>
-        <button class="tool mail"><span class="tool-icon">✉</span><span>Mail</span></button>
-        <button class="tool people"><span class="tool-icon">♟</span><span>People</span></button>
-        <button class="tool places"><span class="tool-icon">⌂</span><span>Places</span></button>
-        <button class="tool services"><span class="tool-icon">▤</span><span>Services</span></button>
-        <button class="tool help"><span class="tool-icon">?</span><span>Help</span></button>
+        <button class="tool welcome"><span class="tool-icon icon-welcome" aria-hidden="true"></span><span>Welcome</span></button>
+        <button class="tool mail"><span class="tool-icon icon-mail" aria-hidden="true"></span><span>Mail</span></button>
+        <button class="tool people"><span class="tool-icon icon-people" aria-hidden="true"></span><span>People</span></button>
+        <button class="tool places"><span class="tool-icon icon-places" aria-hidden="true"></span><span>Places</span></button>
+        <button class="tool services"><span class="tool-icon icon-services" aria-hidden="true"></span><span>Services</span></button>
+        <button class="tool help"><span class="tool-icon icon-help" aria-hidden="true">?</span><span>Help</span></button>
         <div class="toolbar-spacer"></div>
         <label class="keyword"><span>Keyword:</span><input value="People Connection" readonly></label>
       </nav>
 
       <section class="chat-window">
         <header class="chat-titlebar">
+          <span class="mini-aol" aria-hidden="true">A</span>
           <span>People Connection: Town Square</span>
           <div class="window-controls" aria-hidden="true"><button tabindex="-1">_</button><button tabindex="-1">□</button><button tabindex="-1">×</button></div>
         </header>
@@ -46,6 +47,7 @@
 
         <div class="room-body">
           <section class="transcript-wrap">
+            <div class="pane-caption">Room Conversation</div>
             <div id="transcript" class="transcript" role="log" aria-live="polite"></div>
 
             <div class="format-strip" aria-hidden="true">
@@ -65,7 +67,7 @@
           </section>
 
           <aside class="people-panel">
-            <div class="panel-title"><span id="count">0</span> People Here</div>
+            <div class="panel-title"><span>People Here</span><span class="count-badge" id="count">0</span></div>
             <select id="people" size="18" aria-label="People Here"></select>
             <div class="people-actions">
               <button>Private</button>
@@ -88,10 +90,11 @@
 
     <section id="signin" class="signin-card">
       <div class="signin-title">
-        <span>Sign On</span>
+        <span class="mini-aol" aria-hidden="true">A</span><span>Sign On</span>
         <div class="window-controls" aria-hidden="true"><button tabindex="-1">×</button></div>
       </div>
       <div class="signin-inner">
+        <div class="signin-banner" aria-hidden="true"><span class="signin-mark">A</span><span class="signin-copy">America Online</span></div>
         <label>Screen Name <input id="screenName" maxlength="16" autocomplete="nickname"></label>
         <button id="signOn">Sign On</button>
         <small>This is an AI-powered fan recreation, not AOL.</small>
@@ -101,7 +104,7 @@
 
     <section id="profileDialog" class="profile-dialog hidden" role="dialog" aria-modal="true" aria-labelledby="profileTitle">
       <div class="signin-title">
-        <span id="profileTitle">Member Profile</span>
+        <span class="mini-aol" aria-hidden="true">A</span><span id="profileTitle">Member Profile</span>
         <div class="window-controls"><button id="closeProfile" aria-label="Close">×</button></div>
       </div>
       <div id="profileBody" class="profile-body"></div>
