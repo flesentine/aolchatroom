@@ -88,7 +88,7 @@ export function simulatedWorldMs(now = Date.now()) {
 }
 
 export function simulatedDateLabel(now = Date.now()) {
-  const d = new Date(simulatedWorldMs(now));
+  const d = new Date(simulatedWorldMs(now) - 8 * 60 * 60 * 1000);
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     month: "long",
@@ -98,7 +98,7 @@ export function simulatedDateLabel(now = Date.now()) {
 }
 
 export function simulatedDateTimeLabel(now = Date.now()) {
-  const d = new Date(simulatedWorldMs(now));
+  const d = new Date(simulatedWorldMs(now) - 8 * 60 * 60 * 1000);
   return new Intl.DateTimeFormat("en-US", {
     timeZone: "UTC",
     weekday: "short",
@@ -349,11 +349,6 @@ export function rememberHumanMessage(state, name, text, witnesses = [], now = Da
 
   const topic = inferConversationTopic(text);
   human.topics[topic] = (human.topics[topic] || 0) + 1;
-
-  if (memorySafe(text)) {
-    human.recent.push(String(text).slice(0, 120));
-    human.recent = human.recent.slice(-5);
-  }
 
   const likes = String(text).match(/\b(?:i (?:really )?(?:like|love)|i['’]?m into|my favorite (?:band|game|movie|show|album) is)\s+([^.!?]{2,55})/i);
   if (likes) addHumanFact(human, "likes", likes[1].split(/\b(?:but|and i|though)\b/i)[0], witnesses, now);
