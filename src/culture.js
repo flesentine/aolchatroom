@@ -1,32 +1,30 @@
 import { calendarContext } from "./calendar.js";
 
-const CACHE_KEY = "cultureContextV1";
+const CACHE_KEY = "cultureContextV2";
 const CACHE_MS = 6 * 60 * 60 * 1000;
 const MIRROR_YEAR = 1996;
 
-// Hand-curated anchors guarantee that the room still has useful cultural context
-// when a public data source is slow or incomplete. Dynamic sources supplement these.
 const ANCHORS = [
-  { date: "1996-01-29", type: "game", title: "Duke Nukem 3D", note: "The DOS shareware release is out and PC gamers are talking about it." },
-  { date: "1996-03-30", type: "game", title: "Resident Evil", note: "Resident Evil has reached the U.S. PlayStation market." },
-  { date: "1996-05-10", type: "movie", title: "Twister", note: "Twister is in theaters and is a major summer movie." },
-  { date: "1996-05-22", type: "movie", title: "Mission: Impossible", note: "Mission: Impossible is in theaters." },
-  { date: "1996-06-04", type: "music", title: "Metallica — Load", note: "Metallica's Load is newly released and fans are arguing about the band's new direction." },
-  { date: "1996-06-22", type: "game", title: "Quake", note: "Quake is out for DOS and PC gamers are talking about it." },
-  { date: "1996-06-23", type: "game", title: "Nintendo 64 launches in Japan", note: "Nintendo's new console is available in Japan, but not yet on U.S. store shelves." },
+  { date: "1996-01-29", type: "game", title: "Duke Nukem 3D", note: "The DOS shareware release is out and PC gamers may have played it." },
+  { date: "1996-03-30", type: "game", title: "Resident Evil", note: "Resident Evil is available for PlayStation in the U.S." },
+  { date: "1996-05-10", type: "movie", title: "Twister", note: "Twister opened in U.S. theaters and is a major summer movie." },
+  { date: "1996-05-22", type: "movie", title: "Mission: Impossible", note: "Mission: Impossible opened in U.S. theaters." },
+  { date: "1996-06-04", type: "music", title: "Metallica — Load", note: "Metallica's Load is out; fans can argue about the record." },
+  { date: "1996-06-22", type: "game", title: "Quake", note: "Quake is out for DOS in the U.S." },
+  { date: "1996-06-23", type: "game", title: "Nintendo 64 launches in Japan", note: "Nintendo 64 launched in Japan. Ordinary U.S. chatters do NOT own one yet; they may know about it through game magazines, import chatter, screenshots, or friends." },
   { date: "1996-07-03", type: "movie", title: "Independence Day", note: "Independence Day is in U.S. theaters and is a huge summer hit." },
-  { date: "1996-07-19", type: "event", title: "Atlanta Summer Olympics begin", note: "The 1996 Summer Olympics are underway in Atlanta." },
-  { date: "1996-08-04", type: "event", title: "Atlanta Summer Olympics end", note: "The Atlanta Olympics just wrapped up after running July 19 through August 4." },
-  { date: "1996-08-06", type: "music", title: "Ramones final concert", note: "The Ramones played their final concert at the Palace in Hollywood." },
-  { date: "1996-08-09", type: "movie", title: "Jack", note: "Jack, starring Robin Williams, has just opened in U.S. theaters." },
-  { date: "1996-08-09", type: "movie", title: "Escape from L.A.", note: "John Carpenter's Escape from L.A. has just opened." },
-  { date: "1996-08-10", type: "music", title: "Oasis at Knebworth", note: "Oasis played enormous Knebworth shows on August 10 and 11." },
-  { date: "1996-08-13", type: "tech", title: "Internet Explorer 3.0", note: "Microsoft has released Internet Explorer 3.0 for Windows as a free download." },
-  { date: "1996-08-16", type: "movie", title: "Tin Cup", note: "Tin Cup, starring Kevin Costner and Rene Russo, has just opened." },
-  { date: "1996-09-29", type: "game", title: "Nintendo 64 launches in the U.S.", note: "Nintendo 64 and Super Mario 64 are now on U.S. store shelves." },
-  { date: "1996-11-05", type: "event", title: "U.S. presidential election", note: "Bill Clinton has won reelection as U.S. president." },
-  { date: "1996-11-15", type: "movie", title: "Space Jam", note: "Space Jam has opened in U.S. theaters." },
-  { date: "1996-12-20", type: "movie", title: "Scream", note: "Scream has opened in U.S. theaters." }
+  { date: "1996-07-19", type: "event", title: "Atlanta Summer Olympics begin", note: "The 1996 Summer Olympics began in Atlanta." },
+  { date: "1996-08-04", type: "event", title: "Atlanta Summer Olympics end", note: "The Atlanta Olympics ended August 4. After that date they are a recent past event, not something still underway." },
+  { date: "1996-08-06", type: "music", title: "Ramones final concert", note: "The Ramones played their final concert August 6 at the Palace in Hollywood. It is already over after this date." },
+  { date: "1996-08-09", type: "movie", title: "Jack", note: "Jack, starring Robin Williams, opened in U.S. theaters." },
+  { date: "1996-08-09", type: "movie", title: "Escape from L.A.", note: "John Carpenter's Escape from L.A. opened as a MOVIE. It is not a concert or live show." },
+  { date: "1996-08-10", type: "music", title: "Oasis at Knebworth", note: "Oasis played Knebworth in England on August 10 and 11. After August 11 it is over. U.S. characters would normally know it secondhand through MTV, radio, music press, or friends; do not casually claim they attended." },
+  { date: "1996-08-13", type: "tech", title: "Internet Explorer 3.0", note: "Internet Explorer 3.0 has been released for Windows." },
+  { date: "1996-08-16", type: "movie", title: "Tin Cup", note: "Tin Cup opened in U.S. theaters." },
+  { date: "1996-09-29", type: "game", title: "Nintendo 64 launches in the U.S.", note: "Nintendo 64 and Super Mario 64 are now on U.S. store shelves; ordinary U.S. ownership becomes plausible." },
+  { date: "1996-11-05", type: "event", title: "U.S. presidential election", note: "Bill Clinton won reelection as U.S. president." },
+  { date: "1996-11-15", type: "movie", title: "Space Jam", note: "Space Jam opened in U.S. theaters." },
+  { date: "1996-12-20", type: "movie", title: "Scream", note: "Scream opened in U.S. theaters." }
 ];
 
 function pad(n) {
@@ -63,7 +61,7 @@ async function fetchJson(url, options = {}) {
     ...options,
     headers: {
       "Accept": "application/json",
-      "User-Agent": "AOLChatroom1996/0.8 (historical culture context; public fan project)",
+      "User-Agent": "AOLChatroom1996/0.11 (historical culture context; public fan project)",
       ...(options.headers || {})
     }
   });
@@ -72,9 +70,6 @@ async function fetchJson(url, options = {}) {
 }
 
 async function fetchTv(dateKey) {
-  // TVMaze's public schedule endpoint accepts historical ISO dates. We sample today,
-  // yesterday, and one week ago so the AI has real recent episode context without
-  // hammering the service on every chat turn.
   const dates = [dateKey, addDaysKey(dateKey, -1), addDaysKey(dateKey, -7)];
   const settled = await Promise.allSettled(
     dates.map((date) => fetchJson(`https://api.tvmaze.com/schedule?country=US&date=${date}`))
@@ -194,30 +189,33 @@ function listLines(items, formatter, max) {
 export function culturePrompt(context) {
   if (!context) return "";
   const lines = [
-    `HISTORICAL CULTURE FEED FOR ${context.dateKey}:`,
-    "Treat this as chronology, not a checklist. Characters may naturally know or discuss these things, but should not all mention them.",
-    "CRITICAL: never speak as if a movie, game, product, episode, event, or outcome after this date has already happened. Future knowledge does not exist."
+    `HISTORICAL CULTURE GROUNDING FOR ${context.dateKey}:`,
+    "This feed is a fact-checking boundary, NOT a topic list. Most room conversation should have nothing to do with it.",
+    "Never promote a past event into the future, never convert one medium into another, and never give a U.S. character access to something they could not realistically have.",
+    "TV semantics: if an episode is in the feed, people might say they watched/saw/missed/taped it. Do not say they 'read about the new episode' unless they are explicitly talking about TV Guide/a magazine.",
+    "Foreign events are normally secondhand for these U.S. profiles. Use 'saw it on MTV', 'read about it', 'heard about it', etc.; do not casually claim attendance overseas.",
+    "Do not invent remixes, reissues, tour dates, chart positions, current sports scores, release dates, after-parties, or special events just to sound specific."
   ];
 
   const anchors = listLines(context.anchors || [], (row) => `- ${row.date} [${row.type}] ${row.title}: ${row.note}`, 10);
-  if (anchors.length) lines.push("RECENT / ESTABLISHED CULTURAL ANCHORS:", ...anchors);
+  if (anchors.length) lines.push("KNOWN RECENT FACTS:", ...anchors);
 
   const movies = listLines(context.movies || [], (row) => `- ${row.date}: ${row.title}`, 8);
-  if (movies.length) lines.push("MOVIES WITH RECENT RELEASE-DATE DATA:", ...movies);
+  if (movies.length) lines.push("MOVIE RELEASE-DATE DATA (movies, not concerts):", ...movies);
 
   const tv = listLines(context.tv || [], (row) => {
     const episode = row.episode ? ` — \"${row.episode}\"` : "";
     const network = row.network ? ` (${row.network})` : "";
     return `- ${row.date}: ${row.show}${episode}${network}`;
   }, 10);
-  if (tv.length) lines.push("U.S. TV EPISODES IN THE SAMPLED RECENT SCHEDULE:", ...tv);
+  if (tv.length) lines.push("U.S. ORIGINAL TV AIR-DATE DATA:", ...tv);
 
   const events = listLines(context.events || [], (row) => `- ${row.date}: ${row.title}`, 6);
   if (events.length) lines.push("OTHER RECENT DATE-TIED EVENTS:", ...events);
 
   lines.push(
-    "Use era context casually: one person may have seen something while another has not; people can be wrong, bored by it, or unaware.",
-    "Do not turn the room into trivia. A cultural reference should arise because it fits the character, conversation, location, or recent event."
+    "A character can be ignorant of these facts. Vague uncertainty is better than a fabricated precise claim.",
+    "Use a cultural reference only when it fits the person's interests and the actual conversation."
   );
   return lines.join("\n");
 }
@@ -228,13 +226,22 @@ function before(dateKey, threshold) {
 
 export function historicallyAllowedText(text, dateKey) {
   const value = String(text || "");
+  const month = Number(String(dateKey).slice(5, 7));
 
-  // Pre-release magazine chatter is allowed, but lines that imply U.S. ownership/play
-  // are blocked until the actual U.S. launch date.
-  if (before(dateKey, "1996-09-29") && /\b(got|have|bought|playing|played|find|found|own|controller|cartridge|wave race|mario 64)\b.{0,24}\b(n64|nintendo 64)\b|\b(n64|nintendo 64)\b.{0,24}\b(got|have|bought|playing|played|find|found|own|controller|cartridge|wave race|mario 64)\b/i.test(value)) return false;
+  if (before(dateKey, "1996-09-29") && /\b(n64|nintendo 64|mario 64|wave race)\b/i.test(value)) {
+    if (/\b(got|get|have|bought|buy|playing|played|find|found|own|controller|cartridge)\b/i.test(value)) return false;
+  }
   if (before(dateKey, "1996-06-22") && /\bquake\b/i.test(value) && !/coming|preview|demo|screenshot|magazine/i.test(value)) return false;
   if (before(dateKey, "1996-08-13") && /\b(internet explorer 3|ie3)\b/i.test(value) && !/coming|beta|preview/i.test(value)) return false;
   if (before(dateKey, "1996-11-15") && /\bspace jam\b/i.test(value) && /saw|seen|movie was|just watched|in theaters|opened/i.test(value)) return false;
   if (before(dateKey, "1996-12-20") && /\bscream\b/i.test(value) && /saw|seen|movie was|just watched|in theaters|opened/i.test(value)) return false;
+
+  if (dateKey > "1996-08-11" && /\bknebworth\b/i.test(value) && /\b(on saturday|this saturday|this weekend|going|gonna|go to|ticket for|was there|been to|after ?party|playing there)\b/i.test(value)) return false;
+  if (/\bescape from l\.?a\.?\b/i.test(value) && /\b(concert|band|after ?party|mosh|skateboarder)\b/i.test(value)) return false;
+  if (/\bread about\b.{0,45}\bepisode\b/i.test(value)) return false;
+
+  if (dateKey > "1996-05-17" && dateKey < "1996-10-04" && /\bx[- ]?files\b/i.test(value) && /\b(new episode|latest episode|on tonight|last night|last episode)\b/i.test(value)) return false;
+
+  if (month >= 7 && month <= 9 && /\b(bulls|knicks|celtics|lakers|nba)\b/i.test(value) && /\b(today|tonight|right now)\b/i.test(value) && /\b(game|playing|winning|losing|beat|beating)\b/i.test(value)) return false;
   return true;
 }
