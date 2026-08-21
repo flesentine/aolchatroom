@@ -1,10 +1,10 @@
-/* Isolated Welcome icon override generated from a sharper source asset.
-   This changes artwork only; toolbar layout and dimensions remain untouched. */
+/* Isolated Welcome icon override using the exact 25x25 nearest-neighbor bitmap.
+   Artwork only: no toolbar layout, spacing, HTML, or behavior changes. */
 .icon-welcome {
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABgAAAAYCAYAAADgdz34AAACDUlEQVR4nNWVTW9NYRSFn/Wei1tq0EjMjM0ZSJiY+AH+goqBv0Q1PsYiBiIGJgYGJL6SJiQIJvdcElFtae+79jZo66P09lR0YA3O5OyVZ++99smBHZa2WX8E6AMJ3N8JgLXqSVYfzVaG0qkLyYDrqKoOlLWV6jUE+J8AyFRtRfm4J4HVIU41uXixv+UGOgESUhKZIaQEYC4gtrZ3zkDgUatVw1PIt0lvmgR643xjX/5KkDTXo45qRoWJaQR87dDYljKA3zeQSXMwRNfsOhRWD4s+vZwQTmWIepOkw/V0AdT511NF9JmcXCZJVFJMofWx+33q51eNGbOqzQDOhf3ad+hh1ttfkrUrIhIdLqzMoiK89EZl72TSK+zaDPDHDOJDcTyC8i5pziR10IgSWW9A70RRHnAKkUC5BeVMQoev+meqgQDstthtcW1lST53EnsG10uYbWTxJ0gWcG1lDxQeKOJ6WQdvOv1GbRpyLE7FiuekFPksEyCOByv3erk2Yf5t80cB5/yucFtc78i7G7x0QfagZ7fFK1dktrPzn+SmacL1uaNVxN0SWt+zsGdxfdI4hk3wY1XdJLDr84hhY78vrhcUbAhRUM+fxm5lX8XAqDMghnK0Cs9o7HVIclwuEW2xh783sVHfQx49gPpY2TubjDNl5rFlZ8aLgGfkwgxj67f7y1w3OX/4k78M/P/QN5ouGzXL4LfVAAAAAElFTkSuQmCC");
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAABh0lEQVR4nO2UQW4TQRBFX1WPHewI5VCcgKNwHXbZsILYLGCD2HCCiKMQxYq7u36xGISEYMZ2nAWL/PXUr/n1nxqedYLsjNmwcTozGZ7md/6UopmiudoGHfr4MUlC8cOkK9wMSHxIAJ8aODmmgWVcYTgJjCfL2ZnJ7VNK8LJMui5IU+4/rQ76nHyuyzXhBdvdgSATyqkes6oP64hWFM0VW2QQT7oAUNsPUvfo1RXNpa0JRrrM2J3lbkZIqfwyxOCod5daUbSi+3eoOOrtMMrTC2Dfm0f9YFHrKtTHcwGq75G6KzYEM6c7qniDSDD1giTMPMsiitkv44Q5AI5CeFjw5vq6ZH4LzBwQt28tzPieSXkKwmo0U6+mhSMMxVh8xEeTYe3cBUS8jOhFsbHfxRoWaiNhdzfrRxde235QffCIrcXF8Dc5L5ZEr2NCOJ0sV3NFd6m5loth0sCMiGZqN4gZuv75QNbPS1IClLX1yVIzKavLjN29W2zSyut8BXw9IdDxMuaTPOv/00/GxPC3b51LzQAAAABJRU5ErkJggg==");
   background-repeat: no-repeat;
   background-position: center;
-  background-size: 24px 24px;
+  background-size: 25px 25px;
   background-color: transparent;
   border-color: transparent;
   box-shadow: none;
