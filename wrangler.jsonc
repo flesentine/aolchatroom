@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aolchatroom",
-  "main": "src/index_v18.js",
+  "main": "src/index_v19.js",
   "compatibility_date": "2026-08-19",
   "assets": {
     "directory": "./public",
