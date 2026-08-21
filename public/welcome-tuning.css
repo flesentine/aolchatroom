@@ -1,9 +1,9 @@
-/* Isolated Welcome icon override using the outlined running-man art.
-   The generated source is reduced once to an exact 25x25 PNG with nearest-neighbor only.
-   It is displayed at native size on integer CSS pixels so the browser does not rescale
-   or half-pixel-center it. Artwork only; toolbar layout is unchanged. */
+/* Isolated Welcome icon override using a true 25x25 hard-pixel bitmap.
+   No browser scaling: the PNG is displayed at native size on integer CSS pixels.
+   The silhouette has a deliberate external black pixel contour so it reads like
+   the other 1990s toolbar icons. Artwork only; toolbar layout is unchanged. */
 .icon-welcome {
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAABNklEQVR4nO2UPW6bQQxE33AlpUmjLhdLraP4BoFiII1LNy5zrSCA9X1pDNlaDl3YRgIHtn7TBHrtYjnLIWfhzH/BxQUBGMh/JtJay76SPYb7UlvFJgdo5GZlMFSBnirogDrv0wLnoMwhkifbTsti8fkTYGm7TS/s1WaLlg+3hSgVos1dQNt2L/bQ8MPKEAIoKO6X0z/P3+xqJ5HZTJkDVVdNVFKCuq6aLjpeKZ3dXgodt9LKvMSS0kPz+icGPAnsS7l/ae/OZ5+Z2ENAGUTFHNhhHrCjXRLfc5NVQXGjKgU5Bk0nSrwgM+/cB5JnS6aBc4xc//h4XEY+zGZuocwxsq//ysTE3+Qcw3FMGHNU9ruW/evvDl4zDexf4c2tDvu7JnMAq4o3A7cxDUg19PyQnRbhzJnT8QjkbKPc6XlYHAAAAABJRU5ErkJggg==");
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAABZ0lEQVR4nO2UQW/aQBSEv9kFcsmFX9h/VNFIvfTYS6/5WVUlwL1EFPze5GBCLGrApsdmJMuW9Tzjmdld+MAE6M7vPIWn/IOAgew9nwvfLWKAWmu2G5FNUbtSX2wQs4kiAHnYJCTYoI7halxTO+mcFLxfyyDqMtXjGeSbItLP3JKwbd4jv8g1Nq6jg5r7tRGWEXXpv2aGxMYUf1pN+01C0fGd+bOa9+fybH6SCIuFMrbY36pwYIG/2/NPLblRZrTOldCNVXbDiSKeSEmR25q7XySQs0Lmk7L9XBMILuyXMcWf4sptAScIlyUwnMTkTgwg8RyHsAvmh2wVoilUneJR7xqNN9sWRMRLtluCYyTzQkZTYvfzMblxpFwVeVgsshZFNCXanc4zd35VRlOydGXfJeRoFO1LjfbLu4Mekd8c5e+Sh7Uulg5XNuNsCZCyGdrVAnzI7q6K6BwNdnypqKE/GpodO/eB/xGvem3D3l1EubUAAAAASUVORK5CYII=");
   background-repeat: no-repeat;
   background-size: 25px 25px;
   background-origin: border-box;
