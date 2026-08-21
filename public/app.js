@@ -15,10 +15,16 @@ const profileBody = document.querySelector("#profileBody");
 const closeProfile = document.querySelector("#closeProfile");
 const closeProfileBottom = document.querySelector("#closeProfileBottom");
 const debugPanel = document.querySelector("#debugPanel");
+const exportChat = document.querySelector("#exportChat");
 
 let socket;
 let pulseTimer;
+let capture = null;
+let capturePersistTimer = null;
+const captureMessageKeys = new Set();
 const debug = new URLSearchParams(location.search).get("debug") === "1";
+const CAPTURE_KEY = "aol96-chat-capture-v1";
+const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
 
 screenName.value = localStorage.getItem("aol96-screen-name") || "";
 screenName.focus();
@@ -26,6 +32,150 @@ if (debug && debugPanel) debugPanel.classList.remove("hidden");
 
 function cleanName(value) {
   return String(value || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
+}
+
+function captureMessageKey(item) {
+  return [item?.at || "", item?.from || "", item?.kind || "", item?.text || ""].join("|");
+}
+
+function startOrResumeCapture(name) {
+  const now = Date.now();
+  let saved = null;
+  try {
+    saved = JSON.parse(localStorage.getItem(CAPTURE_KEY) || "null");
+  } catch {}
+
+  const canResume = saved
+    && saved.schema === "aol96-chat-capture-v1"
+    && saved.screenName === name
+    && Array.isArray(saved.events)
+    && now - Number(saved.updatedAt || 0) <= CAPTURE_RESUME_GAP_MS;
+
+  capture = canResume ? saved : {
+    schema: "aol96-chat-capture-v1",
+    captureId: `${now}-${Math.random().toString(36).slice(2, 8)}`,
+    room: "Town Square",
+    screenName: name,
+    startedAt: now,
+    updatedAt: now,
+    simulatedDate: "",
+    provider: "",
+    pass: null,
+    events: []
+  };
+
+  captureMessageKeys.clear();
+  for (const event of capture.events) {
+    if (event.type === "message") captureMessageKeys.add(captureMessageKey(event));
+  }
+
+  recordCaptureEvent({ type: "connection", action: canResume ? "resume" : "sign-on" });
+  persistCapture(true);
+}
+
+function recordCaptureEvent(event) {
+  if (!capture) return;
+  const now = Date.now();
+  capture.events.push({ receivedAt: now, ...event });
+  capture.updatedAt = now;
+  scheduleCapturePersist();
+}
+
+function recordCaptureMessage(item, replayed = false) {
+  if (!capture || !item) return;
+  const key = captureMessageKey(item);
+  if (captureMessageKeys.has(key)) return;
+  captureMessageKeys.add(key);
+  recordCaptureEvent({
+    type: "message",
+    at: Number(item.at || Date.now()),
+    from: item.from || "",
+    text: item.text || "",
+    kind: item.kind || "",
+    source: item.source || "",
+    intent: item.intent || "",
+    target: item.target || "room",
+    topic: item.topic || "general",
+    threadId: item.threadId || "",
+    replayed: Boolean(replayed)
+  });
+}
+
+function scheduleCapturePersist() {
+  clearTimeout(capturePersistTimer);
+  capturePersistTimer = setTimeout(() => persistCapture(), 1200);
+}
+
+function persistCapture(force = false) {
+  if (!capture) return;
+  if (force) clearTimeout(capturePersistTimer);
+  try {
+    localStorage.setItem(CAPTURE_KEY, JSON.stringify(capture));
+  } catch {
+    // The in-memory capture continues even if browser storage fills up.
+  }
+}
+
+function exportCapture() {
+  if (!capture) return;
+  persistCapture(true);
+
+  const now = Date.now();
+  const messageEvents = capture.events.filter((event) => event.type === "message");
+  const sourceCounts = {};
+  const speakerCounts = {};
+  const kindCounts = {};
+
+  for (const event of messageEvents) {
+    const source = event.source || "unknown";
+    const speaker = event.from || "system";
+    const kind = event.kind || "unknown";
+    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
+    speakerCounts[speaker] = (speakerCounts[speaker] || 0) + 1;
+    kindCounts[kind] = (kindCounts[kind] || 0) + 1;
+  }
+
+  const payload = {
+    schema: capture.schema,
+    purpose: "AOL 1996 chat-room realism analysis",
+    session: {
+      captureId: capture.captureId,
+      room: capture.room,
+      screenName: capture.screenName,
+      startedAt: capture.startedAt,
+      startedAtIso: new Date(capture.startedAt).toISOString(),
+      exportedAt: now,
+      exportedAtIso: new Date(now).toISOString(),
+      durationSeconds: Math.round((now - capture.startedAt) / 1000),
+      simulatedDate: capture.simulatedDate,
+      provider: capture.provider,
+      pass: capture.pass
+    },
+    summary: {
+      eventCount: capture.events.length,
+      messageCount: messageEvents.length,
+      sourceCounts,
+      kindCounts,
+      speakerCounts
+    },
+    events: capture.events
+  };
+
+  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+  const link = document.createElement("a");
+  const stamp = new Date(capture.startedAt).toISOString().replace(/[:.]/g, "-");
+  link.href = URL.createObjectURL(blob);
+  link.download = `aol96-town-square-${capture.screenName}-${stamp}.json`;
+  document.body.append(link);
+  link.click();
+  link.remove();
+  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
+
+  if (exportChat) {
+    const oldLabel = exportChat.textContent;
+    exportChat.textContent = "Saved!";
+    setTimeout(() => { exportChat.textContent = oldLabel; }, 1400);
+  }
 }
 
 function addLine(item) {
@@ -67,6 +217,8 @@ function setUsers(users = []) {
 function connect() {
   const name = cleanName(screenName.value);
   localStorage.setItem("aol96-screen-name", name);
+  startOrResumeCapture(name);
+
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const debugArg = debug ? "&debug=1" : "";
   const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}${debugArg}`;
@@ -76,6 +228,7 @@ function connect() {
   socket.addEventListener("open", () => {
     signin.classList.add("hidden");
     status.textContent = "Connected";
+    recordCaptureEvent({ type: "connection", action: "open" });
     clearInterval(pulseTimer);
     pulseTimer = setInterval(() => {
       if (socket.readyState === WebSocket.OPEN) socket.send("pulse");
@@ -89,18 +242,43 @@ function connect() {
 
     if (data.type === "hello") {
       transcript.replaceChildren();
-      for (const item of data.history || []) addLine(item);
+      const captureFloor = capture ? capture.startedAt - 10000 : Date.now() - 10000;
+      for (const item of data.history || []) {
+        addLine(item);
+        if (Number(item?.at || 0) >= captureFloor) recordCaptureMessage(item, true);
+      }
       setUsers(data.users || []);
       clock.textContent = data.simulatedDate || "November 22, 1996";
       status.textContent = `Connected · ${data.provider || "1996 chatter"}`;
+      if (capture) {
+        capture.simulatedDate = data.simulatedDate || capture.simulatedDate;
+        capture.provider = data.provider || capture.provider;
+        capture.pass = data.pass ?? capture.pass;
+      }
+      recordCaptureEvent({
+        type: "hello",
+        simulatedDate: data.simulatedDate || "",
+        provider: data.provider || "",
+        pass: data.pass ?? null,
+        users: data.users || []
+      });
     } else if (data.type === "message") {
       addLine(data.message);
+      recordCaptureMessage(data.message);
       if (data.message?.source === "groq") status.textContent = "Connected · Groq active";
     } else if (data.type === "presence") {
       setUsers(data.users || []);
       if (data.simulatedDate) clock.textContent = data.simulatedDate;
+      recordCaptureEvent({
+        type: "presence",
+        users: data.users || [],
+        count: Number(data.count ?? (data.users || []).length),
+        simulatedDate: data.simulatedDate || ""
+      });
     } else if (data.type === "ai_status") {
       status.textContent = `Connected · ${data.status}`;
+      if (capture) capture.provider = data.status || capture.provider;
+      recordCaptureEvent({ type: "ai_status", status: data.status || "" });
     } else if (data.type === "profile") {
       showProfile(data.profile, data.requestedName);
     } else if (data.type === "social_debug") {
@@ -110,11 +288,14 @@ function connect() {
 
   socket.addEventListener("close", () => {
     clearInterval(pulseTimer);
+    recordCaptureEvent({ type: "connection", action: "close" });
+    persistCapture(true);
     status.textContent = "Disconnected - click Sign On to reconnect";
     signin.classList.remove("hidden");
   });
 
   socket.addEventListener("error", () => {
+    recordCaptureEvent({ type: "connection", action: "error" });
     status.textContent = "Connection error";
   });
 }
@@ -191,3 +372,5 @@ profileButton.addEventListener("click", requestProfile);
 people.addEventListener("dblclick", requestProfile);
 closeProfile.addEventListener("click", () => profileDialog.classList.add("hidden"));
 closeProfileBottom.addEventListener("click", () => profileDialog.classList.add("hidden"));
+if (exportChat) exportChat.addEventListener("click", exportCapture);
+window.addEventListener("beforeunload", () => persistCapture(true));
