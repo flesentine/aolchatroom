@@ -1,9 +1,9 @@
-/* Isolated Welcome icon override using an exact 25x25 hard-pixel bitmap.
-   Important: do NOT center a 25px image inside the 26px-high icon slot; that
-   creates a 0.5px vertical offset and browser interpolation. Position it on
-   integer CSS pixels instead. Artwork only; toolbar layout stays unchanged. */
+/* Isolated Welcome icon override using the latest generated running-man art.
+   The source was reduced once to an exact 25x25 PNG with nearest-neighbor only.
+   It is then displayed at native size on integer CSS pixels so the browser does
+   not rescale or half-pixel-center it. Artwork only; toolbar layout is unchanged. */
 .icon-welcome {
-  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAAAt0lEQVR4nO2UwQ7DIAxD7WkfuE+lX+gdRttAK0jSaqda4gACP5zQAo8C4oWz8vq8sgAJkACV+eZMEklqjpJjr2SS2N0yENIyljk1Va6oRyiJFGt4RqqQfRQIe7I+YQagzfQMJF2DbGbWHDBrbaKDvI3Xj2YOEoTzq/c2nhLW54oKXAEcAbxqSmTnszIFCI3hAdytB73nt+0TRgluA1fZ3qerSzMbNZVk/QsUgJ/Bzht0zwN49Dd9AecrtIRgsKF2AAAAAElFTkSuQmCC");
+  background-image: url("data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABkAAAAZCAYAAADE6YVjAAABNklEQVR4nO2UPW6bQQxE33AlpUmjLhdLraP4BoFiII1LNy5zrSCA9X1pDNlaDl3YRgIHtn7TBHrtYjnLIWfhzH/BxQUBGMh/JtJay76SPYb7UlvFJgdo5GZlMFSBnirogDrv0wLnoMwhkifbTsti8fkTYGm7TS/s1WaLlg+3hSgVos1dQNt2L/bQ8MPKEAIoKO6X0z/P3+xqJ5HZTJkDVVdNVFKCuq6aLjpeKZ3dXgodt9LKvMSS0kPz+icGPAnsS7l/ae/OZ5+Z2ENAGUTFHNhhHrCjXRLfc5NVQXGjKgU5Bk0nSrwgM+/cB5JnS6aBc4xc//h4XEY+zGZuocwxsq//ysTE3+Qcw3FMGHNU9ruW/evvDl4zDexf4c2tDvu7JnMAq4o3A7cxDUg19PyQnRbhzJnT8QjkbKPc6XlYHAAAAABJRU5ErkJggg==");
   background-repeat: no-repeat;
   background-size: 25px 25px;
   background-origin: border-box;
