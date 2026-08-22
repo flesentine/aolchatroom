@@ -17,6 +17,7 @@ const PROVIDER_PRIORITY = ["gemini", "groq", "workers-ai"];
 const V28_HARNESS_START_KEY = "realismHarnessV28Start";
 const PRIVATE_TRUST_SCORE = 28;
 const PRIVATE_MIN_INTERACTIONS = 4;
+const HARD_GUARD_KINDS = new Set(["sister", "brother", "son", "daughter", "children", "roommate"]);
 
 function privateTopic(text = "") {
   return /\b(secret|embarrass|embarrassed|afraid|scared|worry|worried|regret|private|never told)\b/i.test(String(text || ""));
@@ -50,6 +51,7 @@ export default {
           canonicalRoutines: true,
           canonicalBackground: true,
           gradualPrivateFacts: true,
+          selfKnowledgeBoundaries: true,
           contradictionGuard: true,
           relevantFactsOnlyInPrompt: true,
           persistentAcrossHistoricalYearReset: true,
@@ -123,7 +125,7 @@ export class ChatRoom extends HistoricalChatRoom {
     const anchors = selected.map((character) => lifeIdentityLine(character?.name)).filter(Boolean);
     this.v28Stats.identityPromptCalls += 1;
     if (!anchors.length) return base;
-    return `${base}\n\nCANONICAL PERSONAL-LIFE ANCHORS — hard continuity facts, not optional flavor:\n${anchors.map((row) => `- ${row}`).join("\n")}\nDo not invent alternate siblings, pets, spouses, children, roommates, schools, or living situations. If a detail is not supplied, stay vague instead of making one up.`;
+    return `${base}\n\nCANONICAL PERSONAL-LIFE ANCHORS — hard continuity facts, not optional flavor:\n${anchors.map((row) => `- ${row}`).join("\n")}\nThese are SELF-KNOWLEDGE for the named character. Another bot may know one of these facts only if that fact was actually said in a conversation they could have witnessed or appears in their persistent memory. Do not make the room omniscient. Do not invent alternate siblings, pets, spouses, children, roommates, schools, or living situations. If a detail is not supplied, stay vague instead of making one up.`;
   }
 
   brainPrompt(active, reason, human = null) {
@@ -136,13 +138,16 @@ export class ChatRoom extends HistoricalChatRoom {
     this.v28Stats.estimatedFactsOffered += Math.min((active || []).length, 8) * 5;
     if (human && privateTopic(human.text) && trustedNames.size) this.v28Stats.privateFactWindows += trustedNames.size;
 
-    return `${base}\n\n${prompt}\n\nPERSONAL-LIFE CONTINUITY RULES:\n- These biography facts survive the January historical-world reset because they are facts about who these fictional people are, not later-1996 news.\n- Use only facts relevant to what somebody is actually discussing. Do not recite biographies or force family/pet/work facts into unrelated chat.\n- Names and counts are canonical. If the supplied biography says one younger sister, do not invent a brother or a second sister later.\n- A private fact appears only when trust/context made it eligible. Even then, reveal it only if the conversation naturally reaches it; do not announce secrets randomly.\n- If the bible does not answer a personal question, the character may be vague, say they do not want to get into it, or answer without inventing a new permanent fact.`;
+    return `${base}\n\n${prompt}\n\nPERSONAL-LIFE CONTINUITY RULES:\n- These biography facts survive the January historical-world reset because they are facts about who these fictional people are, not later-1996 news.\n- Each character automatically knows their OWN biography. Other characters do NOT automatically know it. They may refer to somebody else's family, pet, job detail, relationship, or private fact only if that information appeared in visible conversation they plausibly witnessed or exists in their persistent memory.\n- Use only facts relevant to what somebody is actually discussing. Do not recite biographies or force family/pet/work facts into unrelated chat.\n- Names and counts are canonical. If the supplied biography says one younger sister, do not invent a brother or a second sister later.\n- A private fact appears only when trust/context made it eligible. Even then, reveal it only if the conversation naturally reaches it; do not announce secrets randomly.\n- If the bible does not answer a personal question, the character may be vague, say they do not want to get into it, or answer without inventing a new permanent fact.`;
   }
 
   say(from, text, kind = "bot", source = "built-in", meta = {}) {
     if (kind === "bot") {
       const violation = lifeClaimViolation(from, text);
-      if (violation) {
+      // Hard-block only facts that are effectively immutable and unambiguous.
+      // Pets and romantic labels can be phrased as family/past relationships, so
+      // those remain prompt-enforced rather than risking false positives.
+      if (violation && HARD_GUARD_KINDS.has(violation.kind)) {
         this.v28Stats.contradictionsBlocked += 1;
         this.v28Stats.contradictionKinds[violation.kind] = Number(this.v28Stats.contradictionKinds[violation.kind] || 0) + 1;
         this.broadcast({
@@ -168,7 +173,8 @@ export class ChatRoom extends HistoricalChatRoom {
       contradictionsBlocked: Number(this.v28Stats.contradictionsBlocked || 0),
       contradictionKinds: { ...this.v28Stats.contradictionKinds },
       privateFactWindows: Number(this.v28Stats.privateFactWindows || 0),
-      hardFactsPersistAcrossHistoricalReset: true
+      hardFactsPersistAcrossHistoricalReset: true,
+      biographyIsSelfKnowledge: true
     };
     return report;
   }
@@ -178,7 +184,8 @@ export class ChatRoom extends HistoricalChatRoom {
       ...this.v28Stats,
       lifeBibleCharacters: lifeBibleCount(),
       privateTrustScore: PRIVATE_TRUST_SCORE,
-      privateMinInteractions: PRIVATE_MIN_INTERACTIONS
+      privateMinInteractions: PRIVATE_MIN_INTERACTIONS,
+      hardGuardKinds: [...HARD_GUARD_KINDS]
     };
   }
 
