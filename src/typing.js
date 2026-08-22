@@ -10,18 +10,22 @@ const COMMON_MISSPELLINGS = {
   really: "realy",
   separate: "seperate",
   receive: "recieve",
-  favorite: "faverite",
   happened: "happend",
   believe: "beleive",
-  ridiculous: "rediculous",
-  available: "availible",
   interesting: "intresting",
   something: "somthing",
   someone: "somone",
-  their: "thier",
-  before: "befor",
-  enough: "enuf"
+  their: "thier"
 };
+
+const SIGNATURE_GROUPS = [
+  ["definitely", "weird", "because"],
+  ["probably", "tomorrow", "really"],
+  ["friend", "friends", "remember"],
+  ["separate", "receive", "believe"],
+  ["happened", "interesting", "something"],
+  ["someone", "their", "because"]
+];
 
 const KEY_NEIGHBORS = {
   a: "qwsz", b: "vghn", c: "xdfv", d: "ersfcx", e: "wsdr", f: "rtgdvc",
@@ -33,11 +37,12 @@ const KEY_NEIGHBORS = {
 const PROTECTED = new Set([
   "aol", "html", "bbs", "dos", "os/2", "quake", "doom", "netscape", "geocities",
   "metallica", "playstation", "saturn", "nintendo", "friends", "seinfeld", "xfiles",
-  "x-files", "mtv", "cd", "vhs"
+  "x-files", "mtv", "cd", "vhs", "windows", "yankees", "oasis", "blur"
 ]);
 
 const HAPPY_FACES = [":)", ";)", ":P", "<g>", ":-)"];
 const SAD_FACES = [":(", ":-("];
+const pendingCorrections = new Map();
 
 function clamp(n, min, max) {
   return Math.max(min, Math.min(max, n));
@@ -47,42 +52,92 @@ function pick(items) {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-function eligibleWord(word) {
-  const bare = String(word || "").replace(/[^A-Za-z]/g, "");
-  return bare.length >= 4 && !PROTECTED.has(bare.toLowerCase());
+function hashString(value) {
+  let h = 2166136261;
+  for (const ch of String(value || "")) {
+    h ^= ch.charCodeAt(0);
+    h = Math.imul(h, 16777619);
+  }
+  return h >>> 0;
 }
 
-function mutateWord(word) {
-  const match = String(word).match(/^([^A-Za-z]*)([A-Za-z]+)([^A-Za-z]*)$/);
-  if (!match) return word;
-  const [, prefix, letters, suffix] = match;
-  const lower = letters.toLowerCase();
+function profileFor(character) {
+  const rate = clamp(Number(character?.typing?.typoRate || 0.04), 0, 0.18);
+  const hash = hashString(character?.name || "guest");
+  const modes = rate <= 0.03
+    ? ["known"]
+    : rate <= 0.07
+      ? ["known", "transpose"]
+      : rate <= 0.10
+        ? ["transpose", "drop", "known"]
+        : ["transpose", "drop", "neighbor", "known"];
+  return {
+    rate,
+    mutationMode: modes[hash % modes.length],
+    signatures: SIGNATURE_GROUPS[(hash >>> 3) % SIGNATURE_GROUPS.length]
+  };
+}
 
-  if (COMMON_MISSPELLINGS[lower] && Math.random() < 0.42) {
-    return `${prefix}${COMMON_MISSPELLINGS[lower]}${suffix}`;
-  }
+function eligibleWord(word) {
+  const bare = String(word || "").replace(/[^A-Za-z]/g, "");
+  return bare.length >= 5 && !PROTECTED.has(bare.toLowerCase());
+}
 
-  if (letters.length < 4) return word;
+function mutateByMode(letters, mode) {
   const chars = letters.split("");
-  const mode = Math.random();
+  if (chars.length < 5) return letters;
 
-  if (mode < 0.42) {
-    const i = 1 + Math.floor(Math.random() * Math.max(1, chars.length - 2));
-    [chars[i], chars[i + 1]] = [chars[i + 1], chars[i]];
-  } else if (mode < 0.68) {
+  if (mode === "drop") {
     const i = 1 + Math.floor(Math.random() * Math.max(1, chars.length - 2));
     chars.splice(i, 1);
-  } else if (mode < 0.87) {
-    const i = Math.floor(Math.random() * chars.length);
-    const key = chars[i].toLowerCase();
-    const neighbors = KEY_NEIGHBORS[key];
-    if (neighbors) chars[i] = pick(neighbors);
+  } else if (mode === "neighbor") {
+    const candidates = [];
+    for (let i = 0; i < chars.length; i += 1) {
+      if (KEY_NEIGHBORS[chars[i].toLowerCase()]) candidates.push(i);
+    }
+    if (!candidates.length) return letters;
+    const i = pick(candidates);
+    const neighbors = KEY_NEIGHBORS[chars[i].toLowerCase()];
+    chars[i] = pick(neighbors);
   } else {
-    const i = Math.floor(Math.random() * chars.length);
-    chars.splice(i, 0, chars[i]);
+    // Transposed interior letters are the most common-looking accidental typo,
+    // so this is also the fallback for careful typers.
+    const maxStart = Math.max(1, chars.length - 2);
+    const i = 1 + Math.floor(Math.random() * maxStart);
+    if (i >= chars.length - 1) return letters;
+    [chars[i], chars[i + 1]] = [chars[i + 1], chars[i]];
+  }
+  return chars.join("");
+}
+
+function mutateWord(word, character) {
+  const match = String(word).match(/^([^A-Za-z]*)([A-Za-z]+)([^A-Za-z]*)$/);
+  if (!match) return { text: word, correction: "" };
+  const [, prefix, letters, suffix] = match;
+  const lower = letters.toLowerCase();
+  const profile = profileFor(character);
+
+  // Each person has a small recurring set of believable spelling habits. This
+  // makes mistakes recognizable instead of looking like a generic typo filter.
+  if (profile.signatures.includes(lower) && COMMON_MISSPELLINGS[lower] && Math.random() < 0.78) {
+    return {
+      text: `${prefix}${COMMON_MISSPELLINGS[lower]}${suffix}`,
+      correction: lower
+    };
   }
 
-  return `${prefix}${chars.join("")}${suffix}`;
+  // Non-signature dictionary mistakes can still happen, but only rarely.
+  if (COMMON_MISSPELLINGS[lower] && Math.random() < 0.16) {
+    return {
+      text: `${prefix}${COMMON_MISSPELLINGS[lower]}${suffix}`,
+      correction: lower
+    };
+  }
+
+  if (profile.mutationMode === "known") return { text: word, correction: "" };
+  const mutated = mutateByMode(letters, profile.mutationMode);
+  if (mutated === letters) return { text: word, correction: "" };
+  return { text: `${prefix}${mutated}${suffix}`, correction: lower };
 }
 
 function removeApostrophes(text, amount) {
@@ -96,38 +151,27 @@ function applyShorthand(text, character) {
   if (!casual && !habits.has("u")) return text;
 
   let out = text;
-  if ((habits.has("u") || Math.random() < 0.16) && Math.random() < 0.45) out = out.replace(/\byou\b/gi, "u");
-  if (Math.random() < 0.18) out = out.replace(/\byour\b/gi, "ur");
-  if (Math.random() < 0.12) out = out.replace(/\bare\b/gi, "r");
-  if (Math.random() < 0.10) out = out.replace(/\bpeople\b/gi, "ppl");
-  if (Math.random() < 0.08) out = out.replace(/\bbecause\b/gi, "cuz");
+  const uChance = habits.has("u") ? 0.40 : 0.08;
+  if (Math.random() < uChance) out = out.replace(/\byou\b/gi, "u");
+  if (Math.random() < 0.08) out = out.replace(/\byour\b/gi, "ur");
+  if (Math.random() < 0.05) out = out.replace(/\bare\b/gi, "r");
+  if (Math.random() < 0.04) out = out.replace(/\bpeople\b/gi, "ppl");
+  if (Math.random() < 0.04) out = out.replace(/\bbecause\b/gi, "cuz");
   return out;
 }
 
 function applyEraCaps(text, character) {
   const personality = character?.personality || {};
   const argumentative = Number(personality.argumentative || 0.4);
-  const confidence = Number(personality.confidence || 0.5);
   let out = text;
 
-  const shoutChance = 0.008 + argumentative * 0.022 + confidence * 0.006;
-  if (out.length <= 88 && Math.random() < shoutChance) return out.toUpperCase();
+  // Do not randomly capitalize one arbitrary word. Full-line shouting remains
+  // possible, but mostly when the line itself already feels heated/excited.
+  const heated = /(?:!!|\bwtf\b|\bno way\b|\bshut up\b|\bseriously\b)/i.test(out);
+  const shoutChance = heated ? 0.004 + argumentative * 0.010 : 0.0015;
+  if (out.length <= 88 && Math.random() < shoutChance) out = out.toUpperCase();
 
-  if (Math.random() < 0.075) {
-    const words = out.split(/(\s+)/);
-    const candidates = [];
-    for (let i = 0; i < words.length; i += 2) {
-      const bare = words[i].replace(/[^A-Za-z]/g, "");
-      if (bare.length >= 3 && !PROTECTED.has(bare.toLowerCase())) candidates.push(i);
-    }
-    if (candidates.length) {
-      const i = pick(candidates);
-      words[i] = words[i].toUpperCase();
-      out = words.join("");
-    }
-  }
-
-  if (/\blol\b/i.test(out) && Math.random() < 0.16) out = out.replace(/\blol\b/i, "LOL");
+  if (/\blol\b/i.test(out) && Math.random() < 0.10) out = out.replace(/\blol\b/i, "LOL");
   return out;
 }
 
@@ -136,7 +180,7 @@ function applyEraEmoticon(text, character) {
   const personality = character?.personality || {};
   const sociability = Number(personality.sociability || 0.5);
   const sarcasm = Number(personality.sarcasm || 0.4);
-  const chance = 0.018 + sociability * 0.045 + sarcasm * 0.012;
+  const chance = 0.014 + sociability * 0.032 + sarcasm * 0.008;
   if (Math.random() >= chance) return text;
 
   const negative = /\b(sucks|ugh|hate|awful|terrible|sorry|sad|lost|broke|mad)\b/i.test(text);
@@ -145,10 +189,52 @@ function applyEraEmoticon(text, character) {
   return `${text} ${face}`;
 }
 
+function naturalTypoChance(character, text) {
+  const rate = profileFor(character).rate;
+  let chance = 0.018 + rate * 0.60;
+  const words = String(text || "").trim().split(/\s+/).filter(Boolean).length;
+
+  // Short, simple messages are less likely to contain a conspicuous mistake.
+  if (words <= 4) chance *= 0.55;
+  // Longer thoughtful replies are usually typed a little more carefully.
+  if (words >= 14) chance *= 0.78;
+  // Excited/argumentative bursts are the one place mistakes rise naturally.
+  if (/(?:!!|\bwtf\b|\bomg\b|\bhaha\b|\blol\b)/i.test(text)) chance *= 1.25;
+
+  return clamp(chance, 0.012, rate >= 0.11 ? 0.11 : 0.085);
+}
+
+function maybePrefixCorrection(character, text) {
+  const name = String(character?.name || "");
+  if (!name) return text;
+  const pending = pendingCorrections.get(name);
+  if (!pending) return text;
+  pendingCorrections.delete(name);
+  if (Date.now() - pending.at > 25000) return text;
+  return `*${pending.word} ${text}`;
+}
+
+export function typingStyleDebug(character) {
+  if (!character) return null;
+  const profile = profileFor(character);
+  return {
+    name: character.name,
+    configuredTypoRate: profile.rate,
+    ordinaryLineTypoChancePct: Math.round(naturalTypoChance(character, "just a normal sentence about something ordinary") * 1000) / 10,
+    shortLineTypoChancePct: Math.round(naturalTypoChance(character, "morning man") * 1000) / 10,
+    mutationMode: profile.mutationMode,
+    recurringSpellings: profile.signatures.filter((word) => COMMON_MISSPELLINGS[word]).map((word) => `${word}→${COMMON_MISSPELLINGS[word]}`),
+    arbitrarySingleWordCaps: false,
+    rareNextMessageSelfCorrection: true
+  };
+}
+
 export function applyTypingStyle(character, input) {
   if (!character || !input) return input;
   const typing = character.typing || {};
   let text = String(input);
+
+  text = maybePrefixCorrection(character, text);
 
   if (typing.case === "lower") text = text.toLowerCase();
 
@@ -164,24 +250,33 @@ export function applyTypingStyle(character, input) {
 
   text = applyShorthand(text, character);
 
-  const rate = clamp(Number(typing.typoRate || 0.04), 0, 0.18);
-  const lineTypoChance = clamp(rate * 4.1, 0.04, 0.58);
-  if (Math.random() < lineTypoChance) {
+  const typoChance = naturalTypoChance(character, text);
+  if (Math.random() < typoChance) {
     const words = text.split(/(\s+)/);
     const candidates = [];
     for (let i = 0; i < words.length; i += 2) {
       if (eligibleWord(words[i])) candidates.push(i);
     }
     if (candidates.length) {
-      const i = pick(candidates);
-      words[i] = mutateWord(words[i]);
-
-      if (rate >= 0.11 && candidates.length >= 5 && Math.random() < 0.10) {
-        const secondChoices = candidates.filter((idx) => idx !== i);
-        const j = pick(secondChoices);
-        words[j] = mutateWord(words[j]);
-      }
+      // Prefer the person's recurring spelling fingerprints when one of those
+      // words happens to be present; otherwise make at most one restrained slip.
+      const profile = profileFor(character);
+      const signatureCandidates = candidates.filter((i) => {
+        const bare = words[i].replace(/[^A-Za-z]/g, "").toLowerCase();
+        return profile.signatures.includes(bare);
+      });
+      const i = signatureCandidates.length ? pick(signatureCandidates) : pick(candidates);
+      const original = words[i].replace(/[^A-Za-z]/g, "").toLowerCase();
+      const mutation = mutateWord(words[i], character);
+      words[i] = mutation.text;
       text = words.join("");
+
+      // Very rarely, remember the slip long enough for that same person to type
+      // a natural *correction at the start of their next message. If they do not
+      // speak again promptly, the correction silently expires.
+      if (mutation.correction && mutation.text !== original && Math.random() < 0.045) {
+        pendingCorrections.set(character.name, { word: mutation.correction, at: Date.now() });
+      }
     }
   }
 
