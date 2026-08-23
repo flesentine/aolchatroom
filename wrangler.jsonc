@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aolchatroom",
-  "main": "src/index_v34.js",
+  "main": "src/index_v35.js",
   "compatibility_date": "2026-08-19",
   "assets": {
     "directory": "./public",
@@ -30,6 +30,6 @@
     "GEMINI_MODEL": "gemini-3.5-flash-lite",
     "WORKERS_AI_MODEL": "@cf/google/gemma-4-26b-a4b-it",
     "SIMULATED_DATE": "November 22, 1996",
-    "DEPLOY_VERSION": "34"
+    "DEPLOY_VERSION": "35"
   }
 }
