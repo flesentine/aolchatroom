@@ -5,7 +5,7 @@ import { publicWorldViolation, auditPublicHistory, v35Grade } from "./v35_world_
 import { V35PlumbingChatRoom, DIRECT_PRESENCE_LOCK_MS } from "./v35_plumbing.js";
 
 const PASS = "plumbing-correctness-v35";
-const MIGRATION_VERSION = 1;
+const MIGRATION_VERSION = 2;
 
 function clamp(n, min = 0, max = 100) {
   return Math.max(min, Math.min(max, Number(n) || 0));
@@ -13,6 +13,22 @@ function clamp(n, min = 0, max = 100) {
 
 async function json(response) {
   try { return await response.json(); } catch { return { ok: false, error: "non-json response" }; }
+}
+
+function counterScopes(v35) {
+  return {
+    v35Lifetime: "persisted-across-durable-object-restarts",
+    v35SinceObjectStart: "restart-scoped",
+    v30EngagementStats: "restart-scoped",
+    v30AttentionLedger: "persisted-state",
+    scenePlannerStats: "restart-scoped",
+    brainVoiceStats: "restart-scoped",
+    memoryStats: "restart-scoped",
+    memoryEpisodeTotals: "derived-from-persisted-state",
+    retainedHistory: "persisted-retention-window",
+    note: "A zero restart-scoped counter does not prove a subsystem never ran before the current Durable Object instance. Use v35 lifetime counters for persisted v35 behavior and state-derived totals for retained memory/history.",
+    v35Reported: v35?.diagnostics?.counterScopes || null
+  };
 }
 
 export default {
@@ -35,8 +51,13 @@ export default {
           fallbackQueueValidation: true,
           historicalAuditAffectsScore: true,
           legacyEmergentAndBotMemoryCleanup: true,
+          publicWorldGuardMigration: MIGRATION_VERSION,
+          patchFeatureAssertionsRequireGrounding: true,
+          publicResultAndScoreGrounding: true,
+          genericPrivatePlansRemainCreative: true,
           workersAiExcludedFromStructuredBrain: true,
           persistedLifetimeAndBootCounters: true,
+          comprehensiveCounterScopeLabels: true,
           v31CreativityPreserved: true,
           v32TypingPreserved: true,
           statusEndpoint: "/api/v35-status",
@@ -65,8 +86,12 @@ export default {
         pass: PASS,
         deployVersion: 35,
         endpoints: { ...(base?.endpoints || {}), v35: "/api/v35-status" },
-        diagnostics: { ...(base?.diagnostics || {}), correctnessV35: v35 },
-        v35: { plumbingAndCorrectness: true, v34ComprehensiveRuntimePreserved: true }
+        diagnostics: {
+          ...(base?.diagnostics || {}),
+          correctnessV35: v35,
+          counterScopes: counterScopes(v35)
+        },
+        v35: { plumbingAndCorrectness: true, v34ComprehensiveRuntimePreserved: true, publicWorldGuardMigration: MIGRATION_VERSION }
       });
     }
 
@@ -152,6 +177,8 @@ export class ChatRoom extends V35PlumbingChatRoom {
       directConversationPresenceLock: true,
       selfTargetHardBlock: true,
       parseQueueSurfaceValidation: true,
+      patchFeatureAssertionsRequireGrounding: true,
+      publicResultAndScoreGrounding: true,
       workersAiStructuredBrainDisabled: true,
       migrationVersion: this.v35MigrationVersion
     };
@@ -167,7 +194,12 @@ export class ChatRoom extends V35PlumbingChatRoom {
       migrationVersion: this.v35MigrationVersion,
       lifetime: { ...this.v35Stats },
       sinceObjectStart: { ...this.v35BootStats },
-      counterScopes: { v35LifetimePersisted: true, v35SinceObjectStart: true, inheritedVersionCountersMayResetOnDurableObjectRestart: true },
+      counterScopes: {
+        v35LifetimePersisted: true,
+        v35SinceObjectStart: true,
+        inheritedVersionCountersMayResetOnDurableObjectRestart: true,
+        inheritedPersistentStateMayStillShowPriorActivity: true
+      },
       directPresenceLocks: [...this.v35PresenceLocks.values()].map((r) => ({ name: r.name, human: r.human, reason: r.reason, remainingMs: Math.max(0, Number(r.until || 0) - now) })),
       structuredBrainProviders: ["gemini", "groq"],
       workersAiStillAvailableForNonBrainFallback: true,
