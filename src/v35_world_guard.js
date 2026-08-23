@@ -2,11 +2,14 @@ import { simulatedCutoff, timelineEventsThrough } from "./historical_knowledge_v
 
 const PERSONAL_LOCAL = /\b(?:my|our)\s+(?:boss|coworker|co-worker|friend|roommate|store|job|school|class|car|apartment|house|family|sister|brother|mom|dad|customer|manager)\b/i;
 const PERSONAL_ACQUIRE = /\b(?:i|we)\s+(?:just\s+)?(?:bought|got|rented|picked up|borrowed|found)\b/i;
-const PUBLIC_THING = /\b(?:patch|update|version|episode|season|map|product|console|game|album|movie|film|show|browser|software|hardware|graphics card|video card|chip|modem|service|coffee bean|tour|concert|festival|premiere|release|driver)\b/i;
+const PRIVATE_GENERIC_PLAN = /\b(?:i|im|i'm|we|we're|were)\s+(?:am\s+|are\s+)?(?:gonna|going to|might|may|probably|planning to|plan to|wanna|want to)\b.{0,55}\b(?:a|some|another)\s+(?:concert|show|movie|festival|gig|club|party|game)\b/i;
+const PRIVATE_RESULT = /\b(?:i|we|my|our)\b.{0,45}\b(?:won|beat|lost|score|game|match|league|tournament)\b/i;
+const PUBLIC_THING = /\b(?:patch|update|version|episode|season|map|product|console|game|album|movie|film|show|browser|software|hardware|graphics card|video card|chip|modem|service|coffee bean|tour|concert|festival|premiere|release|driver|match|series|tournament|election|poll)\b/i;
 const PUBLIC_NOVELTY = /\b(?:(?:the|this)\s+new|new\s+(?:patch|update|version|episode|season|map|product|console|game|album|movie|film|show|browser|software|hardware|graphics card|video card|chip|modem|service|coffee bean|tour|festival|release)|latest|just\s+(?:released|launched|premiered|announced|opened)|(?:heard|hear).{0,28}\b(?:new|latest|patch|release|episode|festival|concert)\b)\b/i;
 const RELATIVE_SCHEDULE = /\b(?:tomorrow|tonight|this weekend|next week)\b/i;
 const SPECIFIC_PATCH_FEATURE = /(?:\b(?:patch|update|version|map|driver)\b.{0,90}\b(?:fix(?:es|ed)?|add(?:s|ed)?|music|audio|track|netcode|lag|framerate|frame rate|speed|rocket jump|performance|glitch|feature)\b|\b(?:fix(?:es|ed)?|add(?:s|ed)?|music|audio|track|netcode|lag|framerate|frame rate|speed|rocket jump|performance|glitch)\b.{0,90}\b(?:patch|update|version|map|driver)\b)/i;
 const PATCH_CONTEXT_FEATURE = /\b(?:ran it|installed|with it installed|speed increased|low pings?|glitches?|netcode|lag|framerate|frame rate|rocket jump|audio track|sound fx|ambient tracks?|performance)\b/i;
+const PUBLIC_RESULT = /(?:\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b.{0,65}\b(?:won|beat|defeated|clinched|swept|score|elected)\b|\b(?:won|beat|defeated|clinched|swept|elected)\b.{0,65}\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b|\b(?:final score|score was)\b.{0,30}\b\d{1,3}\s*[-–]\s*\d{1,3}\b)/i;
 const QUESTIONISH = /^\s*(?:did|do|does|is|are|has|have|can|could|would|what|when|where|who|why|how|anyone|anybody)\b|\?/i;
 const SPECULATION = /\b(?:maybe|might|could|rumou?r|supposed to|coming|preview|demo|heard anything|any new|think)\b/i;
 const ASSERTIVE_AVAILABLE = /\b(?:got|have|has|own|owns|bought|using|installed|playing|played|ran|runs|available|out now|released|launched|in stores|on shelves|ships|shipping)\b/i;
@@ -25,6 +28,19 @@ const FUTURE_GATES = [
   ["1996-11-14", "Tomb Raider U.S. PlayStation release", [/\btomb raider\b/i], ASSERTIVE_AVAILABLE],
   ["1996-12-31", "Diablo release", [/\bdiablo\b/i], ASSERTIVE_AVAILABLE],
   ["1997-01-22", "GLQuake public release", [/\bglquake\b/i], null]
+];
+
+const PATCH_DETAIL_CUES = [
+  /\bnetcode\b/i,
+  /\blag\b/i,
+  /\bframerate\b|\bframe rate\b/i,
+  /\bmusic\b|\baudio\b|\btrack\b|\bsound fx\b/i,
+  /\bspeed\b/i,
+  /\brocket jump(?:ing)?\b/i,
+  /\bperformance\b/i,
+  /\bglitch(?:es)?\b/i,
+  /\bfix(?:es|ed)?\b/i,
+  /\badd(?:s|ed)?\b/i
 ];
 
 function compact(value, max = 260) {
@@ -62,11 +78,25 @@ function overlap(a, b) {
   return { n, size: bb.length };
 }
 
+function rowSupported(text, row) {
+  const x = overlap(text, row.text);
+  return x.n >= (x.size <= 1 ? 1 : 2);
+}
+
 function supported(text, culture, now, futureDate = "") {
   for (const row of supportRows(culture, now, futureDate)) {
     if (futureDate && row.date !== futureDate) continue;
-    const x = overlap(text, row.text);
-    if (x.n >= (x.size <= 1 ? 1 : 2)) return true;
+    if (rowSupported(text, row)) return true;
+  }
+  return false;
+}
+
+function supportedPatchDetail(text, culture, now) {
+  const cues = PATCH_DETAIL_CUES.filter((re) => re.test(text));
+  if (!cues.length) return false;
+  for (const row of supportRows(culture, now)) {
+    if (!rowSupported(text, row)) continue;
+    if (cues.some((re) => re.test(row.text))) return true;
   }
   return false;
 }
@@ -96,15 +126,27 @@ export function publicWorldViolation(text, culture, now = Date.now(), recentCont
 
   const personal = PERSONAL_LOCAL.test(value) || PERSONAL_ACQUIRE.test(value);
   if (personal) return null;
+  if (PRIVATE_GENERIC_PLAN.test(value) && !PUBLIC_NOVELTY.test(value)) return null;
+  if (PRIVATE_RESULT.test(value)) return null;
+
   const question = QUESTIONISH.test(value);
   const speculative = SPECULATION.test(value);
   const recentPatch = /\b(?:patch|update|new map|new version)\b/i.test(String(recentContext || ""));
 
-  if (SPECIFIC_PATCH_FEATURE.test(value) && !(question || speculative)) {
-    return { kind: "unsupported-public-detail", reason: "specific patch/update feature lacks historical grounding", text: compact(value, 180) };
+  if (SPECIFIC_PATCH_FEATURE.test(value)) {
+    if (question) {
+      if (recentPatch || supported(value, culture, now)) return null;
+      return { kind: "unsupported-public-claim", reason: "question presupposes an ungrounded patch/update", text: compact(value, 180) };
+    }
+    if (!supportedPatchDetail(value, culture, now)) {
+      return { kind: "unsupported-public-detail", reason: "specific patch/update feature lacks historical grounding", text: compact(value, 180) };
+    }
   }
-  if (recentPatch && PATCH_CONTEXT_FEATURE.test(value) && !(question || speculative)) {
+  if (recentPatch && PATCH_CONTEXT_FEATURE.test(value) && !question && !supportedPatchDetail(value, culture, now)) {
     return { kind: "unsupported-public-detail", reason: "continuation asserts an unsupported patch/update feature", text: compact(value, 180) };
+  }
+  if (PUBLIC_RESULT.test(value) && !question && !supported(value, culture, now)) {
+    return { kind: "unsupported-public-claim", reason: "public result/score lacks historical grounding", text: compact(value, 180) };
   }
   if (RELATIVE_SCHEDULE.test(value) && PUBLIC_THING.test(value)) {
     const tomorrow = /\btomorrow\b/i.test(value);
