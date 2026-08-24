@@ -1,8 +1,10 @@
 import { V35PlumbingChatRoom } from "./v35_plumbing.js";
 import { getCharacter } from "./characters.js";
+import { hasLol, moderate1996Lol } from "./v35_laughter.js";
 
 const DIRECT_REPAIR_WINDOW_MS = 90 * 1000;
 const MAX_BRAIN_MOVES = 7;
+const AI_CHAT_SOURCES = new Set(["gemini", "groq", "workers-ai", "ai"]);
 const FOLLOWUP_CUE = /\?|\b(?:can you elaborate|elaborate|what do you mean|why(?: does| is| are| did| do)?|how(?: does| is| are| did| do)?|are you sure|r u sure|you sure|not sure|really|like whom|like who|come on|cmon)\b/i;
 const REFERENTIAL_CUE = /\b(?:it|that|this|those|them|sure|really|why|how|elaborate|mean)\b/i;
 const HUMAN_RELATIVE_TIME_CUE = /\b(?:today|tonight|yesterday|last night|tomorrow)\b/i;
@@ -50,6 +52,44 @@ export class V35FollowupChatRoom extends V35PlumbingChatRoom {
     this.v35StructuredGenerationDepth = 0;
     this.v35StructuredSkipNoted = false;
     this.lastSemanticRetarget = null;
+  }
+
+  recentBotRows(max = 18) {
+    return (this.history || []).filter((row) => row?.kind === "bot").slice(-max);
+  }
+
+  moderateEraLaughter(from, text) {
+    if (!hasLol(text)) return text;
+    const character = getCharacter(from);
+    const roomRecent = this.recentBotRows(18);
+    const ownRecent = roomRecent.filter((row) => row?.from === from);
+    const habits = (character?.typing?.habits || []).map((value) => String(value).toLowerCase());
+    const result = moderate1996Lol(text, {
+      speaker: from,
+      seed: this.history?.length || 0,
+      configuredLol: habits.some((value) => value === "lol" || value === "lolol" || value === "lolz"),
+      ownRecent,
+      roomRecent
+    });
+    if (result.softened) {
+      this.bumpV35("lolRepetitionsSoftened");
+      this.broadcast?.({
+        type: "v35_style",
+        action: "soften-lol",
+        speaker: from,
+        reason: result.reason,
+        replacement: result.replacement,
+        at: Date.now()
+      });
+    }
+    return result.text;
+  }
+
+  brainPrompt(active, reason, human = null) {
+    const base = super.brainPrompt(active, reason, human);
+    const recent = this.recentBotRows(18);
+    const lolCount = recent.filter((row) => hasLol(row?.text || "")).length;
+    return `${base}\nV35 1996 CHAT REGISTER:\n- lol/LOL is authentic for 1996 online chat, but it is not punctuation and should not appear in every reaction.\n- Treat each character's listed typing habits as occasional fingerprints, not required catchphrases.\n- If a speaker used lol in one of their last few messages, prefer no laughter marker or a period-appropriate alternative such as haha, heh, :), or <g>.\n- Do not make every friendly/agreement line end in lol. Recent room usage: ${lolCount}/${recent.length || 0} visible bot lines contain lol.`;
   }
 
   explicitCharacterMention(text) {
@@ -193,6 +233,13 @@ export class V35FollowupChatRoom extends V35PlumbingChatRoom {
     });
     this.bumpV35("directFirstMovesInjected");
     return moves.slice(0, MAX_BRAIN_MOVES);
+  }
+
+  say(from, text, kind = "bot", source = "built-in", meta = {}) {
+    const output = kind === "bot" && AI_CHAT_SOURCES.has(String(source || ""))
+      ? this.moderateEraLaughter(from, text)
+      : text;
+    return super.say(from, output, kind, source, meta);
   }
 
   async callGroq(...args) {
