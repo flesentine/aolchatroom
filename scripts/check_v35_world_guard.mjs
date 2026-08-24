@@ -44,6 +44,29 @@ assert.equal(
 assert.equal(kind("the yankees won the game 8-3"), "unsupported-public-claim");
 assert.equal(kind("we won our softball game 8-3"), null);
 
+// Specific professional-game details from the v35 capture must not become shared reality
+// unless the historical/culture layer actually contains support for them.
+assert.equal(
+  kind("it was Mets and Dodgers went like fifteen innings", "anyone catch the late game last night"),
+  "unsupported-public-detail"
+);
+assert.equal(
+  kind("bottom of the ninth was unreal", "Mets and Dodgers went like fifteen innings"),
+  "unsupported-public-detail"
+);
+assert.equal(
+  kind("nah it went fifteen innings cuz the bullpen fell apart", "Mets and Dodgers late game last night"),
+  "unsupported-public-detail"
+);
+assert.equal(
+  kind("those pitching changes alone added like half an hour", "Mets and Dodgers went fifteen innings"),
+  "unsupported-public-detail"
+);
+
+// Vague sports chatter without an asserted result/detail remains allowed.
+assert.equal(kind("anyone catch the late game last night"), null);
+assert.equal(kind("yeah caught the end of it, unbelievable finish", "late game last night"), null);
+
 // Generic private plans remain creative space.
 assert.equal(kind("im going to a concert tomorrow"), null);
 
