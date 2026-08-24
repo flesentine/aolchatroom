@@ -18,7 +18,7 @@ export const CHARACTERS = [
     cannedFamilies: ["tease", "disagree", "room_dead", "hiphop", "gaming", "sports", "random"]
   },
   {
-    name: "CyberDude", age: 21, sex: "male", location: "Phoenix, AZ", timezone: "MT",
+    name: "CyberDude", age: 21, sex: "male", location: "Phoenix, AZ", timezone: "America/Phoenix",
     occupation: "computer store technician",
     interests: ["Netscape", "GeoCities", "Quake", "Doom", "HTML", "modems", "Linux"],
     personality: { sociability: 0.66, sarcasm: 0.42, argumentative: 0.54, curiosity: 0.95, confidence: 0.86 },
@@ -216,7 +216,7 @@ export const CHARACTERS = [
     cannedFamilies: ["music_alt", "movies", "late_night", "weather", "random", "tease"]
   },
   {
-    name: "SunDevilAZ", age: 25, sex: "male", location: "Tempe, AZ", timezone: "MT",
+    name: "SunDevilAZ", age: 25, sex: "male", location: "Tempe, AZ", timezone: "America/Phoenix",
     occupation: "university bookstore employee",
     interests: ["college football", "Phoenix Suns", "N64", "desert hiking", "sports"],
     personality: { sociability: 0.77, sarcasm: 0.41, argumentative: 0.63, curiosity: 0.54, confidence: 0.81 },
