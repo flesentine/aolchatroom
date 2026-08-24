@@ -5,6 +5,7 @@ const DIRECT_REPAIR_WINDOW_MS = 90 * 1000;
 const MAX_BRAIN_MOVES = 7;
 const FOLLOWUP_CUE = /\?|\b(?:can you elaborate|elaborate|what do you mean|why(?: does| is| are| did| do)?|how(?: does| is| are| did| do)?|are you sure|r u sure|you sure|not sure|really|like whom|like who|come on|cmon)\b/i;
 const REFERENTIAL_CUE = /\b(?:it|that|this|those|them|sure|really|why|how|elaborate|mean)\b/i;
+const HUMAN_RELATIVE_TIME_CUE = /\b(?:today|tonight|yesterday|last night|tomorrow)\b/i;
 const TOKEN_STOP = new Set([
   "about", "after", "again", "also", "been", "before", "being", "come", "does", "dont", "from", "have",
   "just", "like", "make", "more", "much", "really", "sure", "that", "them", "then", "there", "these", "they",
@@ -169,10 +170,13 @@ export class V35FollowupChatRoom extends V35PlumbingChatRoom {
 
     const target = human.target;
     const directIndex = moves.findIndex((move) => move.speaker === target && move.target === human.from);
-    const prefix = `Directly address ${human.from}'s latest message before changing topic. If a premise or factual detail is uncertain, clarify it or say you are not sure instead of inventing confirmation.`;
+    const temporalGuidance = HUMAN_RELATIVE_TIME_CUE.test(String(human?.text || ""))
+      ? ` Interpret ${human.from}'s relative-time wording from the human's own conversational day, not the bot's clock. Around midnight or early morning, do not force a calendar-day correction: yesterday, last night, tonight, and tomorrow may still follow the pre-sleep social day. If the human's timezone or intended date is unresolved, preserve the ambiguity rather than inventing certainty.`
+      : "";
+    const prefix = `Directly address ${human.from}'s latest message before changing topic. If a premise or factual detail is uncertain, clarify it or say you are not sure instead of inventing confirmation.${temporalGuidance}`;
 
     if (directIndex >= 0) {
-      const direct = { ...moves[directIndex], meaning: compact(`${prefix} ${moves[directIndex].meaning || ""}`, 260) };
+      const direct = { ...moves[directIndex], meaning: compact(`${prefix} ${moves[directIndex].meaning || ""}`, 520) };
       moves.splice(directIndex, 1);
       moves.unshift(direct);
       if (directIndex > 0) this.bumpV35("directFirstMovesReordered");
@@ -185,7 +189,7 @@ export class V35FollowupChatRoom extends V35PlumbingChatRoom {
       target: human.from,
       intent: "reply",
       topic: "general",
-      meaning: prefix
+      meaning: compact(prefix, 520)
     });
     this.bumpV35("directFirstMovesInjected");
     return moves.slice(0, MAX_BRAIN_MOVES);
