@@ -10,6 +10,9 @@ const RELATIVE_SCHEDULE = /\b(?:tomorrow|tonight|this weekend|next week)\b/i;
 const SPECIFIC_PATCH_FEATURE = /(?:\b(?:patch|update|version|map|driver)\b.{0,90}\b(?:fix(?:es|ed)?|add(?:s|ed)?|music|audio|track|netcode|lag|framerate|frame rate|speed|rocket jump|performance|glitch|feature)\b|\b(?:fix(?:es|ed)?|add(?:s|ed)?|music|audio|track|netcode|lag|framerate|frame rate|speed|rocket jump|performance|glitch)\b.{0,90}\b(?:patch|update|version|map|driver)\b)/i;
 const PATCH_CONTEXT_FEATURE = /\b(?:ran it|installed|with it installed|speed increased|low pings?|glitches?|netcode|lag|framerate|frame rate|rocket jump|audio track|sound fx|ambient tracks?|performance)\b/i;
 const PUBLIC_RESULT = /(?:\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b.{0,65}\b(?:won|beat|defeated|clinched|swept|score|elected)\b|\b(?:won|beat|defeated|clinched|swept|elected)\b.{0,65}\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b|\b(?:final score|score was)\b.{0,30}\b\d{1,3}\s*[-–]\s*\d{1,3}\b)/i;
+const PUBLIC_BASEBALL_TEAM = /\b(?:yankees|mets|red sox|orioles|blue jays|tigers|indians|brewers|white sox|twins|royals|rangers|mariners|angels|athletics|braves|marlins|expos|phillies|pirates|cardinals|cubs|reds|astros|dodgers|giants|padres|rockies)\b/gi;
+const PUBLIC_SPORTS_THREAD = /\b(?:late game|game last night|last night(?:'s)? game|pro game|major league|mlb|nba|nfl|nhl|yankees|mets|red sox|orioles|blue jays|tigers|indians|brewers|white sox|twins|royals|rangers|mariners|angels|athletics|braves|marlins|expos|phillies|pirates|cardinals|cubs|reds|astros|dodgers|giants|padres|rockies)\b/i;
+const PUBLIC_SPORTS_DETAIL = /\b(?:\d{1,2}\s+innings?|extra innings?|bottom of (?:the )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|\d+(?:st|nd|rd|th))|top of (?:the )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|\d+(?:st|nd|rd|th))|bullpen|pitching changes?|walk[- ]off|no[- ]hitter|shutout|overtime|double overtime|triple overtime)\b/i;
 const QUESTIONISH = /^\s*(?:did|do|does|is|are|has|have|can|could|would|what|when|where|who|why|how|anyone|anybody)\b|\?/i;
 const SPECULATION = /\b(?:maybe|might|could|rumou?r|supposed to|coming|preview|demo|heard anything|any new|think)\b/i;
 const ASSERTIVE_AVAILABLE = /\b(?:got|have|has|own|owns|bought|using|installed|playing|played|ran|runs|available|out now|released|launched|in stores|on shelves|ships|shipping)\b/i;
@@ -101,6 +104,10 @@ function supportedPatchDetail(text, culture, now) {
   return false;
 }
 
+function baseballTeamCount(text) {
+  return (String(text || "").match(PUBLIC_BASEBALL_TEAM) || []).length;
+}
+
 function hardFuture(text, now) {
   const cutoff = simulatedCutoff(now).dateKey;
   for (const [date, title, aliases, requires] of FUTURE_GATES) {
@@ -131,7 +138,9 @@ export function publicWorldViolation(text, culture, now = Date.now(), recentCont
 
   const question = QUESTIONISH.test(value);
   const speculative = SPECULATION.test(value);
-  const recentPatch = /\b(?:patch|update|new map|new version)\b/i.test(String(recentContext || ""));
+  const context = String(recentContext || "");
+  const recentPatch = /\b(?:patch|update|new map|new version)\b/i.test(context);
+  const publicSportsContext = PUBLIC_SPORTS_THREAD.test(value) || PUBLIC_SPORTS_THREAD.test(context) || baseballTeamCount(value) >= 2;
 
   if (SPECIFIC_PATCH_FEATURE.test(value)) {
     if (question) {
@@ -144,6 +153,9 @@ export function publicWorldViolation(text, culture, now = Date.now(), recentCont
   }
   if (recentPatch && PATCH_CONTEXT_FEATURE.test(value) && !question && !supportedPatchDetail(value, culture, now)) {
     return { kind: "unsupported-public-detail", reason: "continuation asserts an unsupported patch/update feature", text: compact(value, 180) };
+  }
+  if (publicSportsContext && PUBLIC_SPORTS_DETAIL.test(value) && !question && !supported(value, culture, now)) {
+    return { kind: "unsupported-public-detail", reason: "specific professional-game detail lacks historical grounding", text: compact(value, 180) };
   }
   if (PUBLIC_RESULT.test(value) && !question && !supported(value, culture, now)) {
     return { kind: "unsupported-public-claim", reason: "public result/score lacks historical grounding", text: compact(value, 180) };
