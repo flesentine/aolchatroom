@@ -59,7 +59,7 @@ function dateKey(year, month, day) {
 }
 
 function addDays(year, month, day, amount) {
-  const d = utcDate(year, month - 1 + 1, day);
+  const d = utcDate(year, month, day);
   d.setUTCDate(d.getUTCDate() + amount);
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
 }
