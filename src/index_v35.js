@@ -2,7 +2,8 @@ import baseWorker from "./index_v34.js";
 import { getCharacter } from "./characters.js";
 import { simulatedDateLabel, simulatedDateTimeLabel } from "./social.js";
 import { publicWorldViolation, auditPublicHistory, v35Grade } from "./v35_world_guard.js";
-import { V35PlumbingChatRoom, DIRECT_PRESENCE_LOCK_MS } from "./v35_plumbing.js";
+import { DIRECT_PRESENCE_LOCK_MS } from "./v35_plumbing.js";
+import { V35FollowupChatRoom } from "./v35_followup.js";
 
 const PASS = "plumbing-correctness-v35";
 const MIGRATION_VERSION = 2;
@@ -46,6 +47,9 @@ export default {
         v35: {
           engagementGateOnAiFastPath: true,
           directConversationPresenceLockMs: DIRECT_PRESENCE_LOCK_MS,
+          semanticDirectTargetRepair: true,
+          directFollowupReplyGuarantee: true,
+          directTargetFirstBrainMove: true,
           selfTargetHardBlock: true,
           parseQueueSurfacePublicValidation: true,
           fallbackQueueValidation: true,
@@ -54,8 +58,9 @@ export default {
           publicWorldGuardMigration: MIGRATION_VERSION,
           patchFeatureAssertionsRequireGrounding: true,
           publicResultAndScoreGrounding: true,
+          publicSportsDetailsRequireGrounding: true,
           genericPrivatePlansRemainCreative: true,
-          workersAiExcludedFromStructuredBrain: true,
+          workersAiExcludedFromStructuredGeneration: true,
           persistedLifetimeAndBootCounters: true,
           comprehensiveCounterScopeLabels: true,
           v31CreativityPreserved: true,
@@ -99,7 +104,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V35PlumbingChatRoom {
+export class ChatRoom extends V35FollowupChatRoom {
   async ensureState() {
     await super.ensureState();
     if (this.v35MigrationVersion >= MIGRATION_VERSION) return;
@@ -175,11 +180,15 @@ export class ChatRoom extends V35PlumbingChatRoom {
       historicalAudit: audit,
       engagementFastPathWired: true,
       directConversationPresenceLock: true,
+      semanticDirectTargetRepair: true,
+      directFollowupReplyGuarantee: true,
+      directTargetFirstBrainMove: true,
       selfTargetHardBlock: true,
       parseQueueSurfaceValidation: true,
       patchFeatureAssertionsRequireGrounding: true,
       publicResultAndScoreGrounding: true,
-      workersAiStructuredBrainDisabled: true,
+      publicSportsDetailsRequireGrounding: true,
+      workersAiStructuredGenerationDisabled: true,
       migrationVersion: this.v35MigrationVersion
     };
     return report;
@@ -201,8 +210,9 @@ export class ChatRoom extends V35PlumbingChatRoom {
         inheritedPersistentStateMayStillShowPriorActivity: true
       },
       directPresenceLocks: [...this.v35PresenceLocks.values()].map((r) => ({ name: r.name, human: r.human, reason: r.reason, remainingMs: Math.max(0, Number(r.until || 0) - now) })),
-      structuredBrainProviders: ["gemini", "groq"],
-      workersAiStillAvailableForNonBrainFallback: true,
+      lastSemanticRetarget: this.lastSemanticRetarget || null,
+      structuredGenerationProviders: ["gemini", "groq"],
+      workersAiStillAvailableOutsideStructuredChatGeneration: true,
       historicalAuditAllRetained: this.historicalAudit(true)
     };
   }
