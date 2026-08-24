@@ -6,6 +6,7 @@ import {
 } from "../src/v35_world_guard.js";
 import { getCharacter } from "../src/characters.js";
 import { mirrorLocalParts } from "../src/calendar.js";
+import { hasLol, moderate1996Lol } from "../src/v35_laughter.js";
 
 // The simulation mirrors the live month/day into 1996. Use a real 2026 timestamp
 // whose mirrored cutoff is August 23, 1996, matching the captured regression session.
@@ -172,4 +173,51 @@ assert.equal(speakerTemporalContext({ timezone: "MT" }, LATE).civilDateKey, "199
 assert.equal(mirrorLocalParts(cyberDude.timezone, LATE).dateKey, "1996-8-23");
 assert.equal(mirrorLocalParts("MT", LATE).dateKey, "1996-8-24");
 
-console.log("v35 world-guard regression checks passed");
+// LOL is period-authentic, but repeated use should be softened rather than becoming punctuation.
+assert.equal(hasLol("that was funny lol"), true);
+assert.equal(hasLol("that was funny haha"), false);
+assert.equal(
+  moderate1996Lol("that was funny lol", {
+    speaker: "JennJenn",
+    configuredLol: true,
+    ownRecent: ["no way lol", "seriously", "thats wild"],
+    roomRecent: ["no way lol", "seriously", "thats wild"]
+  }).softened,
+  true
+);
+assert.equal(
+  hasLol(moderate1996Lol("that was funny lol", {
+    speaker: "JennJenn",
+    configuredLol: true,
+    ownRecent: ["no way lol", "seriously", "thats wild"],
+    roomRecent: ["no way lol", "seriously", "thats wild"]
+  }).text),
+  false
+);
+assert.equal(
+  moderate1996Lol("that was funny lol", {
+    speaker: "JennJenn",
+    configuredLol: true,
+    ownRecent: ["seriously", "thats wild", "no way"],
+    roomRecent: ["seriously", "thats wild", "no way"]
+  }).softened,
+  false
+);
+assert.equal(
+  moderate1996Lol("that was funny lol", {
+    speaker: "NYMike23",
+    ownRecent: ["seriously", "thats wild"],
+    roomRecent: ["a lol", "b lol", "c lol", "plain line"]
+  }).reason,
+  "room-saturation"
+);
+assert.equal(
+  moderate1996Lol("lol means laugh out loud", {
+    speaker: "CyberDude",
+    ownRecent: ["lol"],
+    roomRecent: ["lol", "lol", "lol"]
+  }).softened,
+  false
+);
+
+console.log("v35 world-guard and 1996-style regression checks passed");
