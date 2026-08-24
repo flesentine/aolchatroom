@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { publicWorldViolation } from "../src/v35_world_guard.js";
+import {
+  publicWorldViolation,
+  relativeDateCandidates,
+  speakerTemporalContext
+} from "../src/v35_world_guard.js";
 
 // The simulation mirrors the live month/day into 1996. Use a real 2026 timestamp
 // whose mirrored cutoff is August 23, 1996, matching the captured regression session.
@@ -74,6 +78,49 @@ assert.equal(kind("im going to a concert tomorrow"), null);
 assert.equal(
   kind("i heard the new bean is like chocolate flavored, weird"),
   "unsupported-public-claim"
+);
+
+// Relative-day language uses the speaker's own timezone, not the room's PT date.
+// At the same absolute instant it is 11 PM Aug 23 in California but 2 AM Aug 24 in New York.
+const LATE = Date.parse("2026-08-23T23:00:00-07:00");
+const newYorkNightOwl = { timezone: "ET", occupation: "delivery driver" };
+const californiaOffice = { timezone: "PT", occupation: "office temp" };
+
+assert.equal(speakerTemporalContext(newYorkNightOwl, LATE).civilDateKey, "1996-08-24");
+assert.equal(speakerTemporalContext(newYorkNightOwl, LATE).socialDateKey, "1996-08-23");
+assert.deepEqual(
+  relativeDateCandidates("yesterday", newYorkNightOwl, LATE),
+  ["1996-08-23", "1996-08-22"]
+);
+assert.deepEqual(
+  relativeDateCandidates("yesterday", californiaOffice, LATE),
+  ["1996-08-22"]
+);
+
+// A 2 AM ET speaker can still use the pre-sleep social day, so an Aug 23 fact can
+// satisfy "yesterday" even though the strict civil calendar has already rolled to Aug 24.
+const datedGameCulture = {
+  events: [], movies: [], tv: [],
+  anchors: [{ date: "1996-08-23", title: "Mets Dodgers game", detail: "Mets Dodgers went nine innings" }]
+};
+assert.equal(
+  publicWorldViolation("Mets and Dodgers went nine innings yesterday", datedGameCulture, LATE, "", newYorkNightOwl),
+  null
+);
+assert.equal(
+  publicWorldViolation("Mets and Dodgers went nine innings yesterday", datedGameCulture, LATE, "", californiaOffice)?.kind,
+  "unsupported-public-detail"
+);
+
+// The ambiguity window is schedule-sensitive rather than a universal hard 4 AM rule.
+const THREE_AM_ET = Date.parse("2026-08-24T00:00:00-07:00");
+assert.equal(
+  speakerTemporalContext({ timezone: "ET", occupation: "office temp" }, THREE_AM_ET).lateNightAmbiguous,
+  false
+);
+assert.equal(
+  speakerTemporalContext({ timezone: "ET", occupation: "community college student" }, THREE_AM_ET).lateNightAmbiguous,
+  true
 );
 
 console.log("v35 world-guard regression checks passed");
