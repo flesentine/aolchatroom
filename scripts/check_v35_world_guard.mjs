@@ -4,6 +4,8 @@ import {
   relativeDateCandidates,
   speakerTemporalContext
 } from "../src/v35_world_guard.js";
+import { getCharacter } from "../src/characters.js";
+import { mirrorLocalParts } from "../src/calendar.js";
 
 // The simulation mirrors the live month/day into 1996. Use a real 2026 timestamp
 // whose mirrored cutoff is August 23, 1996, matching the captured regression session.
@@ -93,6 +95,22 @@ assert.deepEqual(
   ["1996-08-23", "1996-08-22"]
 );
 assert.deepEqual(
+  relativeDateCandidates("last night", newYorkNightOwl, LATE),
+  ["1996-08-23", "1996-08-22"]
+);
+assert.deepEqual(
+  relativeDateCandidates("today", newYorkNightOwl, LATE),
+  ["1996-08-24", "1996-08-23"]
+);
+assert.deepEqual(
+  relativeDateCandidates("tonight", newYorkNightOwl, LATE),
+  ["1996-08-24", "1996-08-23"]
+);
+assert.deepEqual(
+  relativeDateCandidates("tomorrow", newYorkNightOwl, LATE),
+  ["1996-08-25", "1996-08-24"]
+);
+assert.deepEqual(
   relativeDateCandidates("yesterday", californiaOffice, LATE),
   ["1996-08-22"]
 );
@@ -122,5 +140,36 @@ assert.equal(
   speakerTemporalContext({ timezone: "ET", occupation: "community college student" }, THREE_AM_ET).lateNightAmbiguous,
   true
 );
+
+// The rollover boundary itself is exclusive: at 4:30 AM, a student has rolled into the civil day.
+const FOUR_THIRTY_AM_ET = Date.parse("2026-08-24T01:30:00-07:00");
+assert.equal(
+  speakerTemporalContext({ timezone: "ET", occupation: "community college student" }, FOUR_THIRTY_AM_ET).lateNightAmbiguous,
+  false
+);
+assert.deepEqual(
+  relativeDateCandidates("yesterday", { timezone: "ET", occupation: "community college student" }, FOUR_THIRTY_AM_ET),
+  ["1996-08-23"]
+);
+
+// Fuzzy conversational dates must never leak a public fact that is still beyond the absolute room cutoff.
+const futureDatedCulture = {
+  events: [], movies: [], tv: [],
+  anchors: [{ date: "1996-08-24", title: "Mets Dodgers game", detail: "Mets Dodgers went nine innings" }]
+};
+assert.equal(
+  publicWorldViolation("Mets and Dodgers went nine innings today", futureDatedCulture, LATE, "", newYorkNightOwl)?.kind,
+  "unsupported-public-detail"
+);
+
+// Arizona does not observe daylight saving time. Phoenix/Tempe characters must not inherit Denver time.
+const cyberDude = getCharacter("CyberDude");
+const sunDevil = getCharacter("SunDevilAZ");
+assert.equal(cyberDude?.timezone, "America/Phoenix");
+assert.equal(sunDevil?.timezone, "America/Phoenix");
+assert.equal(speakerTemporalContext(cyberDude, LATE).civilDateKey, "1996-08-23");
+assert.equal(speakerTemporalContext({ timezone: "MT" }, LATE).civilDateKey, "1996-08-24");
+assert.equal(mirrorLocalParts(cyberDude.timezone, LATE).dateKey, "1996-8-23");
+assert.equal(mirrorLocalParts("MT", LATE).dateKey, "1996-8-24");
 
 console.log("v35 world-guard regression checks passed");
