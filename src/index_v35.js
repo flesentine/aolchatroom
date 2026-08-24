@@ -59,6 +59,9 @@ export default {
           patchFeatureAssertionsRequireGrounding: true,
           publicResultAndScoreGrounding: true,
           publicSportsDetailsRequireGrounding: true,
+          speakerLocalRelativeTime: true,
+          lateNightSocialDayAmbiguity: true,
+          relativeCalendarDoesNotHardFlipAtMidnight: true,
           genericPrivatePlansRemainCreative: true,
           workersAiExcludedFromStructuredGeneration: true,
           persistedLifetimeAndBootCounters: true,
@@ -118,7 +121,7 @@ export class ChatRoom extends V35FollowupChatRoom {
     for (const [name, facts] of Object.entries(this.emergentLife31?.byBot || {})) {
       const kept = (facts || []).filter((fact) => {
         const at = Number(fact?.createdAt || fact?.lastMentionedAt || now);
-        if (!publicWorldViolation(fact?.text || "", this.culture, at, "")) return true;
+        if (!publicWorldViolation(fact?.text || "", this.culture, at, "", getCharacter(name) || {})) return true;
         emergentPurged += 1; return false;
       });
       this.emergentLife31.byBot[name] = kept;
@@ -139,7 +142,8 @@ export class ChatRoom extends V35FollowupChatRoom {
         const sourceIndex = episode?.sourceMessageId ? (this.history || []).findIndex((r) => r?.messageId === episode.sourceMessageId) : -1;
         const context = sourceIndex >= 0 ? (this.history || []).slice(Math.max(0, sourceIndex - 8), sourceIndex).map((r) => r?.text || "").join(" ") : "";
         const sourceText = sourceIndex >= 0 ? String(this.history[sourceIndex]?.text || text) : text;
-        if (!publicWorldViolation(sourceText, this.culture, at, context)) return true;
+        const sourceSpeaker = sourceIndex >= 0 ? this.history[sourceIndex]?.from : bot;
+        if (!publicWorldViolation(sourceText, this.culture, at, context, getCharacter(sourceSpeaker) || getCharacter(bot) || {})) return true;
         episodicPurged += 1; return false;
       });
       this.memory23.byBot[bot] = kept;
@@ -153,7 +157,7 @@ export class ChatRoom extends V35FollowupChatRoom {
 
   historicalAudit(includeAll = false) {
     const floor = includeAll ? 0 : Number(this.realismHarnessStartedAt || Date.now());
-    return auditPublicHistory(this.history || [], this.culture, floor);
+    return auditPublicHistory(this.history || [], this.culture, floor, getCharacter);
   }
 
   realismReport(includeAll = false) {
@@ -188,6 +192,9 @@ export class ChatRoom extends V35FollowupChatRoom {
       patchFeatureAssertionsRequireGrounding: true,
       publicResultAndScoreGrounding: true,
       publicSportsDetailsRequireGrounding: true,
+      speakerLocalRelativeTime: true,
+      lateNightSocialDayAmbiguity: true,
+      relativeCalendarDoesNotHardFlipAtMidnight: true,
       workersAiStructuredGenerationDisabled: true,
       migrationVersion: this.v35MigrationVersion
     };
@@ -208,6 +215,12 @@ export class ChatRoom extends V35FollowupChatRoom {
         v35SinceObjectStart: true,
         inheritedVersionCountersMayResetOnDurableObjectRestart: true,
         inheritedPersistentStateMayStillShowPriorActivity: true
+      },
+      temporalInterpretation: {
+        speakerLocalRelativeTime: true,
+        lateNightSocialDayAmbiguity: true,
+        scheduleSensitiveRollover: true,
+        sharedPublicAvailabilityCutoffRemainsSeparate: true
       },
       directPresenceLocks: [...this.v35PresenceLocks.values()].map((r) => ({ name: r.name, human: r.human, reason: r.reason, remainingMs: Math.max(0, Number(r.until || 0) - now) })),
       lastSemanticRetarget: this.lastSemanticRetarget || null,
