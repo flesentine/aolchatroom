@@ -15,7 +15,9 @@ const MIRROR_YEAR = 1996;
 const ROOM_ZONE = "PT";
 
 function zoneName(zone = ROOM_ZONE) {
-  return ZONES[zone] || ZONES.PT;
+  const raw = String(zone || ROOM_ZONE);
+  if (raw.includes("/")) return raw;
+  return ZONES[raw] || ZONES.PT;
 }
 
 function zonedParts(now = Date.now(), zone = ROOM_ZONE) {

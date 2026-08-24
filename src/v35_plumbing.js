@@ -89,8 +89,9 @@ export class V35PlumbingChatRoom extends V34ChatRoom {
     return (this.history || []).slice(-max).map((r) => r?.text || "").join(" ");
   }
 
-  lineViolation(text, now = Date.now(), context = this.recentContextText()) {
-    return publicWorldViolation(text, this.culture, now, context);
+  lineViolation(text, now = Date.now(), context = this.recentContextText(), speaker = "") {
+    const profile = typeof speaker === "string" ? (getCharacter(speaker) || {}) : (speaker || {});
+    return publicWorldViolation(text, this.culture, now, context, profile);
   }
 
   noteViolation(v, stage, speaker = "") {
@@ -112,7 +113,7 @@ export class V35PlumbingChatRoom extends V34ChatRoom {
         this.bumpV35("selfTargetsBlocked");
         continue;
       }
-      const v = this.lineViolation(item.text, Date.now(), context);
+      const v = this.lineViolation(item.text, Date.now(), context, item.speaker);
       context += ` ${item.text}`;
       if (v) { this.noteViolation(v, stage, item.speaker); continue; }
       out.push(item);
@@ -132,7 +133,7 @@ export class V35PlumbingChatRoom extends V34ChatRoom {
         this.bumpV35("selfTargetsBlocked");
         continue;
       }
-      const v = this.lineViolation(move.meaning, Date.now(), context);
+      const v = this.lineViolation(move.meaning, Date.now(), context, move.speaker);
       context += ` ${move.meaning}`;
       if (v) { this.noteViolation(v, "parse", move.speaker); continue; }
       out.push(move);
@@ -155,7 +156,7 @@ export class V35PlumbingChatRoom extends V34ChatRoom {
     for (const item of this.aiQueue) {
       if (item?._scenePlanId || item?.source === "built-in") { kept.push(item); context += ` ${item?.text || ""}`; continue; }
       if (item?.target && item.target !== "room" && item.target === item.speaker) { this.bumpV35("selfTargetsBlocked"); continue; }
-      const v = this.lineViolation(item?.text || "", Date.now(), context);
+      const v = this.lineViolation(item?.text || "", Date.now(), context, item?.speaker || "");
       context += ` ${item?.text || ""}`;
       if (v) { this.noteViolation(v, "queue", item?.speaker || ""); continue; }
       kept.push(item);
@@ -269,7 +270,7 @@ export class V35PlumbingChatRoom extends V34ChatRoom {
   say(from, text, kind = "bot", source = "built-in", meta = {}) {
     if (kind === "bot" && meta?.target && meta.target !== "room" && meta.target === from) { this.bumpV35("selfTargetsBlocked"); return false; }
     if (kind === "bot" && AI_SOURCES.has(String(source || ""))) {
-      const v = this.lineViolation(text, Date.now(), this.recentContextText(10));
+      const v = this.lineViolation(text, Date.now(), this.recentContextText(10), from);
       if (v) { this.noteViolation(v, "surface", from); return false; }
     }
     return super.say(from, text, kind, source, meta);

@@ -1,0 +1,23 @@
+name: v35 correctness
+
+on:
+  push:
+    branches:
+      - v35-hardening-public-guard
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  v35-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run v35 regression checks
+        run: npm run check:v35
