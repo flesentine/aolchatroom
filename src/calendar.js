@@ -15,7 +15,9 @@ const MIRROR_YEAR = 1996;
 const ROOM_ZONE = "PT";
 
 function zoneName(zone = ROOM_ZONE) {
-  return ZONES[zone] || ZONES.PT;
+  const raw = String(zone || ROOM_ZONE);
+  if (raw.includes("/")) return raw;
+  return ZONES[raw] || ZONES.PT;
 }
 
 function zonedParts(now = Date.now(), zone = ROOM_ZONE) {
@@ -57,7 +59,7 @@ function dateKey(year, month, day) {
 }
 
 function addDays(year, month, day, amount) {
-  const d = utcDate(year, month, day);
+  const d = utcDate(year, month - 1 + 1, day);
   d.setUTCDate(d.getUTCDate() + amount);
   return { year: d.getUTCFullYear(), month: d.getUTCMonth() + 1, day: d.getUTCDate() };
 }
