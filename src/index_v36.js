@@ -4,6 +4,11 @@ import { simulatedDateLabel, simulatedDateTimeLabel } from "./social.js";
 import { evaluateWorldClaim, worldTruthPrompt } from "./world_model.js";
 import { auditWorldHistory } from "./world_audit.js";
 import { moderateVoiceHabits, voicePolicyPrompt } from "./voice_policy.js";
+import {
+  desiredRoomAlarm,
+  shouldRescheduleAlarm,
+  staleAlarmAfterRecentTick
+} from "./room_scheduler.js";
 
 const PASS = "world-model-consolidation-v36";
 const AI_SOURCES = new Set(["gemini", "groq", "workers-ai", "ai"]);
@@ -30,6 +35,8 @@ export default {
           roomChatterIsNotEvidence: true,
           genericPublicClaimTypes: ["schedule", "status", "novelty", "availability", "result", "sports-detail", "patch-detail"],
           unifiedVoicePolicy: true,
+          serverSideRoomScheduler: true,
+          browserPulseRequiredForChatter: false,
           v35CompatibilityFacade: true,
           statusEndpoint: "/api/v36-status"
         }
@@ -54,7 +61,12 @@ export default {
         deployVersion: 36,
         endpoints: { ...(base?.endpoints || {}), v36: "/api/v36-status" },
         diagnostics: { ...(base?.diagnostics || {}), architectureV36: v36 },
-        v36: { worldModelConsolidated: true, independentAudit: true, unifiedVoicePolicy: true }
+        v36: {
+          worldModelConsolidated: true,
+          independentAudit: true,
+          unifiedVoicePolicy: true,
+          serverSideRoomScheduler: true
+        }
       });
     }
     return baseWorker.fetch(request, env);
@@ -64,11 +76,110 @@ export default {
 export class ChatRoom extends V35ChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v36Stats = { voiceHabitChanges: 0, worldProvenanceTagged: 0, auditReviewFindings: 0 };
+    this.v36Stats = {
+      voiceHabitChanges: 0,
+      worldProvenanceTagged: 0,
+      auditReviewFindings: 0,
+      serverAlarmsScheduled: 0,
+      serverAlarmsCleared: 0,
+      serverAlarmWakeups: 0,
+      serverAlarmTicks: 0,
+      staleAlarmSkips: 0,
+      serverAlarmErrors: 0
+    };
+    this.v36AlarmAt = undefined;
+    this.v36LastTickAt = 0;
   }
 
   recentVoiceRows(max = 18) {
     return (this.history || []).filter((row) => row?.kind === "bot").slice(-max);
+  }
+
+  async currentRoomAlarm() {
+    if (this.v36AlarmAt !== undefined) return this.v36AlarmAt;
+    try {
+      this.v36AlarmAt = await this.ctx.storage.getAlarm();
+    } catch {
+      this.v36AlarmAt = null;
+    }
+    return this.v36AlarmAt;
+  }
+
+  async armRoomAlarm(now = Date.now()) {
+    const humanCount = this.humanNames?.().length || 0;
+    const desired = desiredRoomAlarm({ now, nextBotAt: this.nextBotAt, humanCount });
+    const current = await this.currentRoomAlarm();
+
+    if (desired == null) {
+      if (current != null) {
+        try { await this.ctx.storage.deleteAlarm(); } catch {}
+        this.v36AlarmAt = null;
+        this.v36Stats.serverAlarmsCleared += 1;
+      }
+      return null;
+    }
+
+    if (shouldRescheduleAlarm(current, desired)) {
+      await this.ctx.storage.setAlarm(desired);
+      this.v36AlarmAt = desired;
+      this.v36Stats.serverAlarmsScheduled += 1;
+    }
+    return this.v36AlarmAt;
+  }
+
+  async alarm() {
+    await this.ensureState();
+    this.v36AlarmAt = null;
+    this.v36Stats.serverAlarmWakeups += 1;
+
+    const humanCount = this.humanNames?.().length || 0;
+    if (!humanCount) {
+      await this.armRoomAlarm(Date.now());
+      return;
+    }
+
+    const now = Date.now();
+    if (staleAlarmAfterRecentTick({
+      now,
+      nextBotAt: this.nextBotAt,
+      lastTickAt: this.v36LastTickAt
+    })) {
+      this.v36Stats.staleAlarmSkips += 1;
+      await this.armRoomAlarm(now);
+      return;
+    }
+
+    // On a cold alarm wake, in-memory nextBotAt is reconstructed by the constructor.
+    // The alarm itself is the durable source of truth that a room turn is due.
+    this.nextBotAt = Math.min(Number(this.nextBotAt || now), now);
+    try {
+      await super.tick(false);
+      this.v36Stats.serverAlarmTicks += 1;
+    } catch {
+      // Cloudflare retries thrown alarms only a limited number of times. Keep the room
+      // recoverable by swallowing the provider/runtime failure and scheduling again.
+      this.v36Stats.serverAlarmErrors += 1;
+    } finally {
+      this.v36LastTickAt = Date.now();
+      await this.armRoomAlarm(Date.now());
+    }
+  }
+
+  async tick(forceSoon = false) {
+    let result;
+    try {
+      result = await super.tick(forceSoon);
+      return result;
+    } finally {
+      this.v36LastTickAt = Date.now();
+      await this.armRoomAlarm(Date.now());
+    }
+  }
+
+  webSocketClose(ws, ...args) {
+    const result = super.webSocketClose(ws, ...args);
+    this.armRoomAlarm(Date.now()).catch(() => {});
+    return result;
   }
 
   applyVoicePolicy(speaker, text) {
@@ -144,7 +255,8 @@ export class ChatRoom extends V35ChatRoom {
       authoritativeWorldModel: true,
       independentWorldAudit: audit,
       unifiedVoicePolicy: true,
-      publicClaimProvenance: true
+      publicClaimProvenance: true,
+      serverSideRoomScheduler: true
     };
     if (audit.needsReview) {
       report.regressionFlags = Array.isArray(report.regressionFlags) ? report.regressionFlags : [];
@@ -153,8 +265,9 @@ export class ChatRoom extends V35ChatRoom {
     return report;
   }
 
-  v36Snapshot() {
+  v36Snapshot(now = Date.now()) {
     const audit = this.worldAudit(0);
+    const humanCount = this.humanNames?.().length || 0;
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
@@ -164,7 +277,16 @@ export class ChatRoom extends V35ChatRoom {
         independentWorldAudit: true,
         publicClaimProvenance: true,
         unifiedVoicePolicy: true,
+        serverSideRoomScheduler: true,
+        browserPulseRequiredForChatter: false,
         compatibilityFacade: "v35_world_guard.js"
+      },
+      scheduler: {
+        humanCount,
+        nextBotInMs: Math.max(0, Number(this.nextBotAt || now) - now),
+        cachedAlarmAt: typeof this.v36AlarmAt === "number" ? this.v36AlarmAt : null,
+        cachedAlarmInMs: typeof this.v36AlarmAt === "number" ? Math.max(0, this.v36AlarmAt - now) : null,
+        lastTickAgoMs: this.v36LastTickAt ? Math.max(0, now - this.v36LastTickAt) : null
       },
       stats: { ...this.v36Stats },
       audit
@@ -174,8 +296,12 @@ export class ChatRoom extends V35ChatRoom {
   async fetch(request) {
     await this.ensureState();
     const url = new URL(request.url);
-    if (url.pathname === "/v36-status") return Response.json({ ok: true, ...this.v36Snapshot() });
+    if (url.pathname === "/v36-status") {
+      await this.armRoomAlarm(Date.now());
+      return Response.json({ ok: true, ...this.v36Snapshot() });
+    }
     const response = await super.fetch(request);
+    await this.armRoomAlarm(Date.now());
     if (url.pathname !== "/ai-status" && url.pathname !== "/realism-score") return response;
     try { return Response.json({ ...(await response.json()), pass: PASS, v36: this.v36Snapshot() }); }
     catch { return response; }
