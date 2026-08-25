@@ -1,0 +1,373 @@
+import { simulatedCutoff, timelineEventsThrough } from "./historical_knowledge_v27.js";
+
+const MIRROR_YEAR = 1996;
+const ZONES = { ET: "America/New_York", CT: "America/Chicago", MT: "America/Denver", PT: "America/Los_Angeles" };
+
+const PERSONAL_LOCAL = /\b(?:my|our)\s+(?:boss|coworker|co-worker|friend|roommate|store|job|school|class|car|apartment|house|family|sister|brother|mom|dad|customer|manager|hair|haircut|shirt|shoes|computer|stereo|bike|skateboard)\b/i;
+const PERSONAL_ACQUIRE = /\b(?:i|we)\s+(?:just\s+)?(?:bought|got|rented|picked up|borrowed|found)\b/i;
+const PRIVATE_GENERIC_PLAN = /\b(?:i|im|i'm|we|we're|were)\s+(?:am\s+|are\s+)?(?:gonna|going to|might|may|probably|planning to|plan to|wanna|want to)\b.{0,55}\b(?:a|some|another)\s+(?:concert|show|movie|festival|gig|club|party|game)\b/i;
+const PRIVATE_RESULT = /\b(?:i|we|my|our)\b.{0,45}\b(?:won|beat|lost|score|game|match|league|tournament)\b/i;
+
+const RELATIVE_DAY = /\b(?:today|tonight|yesterday|last night|tomorrow)\b/i;
+const RELATIVE_SCHEDULE = /\b(?:today|tonight|tomorrow|this weekend|next week|next monday|next tuesday|next wednesday|next thursday|next friday|next saturday|next sunday)\b/i;
+const QUESTIONISH = /^\s*(?:is|are|was|were|did|do|does|has|have|can|could|would|what|when|where|who|why|how|anyone|anybody)\b|\?\s*$/i;
+const PURE_QUERY = /^\s*(?:is|are|was|were|did|when|what|does|do you know|does anyone know|anyone know)\b/i;
+const PRESUPPOSITION = /\b(?:watch|catch|tape|record|go to|going to|gonna|see|hear about|heard about|remember when)\b/i;
+const SPECULATION = /\b(?:maybe|might|could|rumou?r|supposed to|coming|preview|demo|heard anything|any new|think|guess)\b/i;
+
+const PUBLIC_RESULT = /(?:\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b.{0,65}\b(?:won|beat|defeated|clinched|swept|score|elected)\b|\b(?:won|beat|defeated|clinched|swept|elected)\b.{0,65}\b(?:game|match|series|team|finals|championship|tournament|election|race|poll)\b|\b(?:final score|score was)\b.{0,30}\b\d{1,3}\s*[-–]\s*\d{1,3}\b)/i;
+const SPORTS_CONTEXT = /\b(?:late game|game last night|last night's game|pro game|major league|mlb|nba|nfl|nhl|baseball|basketball|football|hockey)\b/i;
+const SPORTS_DETAIL = /\b(?:innings?|bottom of (?:the )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|\d+(?:st|nd|rd|th))|top of (?:the )?(?:first|second|third|fourth|fifth|sixth|seventh|eighth|ninth|\d+(?:st|nd|rd|th))|bullpen|pitching changes?|walk[- ]off|no[- ]hitter|shutout|overtime|double overtime|triple overtime)\b/i;
+
+const PATCH_CONTEXT = /\b(?:patch|update|version|new map|driver|firmware)\b/i;
+const PATCH_DETAIL = /\b(?:fix(?:es|ed)?|add(?:s|ed)?|music|audio|track|netcode|lag|framerate|frame rate|speed|rocket jump|performance|glitch|feature)\b/i;
+
+const TV_STATUS = /\b(?:reruns?|syndicat(?:ed|ion)|off the air|cancelled|canceled|renewed|finale|premiere|season finale|series finale|new episodes?|still on|on every day|every day on|back next season)\b/i;
+const SCHEDULE_NOUN = /\b(?:episode|finale|premiere|concert|festival|game|match|show|movie|film|release|launch|tour|broadcast|special|debate|election)\b/i;
+const PUBLIC_THING = /\b(?:patch|update|version|episode|season|finale|premiere|map|product|console|game|album|movie|film|show|browser|software|hardware|graphics card|video card|chip|modem|service|tour|concert|festival|release|driver|match|series|tournament|election|poll|tutorials?)\b/i;
+const NOVELTY = /\b(?:(?:the|this)\s+new|new\s+[a-z0-9][a-z0-9+.#-]*|latest|just\s+(?:released|launched|premiered|announced|opened)|coming out|out now)\b/i;
+const VERSIONISH = /\b(?:[a-z]{2,}\d+[a-z0-9.-]*|\d+[a-z]{2,}[a-z0-9.-]*)\b/i;
+const ASSERTIVE_AVAILABLE = /\b(?:got|have|has|own|owns|bought|using|installed|playing|played|ran|runs|available|out now|released|launched|in stores|on shelves|ships|shipping|aired|was on|is on)\b/i;
+
+const CLAIM_STOP = new Set([
+  "about", "after", "again", "aired", "available", "before", "coming", "episode", "episodes",
+  "every", "finale", "game", "games", "heard", "latest", "launch", "launched", "movie", "movies",
+  "night", "premiere", "released", "rerun", "reruns", "season", "show", "shows", "syndication",
+  "that", "their", "there", "these", "they", "this", "today", "tomorrow", "tonight", "tutorials",
+  "watch", "weekend", "with", "yesterday"
+]);
+
+function compact(value, max = 320) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function pad(n) {
+  return String(n).padStart(2, "0");
+}
+
+function unique(values) {
+  return [...new Set((values || []).filter(Boolean))];
+}
+
+function addDateKey(key, days) {
+  const [year, month, day] = String(key || "").split("-").map(Number);
+  if (!year || !month || !day) return "";
+  const d = new Date(Date.UTC(year, month - 1, day, 12));
+  d.setUTCDate(d.getUTCDate() + days);
+  return `${d.getUTCFullYear()}-${pad(d.getUTCMonth() + 1)}-${pad(d.getUTCDate())}`;
+}
+
+function zoneName(zone = "PT") {
+  const raw = String(zone || "PT");
+  if (raw.includes("/")) return raw;
+  return ZONES[raw] || ZONES.PT;
+}
+
+function speakerLocalParts(speaker, now) {
+  const formatter = new Intl.DateTimeFormat("en-US", {
+    timeZone: zoneName(speaker?.timezone || "PT"),
+    year: "numeric",
+    month: "numeric",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: false
+  });
+  const parts = Object.fromEntries(
+    formatter.formatToParts(new Date(now))
+      .filter((part) => part.type !== "literal")
+      .map((part) => [part.type, part.value])
+  );
+  let hour = Number(parts.hour || 0);
+  if (hour === 24) hour = 0;
+  return {
+    month: Number(parts.month || 1),
+    day: Number(parts.day || 1),
+    hour,
+    minute: Number(parts.minute || 0)
+  };
+}
+
+function socialRolloverHour(speaker) {
+  const occupation = String(speaker?.occupation || "").toLowerCase();
+  if (/student|college|bartender|hotel|restaurant|hostess|projection|video rental|pizza delivery|radio volunteer/.test(occupation)) return 4.5;
+  if (/retail|clerk|cashier|store|warehouse|delivery|driver|dispatcher|sales/.test(occupation)) return 3.5;
+  if (/office|administrator|support|receptionist|temp|technician/.test(occupation)) return 2.5;
+  return 3;
+}
+
+export function speakerTemporalContext(speaker = {}, now = Date.now()) {
+  const local = speakerLocalParts(speaker, now);
+  const civilDateKey = `${MIRROR_YEAR}-${pad(local.month)}-${pad(local.day)}`;
+  const localHour = local.hour + local.minute / 60;
+  const rolloverHour = socialRolloverHour(speaker);
+  const lateNightAmbiguous = localHour < rolloverHour;
+  const socialDateKey = lateNightAmbiguous ? addDateKey(civilDateKey, -1) : civilDateKey;
+  return {
+    timezone: String(speaker?.timezone || "PT"),
+    zoneName: zoneName(speaker?.timezone || "PT"),
+    localHour,
+    rolloverHour,
+    lateNightAmbiguous,
+    civilDateKey,
+    socialDateKey,
+    todayCandidates: unique([civilDateKey, socialDateKey]),
+    yesterdayCandidates: unique([addDateKey(civilDateKey, -1), addDateKey(socialDateKey, -1)]),
+    tomorrowCandidates: unique([addDateKey(civilDateKey, 1), addDateKey(socialDateKey, 1)])
+  };
+}
+
+export function relativeDateCandidates(text, speaker = {}, now = Date.now()) {
+  const temporal = speakerTemporalContext(speaker, now);
+  const dates = [];
+  if (/\b(?:yesterday|last night)\b/i.test(text)) dates.push(...temporal.yesterdayCandidates);
+  if (/\b(?:today|tonight)\b/i.test(text)) dates.push(...temporal.todayCandidates);
+  if (/\btomorrow\b/i.test(text)) dates.push(...temporal.tomorrowCandidates);
+  return unique(dates);
+}
+
+function parseAirtime(value) {
+  const match = String(value || "").match(/^(\d{1,2}):(\d{2})$/);
+  return match ? Number(match[1]) * 60 + Number(match[2]) : null;
+}
+
+export function worldEvidenceRows(culture = {}, now = Date.now()) {
+  const cutoff = simulatedCutoff(now);
+  const rows = [];
+  const push = (date, text, type, state = "occurred", source = "culture") => {
+    if (!date || !text) return;
+    rows.push({ date: String(date).slice(0, 10), text: compact(text, 500), type, state, source });
+  };
+
+  for (const row of timelineEventsThrough(cutoff, 3650)) {
+    push(row.date, `${row.title || ""} ${row.note || ""}`, row.category || row.type || "event", "occurred", "timeline");
+  }
+
+  for (const row of culture?.anchors || []) {
+    const date = String(row?.date || "").slice(0, 10);
+    if (date && date <= cutoff.dateKey) {
+      push(date, `${row.title || ""} ${row.note || ""} ${row.detail || ""}`, row.type || "anchor");
+    }
+  }
+
+  for (const [group, type] of [[culture?.events, "event"], [culture?.movies, "movie"]]) {
+    for (const row of group || []) {
+      const date = String(row?.date || "").slice(0, 10);
+      if (date && date <= cutoff.dateKey) {
+        push(date, `${row.title || ""} ${row.note || ""} ${row.detail || ""} ${row.description || ""}`, type);
+      }
+    }
+  }
+
+  for (const row of culture?.tv || []) {
+    const date = String(row?.date || "").slice(0, 10);
+    if (!date) continue;
+    let state = date > cutoff.dateKey ? "scheduled" : "occurred";
+    if (date === cutoff.dateKey) {
+      const airtime = parseAirtime(row.airtime);
+      if (airtime != null && airtime > cutoff.minuteOfDay) state = "scheduled";
+    }
+    push(
+      date,
+      `${row.show || ""} ${row.episode || ""} ${row.network || ""} season ${row.season || ""} episode ${row.number || ""}`,
+      "tv",
+      state,
+      "tv-schedule"
+    );
+  }
+  return rows;
+}
+
+function tokens(value) {
+  return String(value || "")
+    .toLowerCase()
+    .replace(/[^a-z0-9+.# -]+/g, " ")
+    .split(/\s+/)
+    .filter((word) => word.length >= 3 && !CLAIM_STOP.has(word));
+}
+
+function evidenceOverlap(text, rowText) {
+  const query = new Set(tokens(text));
+  const evidence = new Set(tokens(rowText));
+  let count = 0;
+  for (const token of query) if (evidence.has(token)) count += 1;
+  return { n: count, querySize: query.size };
+}
+
+function semanticQualifierSupported(text, rowText, claimType) {
+  const value = String(text || "");
+  const evidence = String(rowText || "");
+  if (claimType === "status") {
+    if (/\breruns?\b|\bsyndicat/i.test(value)) return /\breruns?\b|\bsyndicat/i.test(evidence);
+    if (/\bcancelled|canceled\b/i.test(value)) return /\bcancelled|canceled\b/i.test(evidence);
+    if (/\brenewed\b/i.test(value)) return /\brenewed\b/i.test(evidence);
+    if (/\bfinale\b/i.test(value)) return /\bfinale\b|\bfinal\b/i.test(evidence);
+    if (/\bpremiere\b/i.test(value)) return /\bpremiere\b|\bfirst\b/i.test(evidence);
+  }
+  if (claimType === "schedule") {
+    if (/\bfinale\b/i.test(value) && !/\bfinale\b|\bfinal\b/i.test(evidence)) return false;
+    if (/\bpremiere\b/i.test(value) && !/\bpremiere\b|\bfirst\b/i.test(evidence)) return false;
+  }
+  if (claimType === "sports-detail") {
+    const cues = ["innings", "bullpen", "pitching", "walk-off", "no-hitter", "shutout", "overtime"];
+    const used = cues.filter((cue) => value.toLowerCase().includes(cue));
+    if (used.length && !used.some((cue) => evidence.toLowerCase().includes(cue))) return false;
+  }
+  if (claimType === "patch-detail") {
+    const cue = PATCH_DETAIL.exec(value)?.[0];
+    if (cue && !new RegExp(cue.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), "i").test(evidence)) return false;
+  }
+  return true;
+}
+
+export function groundedPublicEvidence(text, culture = {}, now = Date.now(), options = {}) {
+  const claimType = options.claimType || "public";
+  const allowedDates = unique(options.allowedDates || []);
+  const allowScheduled = Boolean(options.allowScheduled);
+  for (const row of worldEvidenceRows(culture, now)) {
+    if (allowedDates.length && !allowedDates.includes(row.date)) continue;
+    if (!allowScheduled && row.state !== "occurred") continue;
+    if (allowScheduled && row.state !== "occurred" && row.state !== "scheduled") continue;
+    const overlap = evidenceOverlap(text, row.text);
+    if (overlap.n < 1) continue;
+    if (overlap.querySize >= 4 && overlap.n < 2) continue;
+    if (!semanticQualifierSupported(text, row.text, claimType)) continue;
+    return row;
+  }
+  return null;
+}
+
+function domainHint(value, context = "", meta = {}) {
+  const joined = `${value} ${context} ${meta?.topic || ""}`;
+  return PUBLIC_THING.test(joined)
+    || PATCH_CONTEXT.test(joined)
+    || SPORTS_CONTEXT.test(joined)
+    || TV_STATUS.test(joined)
+    || VERSIONISH.test(value);
+}
+
+function knownEvidenceMention(value, culture = {}, now = Date.now()) {
+  return worldEvidenceRows(culture, now).some((row) => evidenceOverlap(value, row.text).n >= 1);
+}
+
+export function classifyPublicClaim(text, options = {}) {
+  const value = compact(text);
+  const context = compact(options.recentContext || "", 900);
+  const meta = options.meta || {};
+  if (!value) return null;
+  if (PERSONAL_LOCAL.test(value) || PERSONAL_ACQUIRE.test(value)) return null;
+  if (PRIVATE_GENERIC_PLAN.test(value) && !NOVELTY.test(value)) return null;
+  if (PRIVATE_RESULT.test(value)) return null;
+
+  const question = QUESTIONISH.test(value);
+  const pureQuery = PURE_QUERY.test(value);
+  const presupposes = PRESUPPOSITION.test(value);
+  const sportsContext = SPORTS_CONTEXT.test(value)
+    || SPORTS_CONTEXT.test(context)
+    || SPORTS_DETAIL.test(value)
+    || /sports/i.test(meta?.topic || "");
+  const patchContext = PATCH_CONTEXT.test(value) || PATCH_CONTEXT.test(context);
+
+  if (sportsContext && SPORTS_DETAIL.test(value) && !question) {
+    return { type: "sports-detail", question, presupposes, public: true };
+  }
+  if (PUBLIC_RESULT.test(value) && !question) {
+    return { type: "result", question, presupposes, public: true };
+  }
+  if (patchContext && PATCH_DETAIL.test(value) && !pureQuery) {
+    return { type: "patch-detail", question, presupposes, public: true };
+  }
+  if (RELATIVE_SCHEDULE.test(value) && (
+    SCHEDULE_NOUN.test(value)
+    || TV_STATUS.test(value)
+    || domainHint(value, context, meta)
+    || knownEvidenceMention(value, options.culture || {}, Number(options.now || Date.now()))
+  )) {
+    if (pureQuery && !presupposes) return null;
+    return { type: "schedule", question, presupposes, public: true };
+  }
+  if (TV_STATUS.test(value) && !pureQuery) {
+    return { type: "status", question, presupposes, public: true };
+  }
+  if (NOVELTY.test(value) && (
+    domainHint(value, context, meta)
+    || /\b(?:i|we)\s+heard\b.{0,30}\bnew\b/i.test(value)
+  ) && !pureQuery) {
+    return { type: "novelty", question, presupposes, public: true };
+  }
+  if (ASSERTIVE_AVAILABLE.test(value) && PUBLIC_THING.test(value) && !question) {
+    return { type: "availability", question, presupposes, public: true };
+  }
+  return null;
+}
+
+function violationKind(claimType, text = "") {
+  if (claimType === "schedule" && /\b(?:new|next)\b.{0,40}\b(?:episode|season)\b/i.test(String(text || ""))) {
+    return "future-public-claim";
+  }
+  if (claimType === "schedule") return "unsupported-relative-schedule";
+  if (claimType === "sports-detail" || claimType === "patch-detail") return "unsupported-public-detail";
+  return "unsupported-public-claim";
+}
+
+export function evaluateWorldClaim(text, options = {}) {
+  const now = Number(options.now || Date.now());
+  const claim = classifyPublicClaim(text, options);
+  if (!claim) return { ok: true, epistemic: "ordinary-or-private", claim: null, evidence: null };
+
+  const dates = RELATIVE_DAY.test(String(text || ""))
+    ? relativeDateCandidates(text, options.speaker || {}, now)
+    : [];
+  const evidence = groundedPublicEvidence(text, options.culture || {}, now, {
+    claimType: claim.type,
+    allowedDates: dates,
+    allowScheduled: claim.type === "schedule"
+  });
+
+  if (evidence) {
+    return {
+      ok: true,
+      epistemic: evidence.state === "scheduled" ? "grounded-schedule" : "grounded-public",
+      claim,
+      evidence
+    };
+  }
+
+  if (claim.question && !claim.presupposes && SPECULATION.test(String(text || ""))) {
+    return { ok: true, epistemic: "question-or-rumor", claim, evidence: null };
+  }
+
+  return {
+    ok: false,
+    epistemic: "unsupported-public",
+    claim,
+    evidence: null,
+    violation: {
+      kind: violationKind(claim.type, text),
+      reason: `public ${claim.type} assertion lacks world-model grounding`,
+      claimType: claim.type,
+      text: compact(text, 180)
+    }
+  };
+}
+
+export function publicWorldViolation(text, culture, now = Date.now(), recentContext = "", speaker = {}, meta = {}) {
+  return evaluateWorldClaim(text, { culture, now, recentContext, speaker, meta }).violation || null;
+}
+
+export function worldTruthPrompt(culture = {}, now = Date.now()) {
+  const cutoff = simulatedCutoff(now);
+  const scheduled = worldEvidenceRows(culture, now).filter((row) => row.state === "scheduled").slice(0, 8);
+  const lines = [
+    `WORLD TRUTH CONTRACT — ${cutoff.dateKey} ${pad(cutoff.hour)}:${pad(cutoff.minute)} PT:`,
+    "- Public reality is evidence-bound. Do not invent schedules, finales, premieres, rerun/syndication status, release status, sports results/details, software patch features, or other time-bound public facts.",
+    "- Room chatter is not evidence. A human or bot claim can be a rumor, misunderstanding, joke, or question; do not silently promote it into shared truth.",
+    "- If a public detail is not in the supplied historical/culture evidence, be vague, ask, or say you are not sure.",
+    "- Private fictional life remains creative: jobs, roommates, local mishaps, dates, family, hobbies, and personal plans may be invented when consistent with the character.",
+    "- Future schedule evidence means only that something is scheduled; it does not reveal outcomes, reviews, reputation, or what happened."
+  ];
+  if (scheduled.length) {
+    lines.push(`- Known scheduled rows currently available: ${scheduled.map((row) => `${row.date} ${row.text}`).join(" | ")}`);
+  }
+  return lines.join("\n");
+}

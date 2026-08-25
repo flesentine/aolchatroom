@@ -1,0 +1,23 @@
+name: v36 architecture
+
+on:
+  push:
+    branches:
+      - v36-world-model-consolidation
+  pull_request:
+    branches:
+      - main
+
+jobs:
+  v36-check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - name: Run full regression suite
+        run: npm run check
