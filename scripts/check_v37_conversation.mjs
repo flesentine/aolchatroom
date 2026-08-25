@@ -109,4 +109,13 @@ const directorSource = fs.readFileSync(new URL("../src/conversation_director.js"
 assert.equal(directorSource.includes('from "./director.js"'), false);
 assert.equal(directorSource.includes("FALLBACK_SCENES"), false);
 
+const runtimeSource = fs.readFileSync(new URL("../src/index_v37.js", import.meta.url), "utf8");
+assert.equal(runtimeSource.includes('from "./director.js"'), false);
+assert.equal(runtimeSource.includes("this.callProvider(provider, prompt"), true);
+assert.equal(runtimeSource.includes("this.noteProviderFailure("), false);
+assert.equal(runtimeSource.includes("this.noteProviderSuccess("), false);
+assert.equal(runtimeSource.includes("this.noteOutputReject("), false);
+assert.equal(runtimeSource.includes("visibleRoutingChanges: false"), true);
+assert.equal(runtimeSource.includes("legacyPlannerAuthoritative: true"), true);
+
 console.log("v37 conversation-state and director-shadow regression checks passed");
