@@ -5,7 +5,10 @@ import { evaluateWorldClaim, worldTruthPrompt } from "./world_model.js";
 import { auditWorldHistory } from "./world_audit.js";
 import { moderateVoiceHabits, voicePolicyPrompt } from "./voice_policy.js";
 import {
+  ROOM_LIVENESS_FORCE_COOLDOWN_MS,
+  ROOM_LIVENESS_FORCE_MS,
   desiredRoomAlarm,
+  shouldForceLivenessTick,
   shouldRescheduleAlarm,
   staleAlarmAfterRecentTick
 } from "./room_scheduler.js";
@@ -36,6 +39,7 @@ export default {
           genericPublicClaimTypes: ["schedule", "status", "novelty", "availability", "result", "sports-detail", "patch-detail"],
           unifiedVoicePolicy: true,
           serverSideRoomScheduler: true,
+          activeRoomSilenceBoundMs: ROOM_LIVENESS_FORCE_MS,
           browserPulseRequiredForChatter: false,
           v35CompatibilityFacade: true,
           statusEndpoint: "/api/v36-status"
@@ -65,7 +69,8 @@ export default {
           worldModelConsolidated: true,
           independentAudit: true,
           unifiedVoicePolicy: true,
-          serverSideRoomScheduler: true
+          serverSideRoomScheduler: true,
+          activeRoomSilenceBoundMs: ROOM_LIVENESS_FORCE_MS
         }
       });
     }
@@ -85,14 +90,23 @@ export class ChatRoom extends V35ChatRoom {
       serverAlarmWakeups: 0,
       serverAlarmTicks: 0,
       staleAlarmSkips: 0,
-      serverAlarmErrors: 0
+      serverAlarmErrors: 0,
+      livenessForcedTicks: 0,
+      livenessForceMisses: 0,
+      maxObservedBotSilenceMs: 0
     };
     this.v36AlarmAt = undefined;
     this.v36LastTickAt = 0;
+    this.v36LastLivenessForceAt = 0;
   }
 
   recentVoiceRows(max = 18) {
     return (this.history || []).filter((row) => row?.kind === "bot").slice(-max);
+  }
+
+  lastBotLineAt() {
+    const row = [...(this.history || [])].reverse().find((item) => item?.kind === "bot" && Number(item?.at || 0) > 0);
+    return Number(row?.at || 0);
   }
 
   async currentRoomAlarm() {
@@ -107,7 +121,14 @@ export class ChatRoom extends V35ChatRoom {
 
   async armRoomAlarm(now = Date.now()) {
     const humanCount = this.humanNames?.().length || 0;
-    const desired = desiredRoomAlarm({ now, nextBotAt: this.nextBotAt, humanCount });
+    const lastBotAt = this.lastBotLineAt();
+    const desired = desiredRoomAlarm({
+      now,
+      nextBotAt: this.nextBotAt,
+      humanCount,
+      lastBotAt,
+      livenessMs: ROOM_LIVENESS_FORCE_MS
+    });
     const current = await this.currentRoomAlarm();
 
     if (desired == null) {
@@ -139,7 +160,24 @@ export class ChatRoom extends V35ChatRoom {
     }
 
     const now = Date.now();
-    if (staleAlarmAfterRecentTick({
+    const lastBotAt = this.lastBotLineAt();
+    if (lastBotAt > 0) {
+      this.v36Stats.maxObservedBotSilenceMs = Math.max(
+        Number(this.v36Stats.maxObservedBotSilenceMs || 0),
+        Math.max(0, now - lastBotAt)
+      );
+    }
+    const forceLiveness = shouldForceLivenessTick({
+      now,
+      lastBotAt,
+      humanCount,
+      queueLength: this.aiQueue?.length || 0,
+      lastForcedAt: this.v36LastLivenessForceAt,
+      livenessMs: ROOM_LIVENESS_FORCE_MS,
+      cooldownMs: ROOM_LIVENESS_FORCE_COOLDOWN_MS
+    });
+
+    if (!forceLiveness && staleAlarmAfterRecentTick({
       now,
       nextBotAt: this.nextBotAt,
       lastTickAt: this.v36LastTickAt
@@ -152,13 +190,25 @@ export class ChatRoom extends V35ChatRoom {
     // On a cold alarm wake, in-memory nextBotAt is reconstructed by the constructor.
     // The alarm itself is the durable source of truth that a room turn is due.
     this.nextBotAt = Math.min(Number(this.nextBotAt || now), now);
+    const beforeBotAt = lastBotAt;
+    if (forceLiveness) {
+      this.v36LastLivenessForceAt = now;
+      this.v36Stats.livenessForcedTicks += 1;
+    }
     try {
-      await super.tick(false);
+      // forceSoon only bypasses the inherited scene-refill wait when an active room
+      // has been genuinely silent beyond the liveness bound. Normal alarms keep the
+      // existing pacing and scene cadence.
+      await super.tick(forceLiveness);
       this.v36Stats.serverAlarmTicks += 1;
+      if (forceLiveness && this.lastBotLineAt() <= beforeBotAt) {
+        this.v36Stats.livenessForceMisses += 1;
+      }
     } catch {
       // Cloudflare retries thrown alarms only a limited number of times. Keep the room
       // recoverable by swallowing the provider/runtime failure and scheduling again.
       this.v36Stats.serverAlarmErrors += 1;
+      if (forceLiveness) this.v36Stats.livenessForceMisses += 1;
     } finally {
       this.v36LastTickAt = Date.now();
       await this.armRoomAlarm(Date.now());
@@ -256,7 +306,8 @@ export class ChatRoom extends V35ChatRoom {
       independentWorldAudit: audit,
       unifiedVoicePolicy: true,
       publicClaimProvenance: true,
-      serverSideRoomScheduler: true
+      serverSideRoomScheduler: true,
+      activeRoomSilenceBoundMs: ROOM_LIVENESS_FORCE_MS
     };
     if (audit.needsReview) {
       report.regressionFlags = Array.isArray(report.regressionFlags) ? report.regressionFlags : [];
@@ -268,6 +319,7 @@ export class ChatRoom extends V35ChatRoom {
   v36Snapshot(now = Date.now()) {
     const audit = this.worldAudit(0);
     const humanCount = this.humanNames?.().length || 0;
+    const lastBotAt = this.lastBotLineAt();
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
@@ -278,15 +330,21 @@ export class ChatRoom extends V35ChatRoom {
         publicClaimProvenance: true,
         unifiedVoicePolicy: true,
         serverSideRoomScheduler: true,
+        activeRoomSilenceBoundMs: ROOM_LIVENESS_FORCE_MS,
         browserPulseRequiredForChatter: false,
         compatibilityFacade: "v35_world_guard.js"
       },
       scheduler: {
         humanCount,
+        queueLength: this.aiQueue?.length || 0,
         nextBotInMs: Math.max(0, Number(this.nextBotAt || now) - now),
         cachedAlarmAt: typeof this.v36AlarmAt === "number" ? this.v36AlarmAt : null,
         cachedAlarmInMs: typeof this.v36AlarmAt === "number" ? Math.max(0, this.v36AlarmAt - now) : null,
-        lastTickAgoMs: this.v36LastTickAt ? Math.max(0, now - this.v36LastTickAt) : null
+        lastTickAgoMs: this.v36LastTickAt ? Math.max(0, now - this.v36LastTickAt) : null,
+        lastBotAgoMs: lastBotAt ? Math.max(0, now - lastBotAt) : null,
+        livenessForceAfterMs: ROOM_LIVENESS_FORCE_MS,
+        livenessForceCooldownMs: ROOM_LIVENESS_FORCE_COOLDOWN_MS,
+        lastLivenessForceAgoMs: this.v36LastLivenessForceAt ? Math.max(0, now - this.v36LastLivenessForceAt) : null
       },
       stats: { ...this.v36Stats },
       audit
