@@ -2,6 +2,11 @@ import assert from "node:assert/strict";
 import { publicWorldViolation, evaluateWorldClaim } from "../src/world_model.js";
 import { auditWorldHistory } from "../src/world_audit.js";
 import { moderateVoiceHabits } from "../src/voice_policy.js";
+import {
+  desiredRoomAlarm,
+  shouldRescheduleAlarm,
+  staleAlarmAfterRecentTick
+} from "../src/room_scheduler.js";
 
 const NOW = Date.parse("2026-08-24T11:00:00-07:00");
 const emptyCulture = { events: [], movies: [], tv: [], anchors: [] };
@@ -84,4 +89,25 @@ assert.equal(voice.changed, true);
 assert.ok(voice.changes.some((change) => change.key === "lol"));
 assert.ok(voice.changes.some((change) => change.key === "omg"));
 
-console.log("v36 world-model consolidation regression checks passed");
+// The room scheduler must not depend on browser timers. An active room gets a
+// server alarm at the next due bot turn; an empty room does not keep waking.
+assert.equal(desiredRoomAlarm({ now: NOW, nextBotAt: NOW + 4200, humanCount: 1 }), NOW + 4200);
+assert.equal(desiredRoomAlarm({ now: NOW, nextBotAt: NOW - 1, humanCount: 1 }), NOW + 250);
+assert.equal(desiredRoomAlarm({ now: NOW, nextBotAt: NOW + 4200, humanCount: 0 }), null);
+assert.equal(shouldRescheduleAlarm(NOW + 4200, NOW + 4300), false);
+assert.equal(shouldRescheduleAlarm(NOW + 4200, NOW + 6200), true);
+assert.equal(shouldRescheduleAlarm(null, NOW + 4200), true);
+assert.equal(
+  staleAlarmAfterRecentTick({ now: NOW, nextBotAt: NOW + 3000, lastTickAt: NOW - 100 }),
+  true
+);
+assert.equal(
+  staleAlarmAfterRecentTick({ now: NOW, nextBotAt: NOW - 1, lastTickAt: NOW - 100 }),
+  false
+);
+assert.equal(
+  staleAlarmAfterRecentTick({ now: NOW, nextBotAt: NOW + 3000, lastTickAt: 0 }),
+  false
+);
+
+console.log("v36 world-model consolidation and room-scheduler regression checks passed");
