@@ -3,7 +3,9 @@ import { publicWorldViolation, evaluateWorldClaim } from "../src/world_model.js"
 import { auditWorldHistory } from "../src/world_audit.js";
 import { moderateVoiceHabits } from "../src/voice_policy.js";
 import {
+  ROOM_LIVENESS_FORCE_MS,
   desiredRoomAlarm,
+  shouldForceLivenessTick,
   shouldRescheduleAlarm,
   staleAlarmAfterRecentTick
 } from "../src/room_scheduler.js";
@@ -108,6 +110,43 @@ assert.equal(
 assert.equal(
   staleAlarmAfterRecentTick({ now: NOW, nextBotAt: NOW + 3000, lastTickAt: 0 }),
   false
+);
+
+// Capture regression: server alarms were waking, but an empty AI queue could still
+// wait 30-50s for the inherited scene-refill window. The durable alarm must now be
+// pulled forward to the liveness deadline and force the existing AI refill there.
+assert.equal(ROOM_LIVENESS_FORCE_MS, 14000);
+assert.equal(
+  desiredRoomAlarm({ now: NOW, nextBotAt: NOW + 30000, humanCount: 1, lastBotAt: NOW - 10000 }),
+  NOW + 4000
+);
+assert.equal(
+  desiredRoomAlarm({ now: NOW, nextBotAt: NOW + 3000, humanCount: 1, lastBotAt: NOW - 10000 }),
+  NOW + 3000
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 13999, humanCount: 1, queueLength: 0, lastForcedAt: 0 }),
+  false
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 14000, humanCount: 1, queueLength: 0, lastForcedAt: 0 }),
+  true
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 1, queueLength: 2, lastForcedAt: 0 }),
+  false
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 0, queueLength: 0, lastForcedAt: 0 }),
+  false
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 1, queueLength: 0, lastForcedAt: NOW - 6999 }),
+  false
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: 0, humanCount: 1, queueLength: 0, lastForcedAt: 0 }),
+  true
 );
 
 console.log("v36 world-model consolidation and room-scheduler regression checks passed");
