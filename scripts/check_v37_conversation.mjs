@@ -10,6 +10,7 @@ import {
 } from "../src/conversation_state.js";
 import {
   buildContextPacket,
+  directorPrompt,
   packetContainsRequiredContext,
   structuralShadowMove,
   inferHumanMoveType,
@@ -80,6 +81,38 @@ for (const text of [
   "you guys love talking about closing time"
 ]) assert.equal(inferHumanMoveType(text), "pivot");
 
+// Real probe paraphrases deliberately remain outside the cheap regex scaffold.
+// Their semantic interpretation belongs to the model Director, not a growing phrase list.
+for (const text of [
+  "you all complain a lot about the same stuff",
+  "so I guess we are back on the same complaints",
+  "does anybody care about a different subject"
+]) assert.equal(inferHumanMoveType(text), text.endsWith("subject") ? "answer" : "respond");
+
+const probeHistory = [
+  { messageId: "p0", at: 4500, kind: "bot", from: "JennJenn", target: "room", text: "closing shifts are exhausting" },
+  { messageId: "p1", at: 4600, kind: "bot", from: "Sk8rGuy16", target: "JennJenn", text: "dealing with customers all day is brutal" },
+  { messageId: "p2", at: 4700, kind: "human", from: "Crateman", target: "room", text: "so I guess we are back on the same complaints" }
+];
+const probePacket = buildContextPacket({ history: probeHistory, state: reconstructConversationState(probeHistory), triggerRow: probeHistory.at(-1), onlineBots: bots });
+const probePrompt = directorPrompt(probePacket);
+assert.ok(probePrompt.includes("ONLINE BOTS: JennJenn, TexTom, Sk8rGuy16, MoonChild"));
+assert.ok(probePrompt.includes("Choose speaker EXACTLY"));
+assert.ok(probePrompt.includes("Boredom, repetition complaints, sarcasm"));
+assert.ok(probePrompt.includes("do NOT invent one"));
+assert.ok(probePrompt.includes("do not blindly copy a stale subject"));
+assert.ok(probePrompt.includes("Broad topic labels are diagnostic only"));
+
+const unknownCauseHistory = [
+  { messageId: "d0", at: 4800, kind: "bot", from: "JennJenn", target: "Crateman", text: "i work at a clothing store in the mall" },
+  { messageId: "d1", at: 4810, kind: "bot", from: "JennJenn", target: "Crateman", text: "i work at a clothing store in the mall" },
+  { messageId: "d2", at: 4820, kind: "human", from: "Crateman", target: "JennJenn", text: "why did you say that twice" }
+];
+const unknownCausePacket = buildContextPacket({ history: unknownCauseHistory, state: reconstructConversationState(unknownCauseHistory), triggerRow: unknownCauseHistory.at(-1), onlineBots: bots });
+const unknownCausePrompt = directorPrompt(unknownCausePacket);
+assert.ok(unknownCausePrompt.includes("If the human asks why something happened and the packet does not establish a cause"));
+assert.ok(unknownCausePrompt.includes("Do not invent public or private facts"));
+
 const wrongTopicHistory = [
   { messageId: "w0", at: 5000, kind: "bot", from: "DaBomb96", target: "room", text: "gwen is all over the radio", topic: "food" },
   { messageId: "w1", at: 5100, kind: "human", from: "Crateman", target: "room", text: "late night radio is better" }
@@ -97,6 +130,11 @@ const badLock = parseDirectorMove(JSON.stringify({
 }), { onlineBots: bots, humans: ["Crateman"], obligation: tagsPacket.obligation });
 assert.equal(badLock.ok, false);
 assert.equal(badLock.error, "violates-routing-lock");
+const badRoomSpeaker = parseDirectorMove(JSON.stringify({
+  speaker: "OfflineBot", target: "Crateman", replyTo: "p2", subject: "repetitive complaints", moveType: "pivot", goal: "move to a different subject", sceneAction: "replace"
+}), { onlineBots: bots, humans: ["Crateman"] });
+assert.equal(badRoomSpeaker.ok, false);
+assert.equal(badRoomSpeaker.error, "invalid-speaker");
 
 assert.equal(attributeDirectorFailure({ packetOk: false }), "context/state");
 assert.equal(attributeDirectorFailure({ providerError: true }), "provider");
@@ -108,6 +146,8 @@ assert.equal(attributeDirectorFailure({}), "");
 const directorSource = fs.readFileSync(new URL("../src/conversation_director.js", import.meta.url), "utf8");
 assert.equal(directorSource.includes('from "./director.js"'), false);
 assert.equal(directorSource.includes("FALLBACK_SCENES"), false);
+assert.equal(directorSource.includes("you guys whine a lot about work and stuff"), false);
+assert.equal(directorSource.includes("ok back to talking about work complaints"), false);
 
 const runtimeSource = fs.readFileSync(new URL("../src/index_v37.js", import.meta.url), "utf8");
 assert.equal(runtimeSource.includes('from "./director.js"'), false);
