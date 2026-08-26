@@ -1,5 +1,6 @@
 import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
 import { CoalescingTurnGate } from "./production_turn_gate.js";
+import { stripInternalChatMetadata } from "./output_hygiene_v37.js";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -22,7 +23,8 @@ export default {
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
         liveAiShadowPausedForProviderStability: false,
-        liveAiShadowResumedAfterSingleFlightValidation: true
+        liveAiShadowResumedAfterSingleFlightValidation: true,
+        internalMetadataOutputHygiene: true
       }
     });
   }
@@ -42,7 +44,9 @@ export class ChatRoom extends V37ChatRoom {
       replayTurns: 0,
       deferredAfterReplayCap: 0,
       maxConcurrentBaseTurns: 0,
-      liveAiShadowPauses: 0
+      liveAiShadowPauses: 0,
+      internalMetadataStrips: 0,
+      internalMetadataDroppedLines: 0
     };
     this.v37ProductionTurnGate = new CoalescingTurnGate({
       run: (source, forceSoon) => this.runV37BaseProductionTurn(source, forceSoon),
@@ -92,6 +96,19 @@ export class ChatRoom extends V37ChatRoom {
     return this.requestV37ProductionTurn("alarm", false);
   }
 
+  say(from, text, kind = "bot", source = "built-in", meta = {}) {
+    const original = String(text || "");
+    if (kind !== "bot") return super.say(from, original, kind, source, meta);
+
+    const sanitized = stripInternalChatMetadata(original);
+    if (sanitized !== original) this.v37ProductionTurnStats.internalMetadataStrips += 1;
+    if (!sanitized) {
+      this.v37ProductionTurnStats.internalMetadataDroppedLines += 1;
+      return false;
+    }
+    return super.say(from, sanitized, kind, source, meta);
+  }
+
   v37Snapshot() {
     const base = super.v37Snapshot();
     const gate = this.v37ProductionTurnGate.snapshot();
@@ -102,7 +119,8 @@ export class ChatRoom extends V37ChatRoom {
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
         liveAiShadowPausedForProviderStability: false,
-        liveAiShadowResumedAfterSingleFlightValidation: true
+        liveAiShadowResumedAfterSingleFlightValidation: true,
+        internalMetadataOutputHygiene: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
