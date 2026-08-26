@@ -84,7 +84,15 @@ export function deterministicHumanObligation(triggerRow, onlineBots = []) {
   };
 }
 
-export function buildContextPacket({ history = [], state = null, triggerRow = null, onlineBots = [], maxRelevant = 10 } = {}) {
+export function buildContextPacket({
+  history = [],
+  state = null,
+  triggerRow = null,
+  onlineBots = [],
+  maxRelevant = 10,
+  roomName = "Town Square",
+  roomKind = "general public chat room"
+} = {}) {
   const rows = Array.isArray(history) ? history : [];
   const trigger = triggerRow || rows[rows.length - 1] || null;
   const triggerId = trigger ? conversationMessageId(trigger, rows.length - 1) : "";
@@ -100,8 +108,12 @@ export function buildContextPacket({ history = [], state = null, triggerRow = nu
   const lines = selected.map((row, index) => packetLine(row, index)).filter(Boolean);
 
   return {
-    version: 1,
+    version: 2,
     builtAt: Date.now(),
+    room: {
+      name: compact(roomName, 80) || "Town Square",
+      kind: compact(roomKind, 120) || "general public chat room"
+    },
     triggerMessageId: triggerId,
     trigger: packetLine(trigger, rows.length - 1),
     exactReplyTo: packetLine(exactReplyTo, 0),
@@ -130,6 +142,9 @@ export function packetContainsRequiredContext(packet, requirement = {}) {
     const needle = compact(requirement.referentText, 160).toLowerCase();
     const present = (packet.lines || []).some((row) => String(row.text || "").toLowerCase().includes(needle));
     if (!present) return false;
+  }
+  if (requirement.roomName) {
+    if (String(packet.room?.name || "").toLowerCase() !== String(requirement.roomName).toLowerCase()) return false;
   }
   return true;
 }
@@ -184,11 +199,13 @@ export function directorPrompt(packet, constraints = {}) {
   const onlineBots = (packet?.onlineBots || []).map(cleanName).filter(Boolean);
   const onlineBotText = onlineBots.join(", ") || "none";
   const trigger = packet?.trigger;
+  const roomName = compact(packet?.room?.name || "Town Square", 80);
+  const roomKind = compact(packet?.room?.kind || "general public chat room", 120);
   const lockText = locked
     ? `LOCKED ROUTING: speaker=${locked.speaker}, target=${locked.target}, replyTo=${locked.replyTo}. Do not change these fields.`
     : `SPEAKER IS UNLOCKED. Choose speaker EXACTLY, including capitalization, from this online-bot list only: ${onlineBotText}.`;
   const lines = (packet?.lines || []).map((row) => `${row.from}${row.target && row.target !== "room" ? ` -> ${row.target}` : ""}: ${row.text}`).join("\n");
-  return `You are the Conversation Director for a live 1996 AOL-style public room. Decide ONE next social move only. Do not write dialogue. Do not plan future turns.\n\n${lockText}\nONLINE BOTS: ${onlineBotText}\nCURRENT HUMAN TRIGGER: ${trigger ? `${trigger.from}${trigger.target && trigger.target !== "room" ? ` -> ${trigger.target}` : " -> room"}: ${trigger.text}` : "none"}\nTRIGGER MESSAGE ID: ${packet?.triggerMessageId || "none"}\n\nCURRENT STATE:\nactive subject: ${packet?.activeScene?.subject || "unknown"}\nprevious subject: ${packet?.previousScene?.subject || "none"}\nopen human question: ${packet?.openHumanQuestion ? `${packet.openHumanQuestion.from} -> ${packet.openHumanQuestion.target}: ${packet.openHumanQuestion.text}` : "none"}\nrecent referents: ${(packet?.recentReferents || []).map((r) => r.value).join(", ") || "none"}\n\nRECENT RELEVANT LINES:\n${lines || "none"}\n\nReturn JSON only with exactly these fields:\n{"speaker":"...","target":"...","replyTo":"...","subject":"...","moveType":"answer|clarify|respond|continue|pivot|start","goal":"...","sceneAction":"continue|replace|revive"}\n\nRules:\n- The goal describes one clear meaning/purpose, not wording and not multiple alternative actions.\n- A direct unresolved human question outranks ambient chatter.\n- If a local reference is obvious, resolve it. If genuinely ambiguous, make the goal ask/confirm naturally.\n- Interpret human meta-commentary pragmatically from the recent lines. Boredom, repetition complaints, sarcasm, or an invitation for different subjects can mean pivot even when the human never literally says 'change the subject'.\n- If the human is signaling fatigue with the current subject, use moveType=pivot and sceneAction=replace; do not deepen the rejected subject.\n- If a room-addressed human asks what else people care about or invites another subject, choose one ONLINE BOT and have that character introduce a genuinely different subject. Do not invent the specific character fact in the Director goal; downstream Character State supplies it.\n- Do not treat sarcastic wording like an instruction merely because it literally mentions returning to the current subject. Use the surrounding conversation to infer whether the human is actually complaining about repetition.\n- If the human asks why something happened and the packet does not establish a cause, do NOT invent one (for example lag, motives, or hidden events). The goal should acknowledge uncertainty, an apparent accident, or ask/clarify as appropriate.\n- If the human says an answer was weird, confusing, or wrong, anchor the goal to the exact relevant line. If the intended reference is genuinely unclear, clarify instead of inventing an explanation.\n- The subject should describe the precise current conversational object. It may evolve away from active subject; do not blindly copy a stale subject after the human changes focus.\n- Broad topic labels are diagnostic only. Never use a topic label as scene truth when the actual lines say something else.\n- Only one move. No second speaker, no scripted sequence.\n- Do not invent public or private facts; downstream Character State and World Model own facts.\n${constraints.extra || ""}`;
+  return `You are the Conversation Director for a live 1996 AOL-style public room. Decide ONE next social move only. Do not write dialogue. Do not plan future turns.\n\nROOM CONTEXT: ${roomName} — ${roomKind}. The current subject never redefines the room's identity.\n${lockText}\nONLINE BOTS: ${onlineBotText}\nCURRENT HUMAN TRIGGER: ${trigger ? `${trigger.from}${trigger.target && trigger.target !== "room" ? ` -> ${trigger.target}` : " -> room"}: ${trigger.text}` : "none"}\nTRIGGER MESSAGE ID: ${packet?.triggerMessageId || "none"}\n\nCURRENT STATE:\nactive subject: ${packet?.activeScene?.subject || "unknown"}\nprevious subject: ${packet?.previousScene?.subject || "none"}\nopen human question: ${packet?.openHumanQuestion ? `${packet.openHumanQuestion.from} -> ${packet.openHumanQuestion.target}: ${packet.openHumanQuestion.text}` : "none"}\nrecent referents: ${(packet?.recentReferents || []).map((r) => r.value).join(", ") || "none"}\n\nRECENT RELEVANT LINES:\n${lines || "none"}\n\nReturn JSON only with exactly these fields:\n{"speaker":"...","target":"...","replyTo":"...","subject":"...","moveType":"answer|clarify|respond|continue|pivot|start","goal":"...","sceneAction":"continue|replace|revive"}\n\nRules:\n- The goal describes one clear social meaning/purpose, not wording and not multiple alternative actions.\n- The Director controls the next social action only. Keep the goal fact-agnostic unless the fact is explicitly established in RECENT RELEVANT LINES or CURRENT STATE.\n- Never put an unsupported answer, preference, biography, possession, relationship, location, schedule, past experience, motive, or public-world fact into the goal.\n- Do not infer a character's tastes, history, or stance from a screen name, occupation, or the current topic. Downstream Character State and World Model own those facts.\n- For room-wide opinion or experience questions, choose a valid speaker and direct that speaker to answer from established character context; do not decide the stance or invent the anecdote yourself.\n- Room identity comes only from ROOM CONTEXT. Never infer that Town Square is a themed room because the current conversation happens to be about rock, country, movies, work, or any other subject.\n- A direct unresolved human question outranks ambient chatter.\n- If a local reference is obvious, resolve it. If genuinely ambiguous, make the goal ask/confirm naturally.\n- If the human is asking who/what a local reference means, use moveType=clarify rather than treating it as a new factual answer.\n- Interpret human meta-commentary pragmatically from the recent lines. Boredom, repetition complaints, sarcasm, or an invitation for different subjects can mean pivot even when the human never literally says 'change the subject'.\n- If the human is signaling fatigue with the current subject, use moveType=pivot and sceneAction=replace; do not deepen the rejected subject.\n- If a room-addressed human asks what else people care about or invites another subject, choose one ONLINE BOT and have that character introduce a genuinely different subject. Do not invent the specific character fact in the Director goal; downstream Character State supplies it.\n- Do not treat sarcastic wording like an instruction merely because it literally mentions returning to the current subject. Use the surrounding conversation to infer whether the human is actually complaining about repetition.\n- If the human asks why something happened and the packet does not establish a cause, do NOT invent one (for example lag, motives, or hidden events). The goal should acknowledge uncertainty, an apparent accident, or ask/clarify as appropriate.\n- If the human says an answer was weird, confusing, or wrong, anchor the goal to the exact relevant line. If the intended reference is genuinely unclear, clarify instead of inventing an explanation.\n- If the human quotes markup, IDs, or technical-looking text whose meaning is not established in the packet, do not invent what it means. Acknowledge uncertainty or clarify.\n- The subject should describe the precise current conversational object. It may evolve away from active subject; do not blindly copy a stale subject after the human changes focus.\n- Broad topic labels are diagnostic only. Never use a topic label as scene truth when the actual lines say something else.\n- Only one move. No second speaker, no scripted sequence.\n- Do not invent public or private facts; downstream Character State and World Model own facts.\n${constraints.extra || ""}`;
 }
 
 function parseJsonObject(raw) {
