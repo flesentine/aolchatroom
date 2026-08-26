@@ -15,7 +15,8 @@ import {
   structuralShadowMove,
   inferHumanMoveType,
   parseDirectorMove,
-  attributeDirectorFailure
+  attributeDirectorFailure,
+  shadowDirectorMayRun
 } from "../src/conversation_director.js";
 
 const bots = ["JennJenn", "TexTom", "Sk8rGuy16", "MoonChild"];
@@ -113,6 +114,26 @@ const unknownCausePrompt = directorPrompt(unknownCausePacket);
 assert.ok(unknownCausePrompt.includes("If the human asks why something happened and the packet does not establish a cause"));
 assert.ok(unknownCausePrompt.includes("Do not invent public or private facts"));
 
+// Shadow model traffic must always yield to production traffic.
+const readyShadow = shadowDirectorMayRun({
+  now: 100000,
+  pendingHumanCount: 0,
+  aiQueueLength: 3,
+  aiStatus: "AI active · Gemini",
+  lastShadowCallAt: 0,
+  shadowPauseUntil: 0,
+  minBufferedLines: 2,
+  minIntervalMs: 30000,
+  readyProviderCount: 1
+});
+assert.deepEqual(readyShadow, { ok: true, reason: "ready" });
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 1, aiQueueLength: 3, aiStatus: "AI active · Gemini", readyProviderCount: 1 }).reason, "human-pending");
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 0, aiQueueLength: 1, aiStatus: "AI active · Gemini", readyProviderCount: 1 }).reason, "production-buffer-low");
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 0, aiQueueLength: 3, aiStatus: "AI waiting · provider retry in ~43s", readyProviderCount: 1 }).reason, "provider-cooldown");
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 0, aiQueueLength: 3, aiStatus: "AI active · Gemini", lastShadowCallAt: 90000, minIntervalMs: 30000, readyProviderCount: 1 }).reason, "shadow-rate-limit");
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 0, aiQueueLength: 3, aiStatus: "AI active · Gemini", shadowPauseUntil: 110000, readyProviderCount: 1 }).reason, "shadow-provider-pause");
+assert.equal(shadowDirectorMayRun({ now: 100000, pendingHumanCount: 0, aiQueueLength: 3, aiStatus: "AI active · Gemini", readyProviderCount: 0 }).reason, "no-provider-ready");
+
 const wrongTopicHistory = [
   { messageId: "w0", at: 5000, kind: "bot", from: "DaBomb96", target: "room", text: "gwen is all over the radio", topic: "food" },
   { messageId: "w1", at: 5100, kind: "human", from: "Crateman", target: "room", text: "late night radio is better" }
@@ -157,5 +178,12 @@ assert.equal(runtimeSource.includes("this.noteProviderSuccess("), false);
 assert.equal(runtimeSource.includes("this.noteOutputReject("), false);
 assert.equal(runtimeSource.includes("visibleRoutingChanges: false"), true);
 assert.equal(runtimeSource.includes("legacyPlannerAuthoritative: true"), true);
+assert.equal(runtimeSource.includes("if (packetOk) this.queueV37DirectorShadow(packet, shadow);"), false);
+assert.equal(runtimeSource.includes("if (packetOk) this.enqueueV37DirectorShadow(packet, shadow);"), true);
+assert.equal(runtimeSource.includes("SHADOW_MIN_BUFFERED_LINES = 2"), true);
+assert.equal(runtimeSource.includes("SHADOW_MIN_INTERVAL_MS = 30000"), true);
+assert.equal(runtimeSource.includes("shadowSingleProviderAttempt: true"), true);
+assert.equal(runtimeSource.includes("for (let i = 0; i < providers.length; i += 1)"), false);
+assert.equal(runtimeSource.includes("const result = await super.tick(forceSoon);"), true);
 
 console.log("v37 conversation-state and director-shadow regression checks passed");

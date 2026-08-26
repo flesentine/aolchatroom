@@ -7,6 +7,7 @@ export const DIRECTOR_FAILURE_CATEGORIES = Object.freeze(["context/state", "dire
 const QUESTION_CUE = /\?|^\s*(?:who|what|when|where|why|how|which|whose|can|could|would|should|do|does|did|is|are|was|were)\b/i;
 const CLARIFY_CUE = /\b(?:what do you mean|what d(?:o|id) u mean|what tags?|which tags?|which one|who is (?:he|she|that)|who's (?:he|she|that)|who are you talking about|you mean who|what does that mean|huh)\b/i;
 const PIVOT_CUE = /\b(?:change the subject|talk about something else|enough about|still talking about|keep talking about|love talking about|back to .* again|move on|new topic)\b/i;
+const PROVIDER_WAIT_CUE = /\b(?:waiting|retry|cooldown|rate[- ]?limit|unavailable)\b/i;
 
 function compact(value, max = 220) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -44,6 +45,28 @@ function packetLine(row, index = 0) {
     threadId: compact(row.threadId || "", 80),
     topic: compact(row.topic || "", 40)
   };
+}
+
+export function shadowDirectorMayRun({
+  now = Date.now(),
+  pendingHumanCount = 0,
+  aiQueueLength = 0,
+  aiStatus = "",
+  lastShadowCallAt = 0,
+  shadowPauseUntil = 0,
+  minBufferedLines = 2,
+  minIntervalMs = 30000,
+  readyProviderCount = 0
+} = {}) {
+  if (Number(pendingHumanCount || 0) > 0) return { ok: false, reason: "human-pending" };
+  if (Number(aiQueueLength || 0) < Number(minBufferedLines || 0)) return { ok: false, reason: "production-buffer-low" };
+  if (Number(shadowPauseUntil || 0) > Number(now || 0)) return { ok: false, reason: "shadow-provider-pause" };
+  if (PROVIDER_WAIT_CUE.test(String(aiStatus || ""))) return { ok: false, reason: "provider-cooldown" };
+  if (Number(readyProviderCount || 0) <= 0) return { ok: false, reason: "no-provider-ready" };
+  if (Number(lastShadowCallAt || 0) && Number(now || 0) - Number(lastShadowCallAt || 0) < Number(minIntervalMs || 0)) {
+    return { ok: false, reason: "shadow-rate-limit" };
+  }
+  return { ok: true, reason: "ready" };
 }
 
 export function deterministicHumanObligation(triggerRow, onlineBots = []) {
