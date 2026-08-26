@@ -1,8 +1,6 @@
 import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
 import { CoalescingTurnGate } from "./production_turn_gate.js";
 
-const LIVE_SHADOW_PAUSE_REASON = "production-provider-singleflight-validation";
-
 async function json(response) {
   try { return await response.json(); } catch { return null; }
 }
@@ -23,8 +21,8 @@ export default {
         ...(data.v37 || {}),
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
-        liveAiShadowPausedForProviderStability: true,
-        liveAiShadowPauseReason: LIVE_SHADOW_PAUSE_REASON
+        liveAiShadowPausedForProviderStability: false,
+        liveAiShadowResumedAfterSingleFlightValidation: true
       }
     });
   }
@@ -94,21 +92,6 @@ export class ChatRoom extends V37ChatRoom {
     return this.requestV37ProductionTurn("alarm", false);
   }
 
-  // Context packets and deterministic structural shadow moves are still recorded,
-  // but live model shadow calls are paused while we prove production provider
-  // single-flight behavior. This guarantees the diagnostic layer cannot compete
-  // with visible-room provider traffic during the stability acceptance run.
-  enqueueV37DirectorShadow(packet, shadow) {
-    void packet;
-    this.v37Stats.aiShadowDeferred += 1;
-    this.v37Stats.aiShadowProductionYieldSkips += 1;
-    this.v37ProductionTurnStats.liveAiShadowPauses += 1;
-    shadow.ai.status = "deferred-production-stability";
-    shadow.ai.deferReason = LIVE_SHADOW_PAUSE_REASON;
-    shadow.ai.error = "";
-    this.replaceShadowHistory(shadow);
-  }
-
   v37Snapshot() {
     const base = super.v37Snapshot();
     const gate = this.v37ProductionTurnGate.snapshot();
@@ -118,8 +101,8 @@ export class ChatRoom extends V37ChatRoom {
         ...(base.mode || {}),
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
-        liveAiShadowPausedForProviderStability: true,
-        liveAiShadowPauseReason: LIVE_SHADOW_PAUSE_REASON
+        liveAiShadowPausedForProviderStability: false,
+        liveAiShadowResumedAfterSingleFlightValidation: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
