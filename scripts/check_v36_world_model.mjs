@@ -11,7 +11,7 @@ import {
 } from "../src/room_scheduler.js";
 
 const NOW = Date.parse("2026-08-24T11:00:00-07:00");
-const emptyCulture = { events: [], movies: [], anchors: [] };
+const emptyCulture = { events: [], movies: [], tv: [], anchors: [] };
 const chicago = { timezone: "CT", occupation: "office administrator" };
 
 function violation(text, context = "", culture = emptyCulture, speaker = chicago) {
