@@ -95,15 +95,15 @@ assert.equal(gate2.snapshot().active, false);
 const wrapper = fs.readFileSync(new URL("../src/index_v37_hotfix.js", import.meta.url), "utf8");
 assert.ok(wrapper.includes('requestV37ProductionTurn("tick", forceSoon)'));
 assert.ok(wrapper.includes('requestV37ProductionTurn("alarm", false)'));
-assert.ok(wrapper.includes("liveAiShadowPausedForProviderStability: false"));
-assert.ok(wrapper.includes("liveAiShadowResumedAfterSingleFlightValidation: true"));
+assert.ok(wrapper.includes("liveAiShadowPausedForProviderStability: true"));
+assert.ok(wrapper.includes("liveAiShadowResumedAfterSingleFlightValidation: false"));
+assert.ok(wrapper.includes("shadowPacketsStillRecordedWhileModelPaused: true"));
 assert.ok(wrapper.includes("productionTurnSingleFlight: true"));
-assert.equal(wrapper.includes("enqueueV37DirectorShadow(packet, shadow)"), false, "wrapper must inherit the production-yield shadow scheduler instead of pausing it");
-assert.equal(wrapper.includes("deferred-production-stability"), false, "stability pause must be removed after successful live single-flight validation");
-assert.equal(wrapper.includes("setTimeout("), false, "single-flight must not be a timing-delay patch");
+assert.ok(wrapper.includes("live-model-shadow-paused"));
+assert.equal(wrapper.includes("setTimeout("), false, "single-flight and shadow isolation must not be timing-delay patches");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v37_hotfix.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "37"'));
 
-console.log("v37 production-turn single-flight + AI shadow resume regression checks passed");
+console.log("v37 production-turn single-flight + provider-isolation shadow pause regression checks passed");
