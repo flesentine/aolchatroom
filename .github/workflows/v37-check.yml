@@ -3,7 +3,7 @@ name: v37 conversation director
 on:
   push:
     branches:
-      - v37-conversation-director-shadow
+      - 'v37-*'
   pull_request:
     branches:
       - main
