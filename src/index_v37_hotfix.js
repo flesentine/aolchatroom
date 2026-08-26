@@ -22,8 +22,9 @@ export default {
         ...(data.v37 || {}),
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
-        liveAiShadowPausedForProviderStability: false,
-        liveAiShadowResumedAfterSingleFlightValidation: true,
+        liveAiShadowPausedForProviderStability: true,
+        liveAiShadowResumedAfterSingleFlightValidation: false,
+        shadowPacketsStillRecordedWhileModelPaused: true,
         internalMetadataOutputHygiene: true
       }
     });
@@ -62,8 +63,6 @@ export class ChatRoom extends V37ChatRoom {
     try {
       if (source === "alarm") {
         const result = await super.alarm();
-        // V36's alarm executes the inherited production tick directly, so give the
-        // v37 observation layer the same post-turn hook ordinary ticks receive.
         this.maybeRunV37Shadow(Date.now());
         return result;
       }
@@ -96,6 +95,19 @@ export class ChatRoom extends V37ChatRoom {
     return this.requestV37ProductionTurn("alarm", false);
   }
 
+  maybeRunV37Shadow(now = Date.now()) {
+    this.expireOldV37Shadows?.(now);
+    const pending = this.v37PendingShadows?.[0];
+    if (!pending?.shadow) return;
+    if (pending.shadow.ai?.deferReason !== "live-model-shadow-paused") {
+      this.v37ProductionTurnStats.liveAiShadowPauses += 1;
+      pending.shadow.ai.status = "deferred-production-priority";
+      pending.shadow.ai.deferReason = "live-model-shadow-paused";
+      pending.shadow.ai.error = "live Director model calls paused after provider retry recurrence";
+      this.replaceShadowHistory?.(pending.shadow);
+    }
+  }
+
   say(from, text, kind = "bot", source = "built-in", meta = {}) {
     const original = String(text || "");
     if (kind !== "bot") return super.say(from, original, kind, source, meta);
@@ -118,8 +130,9 @@ export class ChatRoom extends V37ChatRoom {
         ...(base.mode || {}),
         productionTurnSingleFlight: true,
         productionTurnReplayCoalescing: true,
-        liveAiShadowPausedForProviderStability: false,
-        liveAiShadowResumedAfterSingleFlightValidation: true,
+        liveAiShadowPausedForProviderStability: true,
+        liveAiShadowResumedAfterSingleFlightValidation: false,
+        shadowPacketsStillRecordedWhileModelPaused: true,
         internalMetadataOutputHygiene: true
       },
       productionTurn: {
