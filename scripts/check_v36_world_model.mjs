@@ -112,9 +112,10 @@ assert.equal(
   false
 );
 
-// Capture regression: server alarms were waking, but an empty AI queue could still
-// wait 30-50s for the inherited scene-refill window. The durable alarm must now be
-// pulled forward to the liveness deadline and force the existing AI refill there.
+// Capture regressions: server alarms can wake while either (a) the AI queue is
+// empty and waiting for scene refill or (b) Gemini already generated usable lines
+// but a queued line is stranded behind a stale nextBotAt. The durable deadline is
+// about visible room silence, so both cases must force one ordinary tick at 14s.
 assert.equal(ROOM_LIVENESS_FORCE_MS, 14000);
 assert.equal(
   desiredRoomAlarm({ now: NOW, nextBotAt: NOW + 30000, humanCount: 1, lastBotAt: NOW - 10000 }),
@@ -133,19 +134,23 @@ assert.equal(
   true
 );
 assert.equal(
-  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 1, queueLength: 2, lastForcedAt: 0 }),
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 13999, humanCount: 1, queueLength: 2, lastForcedAt: 0 }),
   false
+);
+assert.equal(
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 14000, humanCount: 1, queueLength: 2, lastForcedAt: 0 }),
+  true
 );
 assert.equal(
   shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 0, queueLength: 0, lastForcedAt: 0 }),
   false
 );
 assert.equal(
-  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 1, queueLength: 0, lastForcedAt: NOW - 6999 }),
+  shouldForceLivenessTick({ now: NOW, lastBotAt: NOW - 20000, humanCount: 1, queueLength: 2, lastForcedAt: NOW - 6999 }),
   false
 );
 assert.equal(
-  shouldForceLivenessTick({ now: NOW, lastBotAt: 0, humanCount: 1, queueLength: 0, lastForcedAt: 0 }),
+  shouldForceLivenessTick({ now: NOW, lastBotAt: 0, humanCount: 1, queueLength: 2, lastForcedAt: 0 }),
   true
 );
 

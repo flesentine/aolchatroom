@@ -45,7 +45,12 @@ export function shouldForceLivenessTick({
   cooldownMs = ROOM_LIVENESS_FORCE_COOLDOWN_MS
 } = {}) {
   if (Number(humanCount || 0) <= 0) return false;
-  if (Number(queueLength || 0) > 0) return false;
+
+  // The liveness deadline applies to visible room silence, not just refill silence.
+  // A queued AI line can still sit behind a stale nextBotAt, so once the room has
+  // crossed the bound we force one normal tick whether the queue is empty or ready.
+  void queueLength;
+
   const lastBot = Number(lastBotAt || 0);
   if (!Number.isFinite(lastBot) || lastBot <= 0) return true;
   if (now - lastBot < Math.max(1000, Number(livenessMs || ROOM_LIVENESS_FORCE_MS))) return false;
