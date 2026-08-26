@@ -14,6 +14,7 @@ import {
   directorPrompt,
   packetContainsRequiredContext,
   parseDirectorMove,
+  shadowDirectorMayRun,
   structuralShadowMove
 } from "./conversation_director.js";
 
@@ -21,6 +22,11 @@ const PASS = "conversation-director-shadow-v37";
 const SHADOW_MAX_TOKENS = 360;
 const SHADOW_PROVIDERS = new Set(["gemini", "groq"]);
 const SHADOW_HISTORY_LIMIT = 24;
+const SHADOW_PENDING_LIMIT = 12;
+const SHADOW_PENDING_MAX_AGE_MS = 5 * 60 * 1000;
+const SHADOW_MIN_BUFFERED_LINES = 2;
+const SHADOW_MIN_INTERVAL_MS = 30000;
+const SHADOW_PROVIDER_FAILURE_PAUSE_MS = 120000;
 
 function compact(value, max = 180) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -53,6 +59,10 @@ export default {
           legacySceneDirectorIsolated: true,
           legacyPlannerStillAuthoritative: true,
           shadowProviderHealthDoesNotMutateLegacyBreakers: true,
+          shadowYieldsToProduction: true,
+          shadowSingleProviderAttempt: true,
+          shadowMinBufferedLines: SHADOW_MIN_BUFFERED_LINES,
+          shadowMinIntervalMs: SHADOW_MIN_INTERVAL_MS,
           statusEndpoint: "/api/v37-status"
         }
       });
@@ -84,7 +94,9 @@ export default {
           legacyDirectorIsolated: true,
           contextPacketGate: true,
           failureAttributionEnabled: true,
-          aiShadowDirectorEnabled: true
+          aiShadowDirectorEnabled: true,
+          shadowYieldsToProduction: true,
+          shadowSingleProviderAttempt: true
         }
       });
     }
@@ -101,7 +113,10 @@ export class ChatRoom extends V36ChatRoom {
     this.v37ProjectedState = createConversationState();
     this.v37ShadowChain = Promise.resolve();
     this.v37ShadowHistory = [];
+    this.v37PendingShadows = [];
     this.v37ShadowSeq = 0;
+    this.v37LastShadowCallAt = 0;
+    this.v37ShadowPauseUntil = 0;
     this.v37Stats = {
       observedMessages: 0,
       humanMessagesObserved: 0,
@@ -117,6 +132,10 @@ export class ChatRoom extends V36ChatRoom {
       aiShadowNoProvider: 0,
       aiShadowFailovers: 0,
       aiShadowLastLatencyMs: 0,
+      aiShadowDeferred: 0,
+      aiShadowProductionYieldSkips: 0,
+      aiShadowExpired: 0,
+      aiShadowBacklogDrops: 0,
       semanticRepairOverrides: 0,
       provider: {
         gemini: { calls: 0, successes: 0, failures: 0, rejects: 0 },
@@ -205,11 +224,12 @@ export class ChatRoom extends V36ChatRoom {
       },
       structuralMove: move,
       ai: {
-        status: packetOk ? "queued" : "skipped-context-gate",
+        status: packetOk ? "pending-production-yield" : "skipped-context-gate",
         provider: "",
         latencyMs: 0,
         move: null,
-        error: packetOk ? "" : "context packet gate failed"
+        error: packetOk ? "" : "context packet gate failed",
+        deferReason: ""
       },
       failureCategory: packetOk ? "" : "context/state",
       note: "Shadow diagnostics only. v36/legacy routing remains authoritative and this decision is never emitted."
@@ -218,10 +238,88 @@ export class ChatRoom extends V36ChatRoom {
     return { packet, packetOk, shadow };
   }
 
-  async runV37DirectorShadow(packet, shadow) {
+  shadowReadyProviders(now = Date.now()) {
+    const configured = new Set(this.configuredProviders?.() || []);
+    return [...SHADOW_PROVIDERS].filter((provider) => {
+      if (!configured.has(provider)) return false;
+      const hardReady = typeof this.providerReady === "function" ? this.providerReady(provider, now) : true;
+      const softReady = typeof this.softReady === "function" ? this.softReady(provider, now) : true;
+      return hardReady && softReady;
+    });
+  }
+
+  enqueueV37DirectorShadow(packet, shadow) {
+    this.v37PendingShadows.push({ packet, shadow, queuedAt: Date.now() });
+    this.v37Stats.aiShadowDeferred += 1;
+    while (this.v37PendingShadows.length > SHADOW_PENDING_LIMIT) {
+      const dropped = this.v37PendingShadows.shift();
+      if (!dropped?.shadow) continue;
+      this.v37Stats.aiShadowBacklogDrops += 1;
+      dropped.shadow.ai.status = "skipped-shadow-backlog";
+      dropped.shadow.ai.error = "shadow backlog exceeded safe limit";
+      dropped.shadow.completedAt = Date.now();
+      this.replaceShadowHistory(dropped.shadow);
+    }
+  }
+
+  expireOldV37Shadows(now = Date.now()) {
+    while (this.v37PendingShadows.length) {
+      const first = this.v37PendingShadows[0];
+      if (now - Number(first?.queuedAt || now) <= SHADOW_PENDING_MAX_AGE_MS) break;
+      this.v37PendingShadows.shift();
+      if (!first?.shadow) continue;
+      this.v37Stats.aiShadowExpired += 1;
+      first.shadow.ai.status = "skipped-shadow-stale";
+      first.shadow.ai.error = "shadow decision became stale while production had priority";
+      first.shadow.completedAt = now;
+      this.replaceShadowHistory(first.shadow);
+    }
+  }
+
+  maybeRunV37Shadow(now = Date.now()) {
+    this.expireOldV37Shadows(now);
+    const pending = this.v37PendingShadows[0];
+    if (!pending) return;
+
+    const providers = this.shadowReadyProviders(now);
+    const gate = shadowDirectorMayRun({
+      now,
+      pendingHumanCount: this.pendingHumans?.length || 0,
+      aiQueueLength: this.aiQueue?.length || 0,
+      aiStatus: this.aiStatus || "",
+      lastShadowCallAt: this.v37LastShadowCallAt,
+      shadowPauseUntil: this.v37ShadowPauseUntil,
+      minBufferedLines: SHADOW_MIN_BUFFERED_LINES,
+      minIntervalMs: SHADOW_MIN_INTERVAL_MS,
+      readyProviderCount: providers.length
+    });
+
+    if (!gate.ok) {
+      if (pending.shadow?.ai?.deferReason !== gate.reason) {
+        this.v37Stats.aiShadowProductionYieldSkips += 1;
+        pending.shadow.ai.status = "deferred-production-priority";
+        pending.shadow.ai.deferReason = gate.reason;
+        this.replaceShadowHistory(pending.shadow);
+      }
+      return;
+    }
+
+    this.v37PendingShadows.shift();
+    this.v37LastShadowCallAt = now;
+    pending.shadow.ai.status = "queued-after-production";
+    pending.shadow.ai.deferReason = "";
+    this.replaceShadowHistory(pending.shadow);
+    this.queueV37DirectorShadow(pending.packet, pending.shadow, providers[0]);
+  }
+
+  async runV37DirectorShadow(packet, shadow, preferredProvider = "") {
     if (!packet || !shadow || shadow.packetGate !== "pass") return;
-    const providers = (this.orderedReadyProviders?.(Date.now()) || []).filter((provider) => SHADOW_PROVIDERS.has(provider));
-    if (!providers.length) {
+    const providers = this.shadowReadyProviders(Date.now());
+    const provider = preferredProvider && providers.includes(preferredProvider)
+      ? preferredProvider
+      : providers[0];
+
+    if (!provider) {
       this.v37Stats.aiShadowNoProvider += 1;
       shadow.ai.status = "skipped-no-provider";
       shadow.ai.error = "no structured shadow provider ready";
@@ -232,104 +330,107 @@ export class ChatRoom extends V36ChatRoom {
     }
 
     const prompt = directorPrompt(packet);
-    let lastFailure = "provider";
-    for (let i = 0; i < providers.length; i += 1) {
-      const provider = providers[i];
-      if (i > 0) this.v37Stats.aiShadowFailovers += 1;
-      this.v37Stats.aiShadowCalls += 1;
-      if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].calls += 1;
-      const startedAt = Date.now();
-      let result;
-      try {
-        result = await this.callProvider(provider, prompt, SHADOW_MAX_TOKENS);
-      } catch (error) {
-        const latencyMs = Date.now() - startedAt;
-        this.v37Stats.aiShadowLastLatencyMs = latencyMs;
-        this.v37Stats.failures.provider += 1;
-        if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].failures += 1;
-        shadow.ai = {
-          status: "provider-failure",
-          provider,
-          latencyMs,
-          move: null,
-          error: compact(error?.message || "shadow provider connection error", 180)
-        };
-        lastFailure = "provider";
-        continue;
-      }
-
+    this.v37Stats.aiShadowCalls += 1;
+    if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].calls += 1;
+    const startedAt = Date.now();
+    let result;
+    try {
+      result = await this.callProvider(provider, prompt, SHADOW_MAX_TOKENS);
+    } catch (error) {
       const latencyMs = Date.now() - startedAt;
       this.v37Stats.aiShadowLastLatencyMs = latencyMs;
-      if (!result?.ok) {
-        this.v37Stats.failures.provider += 1;
-        if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].failures += 1;
-        shadow.ai = {
-          status: "provider-failure",
-          provider,
-          latencyMs,
-          move: null,
-          error: compact(result?.error?.message || `provider status ${result?.status || 0}`, 180)
-        };
-        lastFailure = "provider";
-        continue;
-      }
-
-      const parsed = parseDirectorMove(result.content, {
-        onlineBots: packet.onlineBots || [],
-        humans: this.humanNames?.() || [],
-        obligation: packet.obligation || null
-      });
-      if (!parsed.ok) {
-        this.v37Stats.aiShadowRejects += 1;
-        this.v37Stats.failures.director += 1;
-        if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].rejects += 1;
-        shadow.ai = {
-          status: "director-reject",
-          provider,
-          latencyMs,
-          move: null,
-          error: parsed.error
-        };
-        lastFailure = "director";
-        continue;
-      }
-
-      this.v37Stats.aiShadowSuccesses += 1;
-      if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].successes += 1;
+      this.v37Stats.failures.provider += 1;
+      if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].failures += 1;
+      this.v37ShadowPauseUntil = Date.now() + SHADOW_PROVIDER_FAILURE_PAUSE_MS;
       shadow.ai = {
-        status: "success",
+        ...shadow.ai,
+        status: "provider-failure",
         provider,
         latencyMs,
-        move: parsed.move,
-        error: ""
+        move: null,
+        error: compact(error?.message || "shadow provider connection error", 180),
+        deferReason: ""
       };
-      shadow.failureCategory = "";
+      shadow.failureCategory = "provider";
       shadow.completedAt = Date.now();
-      this.v37ProjectedState = applySceneObservation(this.v37ProjectedState, {
-        subject: parsed.move.subject,
-        sceneAction: parsed.move.sceneAction,
-        participants: [parsed.move.speaker, parsed.move.target],
-        lastMessageId: parsed.move.replyTo || packet.triggerMessageId,
-        now: shadow.completedAt
-      });
       this.replaceShadowHistory(shadow);
       return;
     }
 
-    shadow.failureCategory = attributeDirectorFailure({
-      providerError: lastFailure === "provider",
-      parsedOk: lastFailure !== "director",
-      decisionOk: lastFailure !== "director"
-    }) || lastFailure;
+    const latencyMs = Date.now() - startedAt;
+    this.v37Stats.aiShadowLastLatencyMs = latencyMs;
+    if (!result?.ok) {
+      this.v37Stats.failures.provider += 1;
+      if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].failures += 1;
+      this.v37ShadowPauseUntil = Date.now() + SHADOW_PROVIDER_FAILURE_PAUSE_MS;
+      shadow.ai = {
+        ...shadow.ai,
+        status: "provider-failure",
+        provider,
+        latencyMs,
+        move: null,
+        error: compact(result?.error?.message || `provider status ${result?.status || 0}`, 180),
+        deferReason: ""
+      };
+      shadow.failureCategory = "provider";
+      shadow.completedAt = Date.now();
+      this.replaceShadowHistory(shadow);
+      return;
+    }
+
+    const parsed = parseDirectorMove(result.content, {
+      onlineBots: packet.onlineBots || [],
+      humans: this.humanNames?.() || [],
+      obligation: packet.obligation || null
+    });
+    if (!parsed.ok) {
+      this.v37Stats.aiShadowRejects += 1;
+      this.v37Stats.failures.director += 1;
+      if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].rejects += 1;
+      shadow.ai = {
+        ...shadow.ai,
+        status: "director-reject",
+        provider,
+        latencyMs,
+        move: null,
+        error: parsed.error,
+        deferReason: ""
+      };
+      shadow.failureCategory = "director";
+      shadow.completedAt = Date.now();
+      this.replaceShadowHistory(shadow);
+      return;
+    }
+
+    this.v37Stats.aiShadowSuccesses += 1;
+    if (this.v37Stats.provider[provider]) this.v37Stats.provider[provider].successes += 1;
+    shadow.ai = {
+      ...shadow.ai,
+      status: "success",
+      provider,
+      latencyMs,
+      move: parsed.move,
+      error: "",
+      deferReason: ""
+    };
+    shadow.failureCategory = "";
     shadow.completedAt = Date.now();
+    this.v37ProjectedState = applySceneObservation(this.v37ProjectedState, {
+      subject: parsed.move.subject,
+      sceneAction: parsed.move.sceneAction,
+      participants: [parsed.move.speaker, parsed.move.target],
+      lastMessageId: parsed.move.replyTo || packet.triggerMessageId,
+      now: shadow.completedAt
+    });
     this.replaceShadowHistory(shadow);
   }
 
-  queueV37DirectorShadow(packet, shadow) {
+  queueV37DirectorShadow(packet, shadow, preferredProvider = "") {
     this.v37ShadowChain = this.v37ShadowChain
-      .then(() => this.runV37DirectorShadow(packet, shadow))
+      .then(() => this.runV37DirectorShadow(packet, shadow, preferredProvider))
       .catch((error) => {
         this.v37Stats.failures.provider += 1;
+        this.v37ShadowPauseUntil = Date.now() + SHADOW_PROVIDER_FAILURE_PAUSE_MS;
         shadow.ai.status = "shadow-runtime-error";
         shadow.ai.error = compact(error?.message || "shadow runtime error", 180);
         shadow.failureCategory = "provider";
@@ -353,16 +454,23 @@ export class ChatRoom extends V36ChatRoom {
       this.v37Stats.humanMessagesObserved += 1;
       if (isDirectHumanQuestion(row)) this.v37Stats.directHumanQuestionsObserved += 1;
       const { packet, packetOk, shadow } = this.recordV37Shadow(row);
-      if (packetOk) this.queueV37DirectorShadow(packet, shadow);
+      if (packetOk) this.enqueueV37DirectorShadow(packet, shadow);
     }
     return result;
   }
 
+  async tick(forceSoon = false) {
+    const result = await super.tick(forceSoon);
+    this.maybeRunV37Shadow(Date.now());
+    return result;
+  }
+
   v37Snapshot() {
+    const now = Date.now();
     return {
       ok: true,
       pass: PASS,
-      generatedAt: Date.now(),
+      generatedAt: now,
       simulatedDate: simulatedDateLabel(),
       simulatedDateTime: simulatedDateTimeLabel(),
       mode: {
@@ -372,10 +480,21 @@ export class ChatRoom extends V36ChatRoom {
         legacySceneDirectorImportedByNewPath: false,
         semanticRepairOverrides: Number(this.v37Stats.semanticRepairOverrides || 0),
         shadowProviders: [...SHADOW_PROVIDERS],
-        providerHealthIsolation: "shadow calls never invoke legacy provider success/failure/reject bookkeeping"
+        providerHealthIsolation: "shadow calls never invoke legacy provider success/failure/reject bookkeeping",
+        providerTrafficIsolation: "shadow waits for production buffer, never runs during provider retry, and makes one provider attempt only",
+        shadowMinBufferedLines: SHADOW_MIN_BUFFERED_LINES,
+        shadowMinIntervalMs: SHADOW_MIN_INTERVAL_MS
       },
       observedState: snapshotConversationState(this.v37ConversationState),
       projectedShadowState: snapshotConversationState(this.v37ProjectedState),
+      shadowScheduling: {
+        pending: this.v37PendingShadows.length,
+        lastShadowCallAgoMs: this.v37LastShadowCallAt ? Math.max(0, now - this.v37LastShadowCallAt) : null,
+        shadowPauseRemainingMs: Math.max(0, this.v37ShadowPauseUntil - now),
+        productionAiQueueLength: this.aiQueue?.length || 0,
+        productionPendingHumanCount: this.pendingHumans?.length || 0,
+        productionAiStatus: this.aiStatus || ""
+      },
       stats: {
         ...this.v37Stats,
         provider: JSON.parse(JSON.stringify(this.v37Stats.provider)),
