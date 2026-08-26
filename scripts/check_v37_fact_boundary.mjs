@@ -62,5 +62,9 @@ assert.ok(hotfixSource.includes("stripInternalChatMetadata"));
 assert.ok(hotfixSource.includes("internalMetadataStrips"));
 assert.ok(hotfixSource.includes("internalMetadataOutputHygiene: true"));
 assert.ok(hotfixSource.includes("productionTurnSingleFlight: true"));
+assert.ok(hotfixSource.includes("liveAiShadowPausedForProviderStability: true"));
+assert.ok(hotfixSource.includes("shadowPacketsStillRecordedWhileModelPaused: true"));
+assert.ok(hotfixSource.includes("live-model-shadow-paused"));
+assert.ok(hotfixSource.includes("maybeRunV37Shadow(now = Date.now())"));
 
-console.log("v37 Director fact-boundary and output-hygiene regression checks passed");
+console.log("v37 Director fact-boundary, output-hygiene, and provider-isolation regression checks passed");
