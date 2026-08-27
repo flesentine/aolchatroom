@@ -6,7 +6,9 @@ import {
   degradedBuiltInFallbackEligible,
   effectiveStructuredProviders,
   emergencyWorkersBrainEligible,
-  isRequestLocalProviderFailure
+  isRequestLocalProviderFailure,
+  isWorkersAiDailyQuotaExhaustion,
+  nextUtcDailyQuotaResetAt
 } from "./provider_failover_v37.js";
 
 async function json(response) {
@@ -36,7 +38,8 @@ export default {
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
         emergencyWorkersBrainFallback: true,
         providerDegradedModeBuiltInFallback: true,
-        effectiveStructuredProviderReadiness: true
+        effectiveStructuredProviderReadiness: true,
+        workersAiDailyQuotaState: true
       }
     });
   }
@@ -45,6 +48,7 @@ export default {
 export class ChatRoom extends V37ChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
+    this.v37WorkersDailyQuotaResetAt = 0;
     this.v37ProductionTurnStats = {
       outerRequests: 0,
       tickRequests: 0,
@@ -61,6 +65,7 @@ export class ChatRoom extends V37ChatRoom {
       internalMetadataDroppedLines: 0,
       requestLocalProviderRejects: 0,
       emergencyWorkersBrainRoutes: 0,
+      workersDailyQuotaExhaustions: 0,
       degradedModeTicks: 0,
       degradedHumanFallbacksQueued: 0,
       degradedAmbientFallbacksQueued: 0,
@@ -136,10 +141,6 @@ export class ChatRoom extends V37ChatRoom {
   async runV37BaseProductionTurn(source, forceSoon = false) {
     this.v37ProductionTurnStats.baseTurnsStarted += 1;
     try {
-      // Decide degradation from providers that are actually usable for structured
-      // production, not merely configured/bound. This avoids the old mismatch where
-      // Workers AI looked "ready" to hasReadyAi() while v35 still filtered it out of
-      // structured Brain generation.
       this.queueV37DegradedFallback(Date.now(), Boolean(forceSoon));
 
       if (source === "alarm") {
@@ -177,6 +178,26 @@ export class ChatRoom extends V37ChatRoom {
   }
 
   noteProviderFailure(provider, status = 0, response = null, detail = "") {
+    if (isWorkersAiDailyQuotaExhaustion(provider, detail)) {
+      const now = Date.now();
+      const resetAt = nextUtcDailyQuotaResetAt(now);
+      this.v37ProductionTurnStats.workersDailyQuotaExhaustions += 1;
+      this.v37WorkersDailyQuotaResetAt = Math.max(Number(this.v37WorkersDailyQuotaResetAt || 0), resetAt);
+
+      const result = super.noteProviderFailure(provider, status, response, detail);
+      if (this.providerCooldownUntil instanceof Map) {
+        this.providerCooldownUntil.set(
+          provider,
+          Math.max(Number(this.providerCooldownUntil.get(provider) || 0), resetAt)
+        );
+      }
+      this.providerLastDetail?.set?.(
+        provider,
+        `daily Workers AI quota exhausted · resets ${new Date(resetAt).toISOString()}`
+      );
+      return result;
+    }
+
     if (isRequestLocalProviderFailure(status)) {
       this.v37ProductionTurnStats.requestLocalProviderRejects += 1;
       return this.noteOutputReject?.(
@@ -242,6 +263,7 @@ export class ChatRoom extends V37ChatRoom {
         softCooldownRemainingMs: Math.max(0, Number(this.providerSoftRejectUntil?.get(provider) || 0) - now)
       };
     }
+    const workersResetAt = Math.max(0, Number(this.v37WorkersDailyQuotaResetAt || 0));
     return {
       requestLocalStatuses: [400, 413, 422],
       rateLimitRetryAfterPreserved: true,
@@ -249,6 +271,10 @@ export class ChatRoom extends V37ChatRoom {
       emergencyBrainProvider: "workers-ai",
       emergencyOnlyWhenPreferredUnavailable: true,
       degradedModeBuiltInFallback: true,
+      workersAiDailyQuotaState: true,
+      workersAiDailyQuotaExhausted: workersResetAt > now,
+      workersAiDailyQuotaResetAt: workersResetAt > now ? new Date(workersResetAt).toISOString() : null,
+      workersAiDailyQuotaResetRemainingMs: Math.max(0, workersResetAt - now),
       hardReadyProviders: this.hardReadyProviders(now),
       softReadyProviders: this.softReadyProviders(now),
       effectiveStructuredReadyProviders: this.effectiveStructuredReadyProviders(now),
@@ -273,7 +299,8 @@ export class ChatRoom extends V37ChatRoom {
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
         emergencyWorkersBrainFallback: true,
         providerDegradedModeBuiltInFallback: true,
-        effectiveStructuredProviderReadiness: true
+        effectiveStructuredProviderReadiness: true,
+        workersAiDailyQuotaState: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
