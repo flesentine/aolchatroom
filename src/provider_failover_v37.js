@@ -4,6 +4,13 @@ export function isRequestLocalProviderFailure(status) {
   return REQUEST_LOCAL_PROVIDER_STATUSES.has(Number(status || 0));
 }
 
+export function degradedBuiltInFallbackEligible({
+  configuredProviders = [],
+  hardReadyProviders = []
+} = {}) {
+  return (configuredProviders || []).length > 0 && (hardReadyProviders || []).length === 0;
+}
+
 export function emergencyWorkersBrainEligible({
   orderedProviders = [],
   structuredBrainDepth = 0,
