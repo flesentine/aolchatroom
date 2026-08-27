@@ -23,7 +23,7 @@ export function nextUtcDailyQuotaResetAt(now = Date.now()) {
   );
 }
 
-export function effectiveStructuredProviders({
+function usableProviderSets({
   configuredProviders = [],
   hardReadyProviders = [],
   softReadyProviders = null
@@ -31,7 +31,51 @@ export function effectiveStructuredProviders({
   const configured = new Set(configuredProviders || []);
   const hardReady = new Set(hardReadyProviders || []);
   const softReady = new Set(Array.isArray(softReadyProviders) ? softReadyProviders : hardReadyProviders || []);
-  const usable = (provider) => configured.has(provider) && hardReady.has(provider) && softReady.has(provider);
+  return {
+    configured,
+    hardReady,
+    softReady,
+    usable: (provider) => configured.has(provider) && hardReady.has(provider) && softReady.has(provider)
+  };
+}
+
+export function preferredStructuredReadyProviders({
+  configuredProviders = [],
+  hardReadyProviders = [],
+  softReadyProviders = null
+} = {}) {
+  const { usable } = usableProviderSets({ configuredProviders, hardReadyProviders, softReadyProviders });
+  return PREFERRED_STRUCTURED_PROVIDERS.filter(usable);
+}
+
+export function providerCapacityConstrained({
+  configuredProviders = [],
+  hardReadyProviders = [],
+  softReadyProviders = null,
+  minimumPreferredReady = 2
+} = {}) {
+  const configuredPreferred = PREFERRED_STRUCTURED_PROVIDERS.filter((provider) =>
+    (configuredProviders || []).includes(provider)
+  );
+  if (!configuredPreferred.length) return false;
+  const required = Math.min(
+    Math.max(1, Number(minimumPreferredReady || 2)),
+    configuredPreferred.length
+  );
+  const ready = preferredStructuredReadyProviders({
+    configuredProviders,
+    hardReadyProviders,
+    softReadyProviders
+  });
+  return ready.length < required;
+}
+
+export function effectiveStructuredProviders({
+  configuredProviders = [],
+  hardReadyProviders = [],
+  softReadyProviders = null
+} = {}) {
+  const { usable } = usableProviderSets({ configuredProviders, hardReadyProviders, softReadyProviders });
 
   const preferred = PREFERRED_STRUCTURED_PROVIDERS.filter(usable);
   if (preferred.length) return preferred;

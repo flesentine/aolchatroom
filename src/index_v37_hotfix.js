@@ -8,7 +8,9 @@ import {
   emergencyWorkersBrainEligible,
   isRequestLocalProviderFailure,
   isWorkersAiDailyQuotaExhaustion,
-  nextUtcDailyQuotaResetAt
+  nextUtcDailyQuotaResetAt,
+  preferredStructuredReadyProviders,
+  providerCapacityConstrained as providerBudgetConstrained
 } from "./provider_failover_v37.js";
 
 async function json(response) {
@@ -39,7 +41,9 @@ export default {
         emergencyWorkersBrainFallback: true,
         providerDegradedModeBuiltInFallback: true,
         effectiveStructuredProviderReadiness: true,
-        workersAiDailyQuotaState: true
+        workersAiDailyQuotaState: true,
+        humanPriorityProviderBudget: true,
+        ambientAiCapacityShedding: true
       }
     });
   }
@@ -69,7 +73,10 @@ export class ChatRoom extends V37ChatRoom {
       degradedModeTicks: 0,
       degradedHumanFallbacksQueued: 0,
       degradedAmbientFallbacksQueued: 0,
-      degradedFallbackMisses: 0
+      degradedFallbackMisses: 0,
+      constrainedModeTicks: 0,
+      backgroundAiPlansSuppressed: 0,
+      capacitySheddingAmbientQueued: 0
     };
     this.v37ProductionTurnGate = new CoalescingTurnGate({
       run: (source, forceSoon) => this.runV37BaseProductionTurn(source, forceSoon),
@@ -90,6 +97,23 @@ export class ChatRoom extends V37ChatRoom {
     const hardReady = this.hardReadyProviders(now);
     if (typeof this.softReady !== "function") return hardReady;
     return hardReady.filter((provider) => this.softReady(provider, now));
+  }
+
+  preferredStructuredReadyProviders(now = Date.now()) {
+    return preferredStructuredReadyProviders({
+      configuredProviders: this.configuredProviders?.() || [],
+      hardReadyProviders: this.hardReadyProviders(now),
+      softReadyProviders: this.softReadyProviders(now)
+    });
+  }
+
+  providerCapacityConstrained(now = Date.now()) {
+    return providerBudgetConstrained({
+      configuredProviders: this.configuredProviders?.() || [],
+      hardReadyProviders: this.hardReadyProviders(now),
+      softReadyProviders: this.softReadyProviders(now),
+      minimumPreferredReady: 2
+    });
   }
 
   effectiveStructuredReadyProviders(now = Date.now()) {
@@ -138,10 +162,36 @@ export class ChatRoom extends V37ChatRoom {
     return queued > 0;
   }
 
+  queueV37CapacitySheddingAmbient(now = Date.now(), forceSoon = false) {
+    if (this.providerPoolDegraded(now) || !this.providerCapacityConstrained(now)) return false;
+    this.v37ProductionTurnStats.constrainedModeTicks += 1;
+    if (this.pendingHumans?.length || this.aiQueue?.length) return false;
+    if (!forceSoon && now < Number(this.nextBotAt || 0)) return false;
+
+    const ambient = ContinuityFallbackChatRoom.prototype.builtInAmbient.call(this);
+    if (!ambient) return false;
+    const queued = Number(this.queueAiLines?.([ambient], "scene") || 0);
+    if (!queued) return false;
+
+    this.v37ProductionTurnStats.capacitySheddingAmbientQueued += queued;
+    this.setAiStatus?.("AI constrained · human-priority · ambient built-in");
+    return true;
+  }
+
+  async refillSceneAi(now = Date.now(), force = false) {
+    if (this.providerCapacityConstrained(now)) {
+      this.v37ProductionTurnStats.backgroundAiPlansSuppressed += 1;
+      return false;
+    }
+    return super.refillSceneAi(now, force);
+  }
+
   async runV37BaseProductionTurn(source, forceSoon = false) {
     this.v37ProductionTurnStats.baseTurnsStarted += 1;
     try {
-      this.queueV37DegradedFallback(Date.now(), Boolean(forceSoon));
+      const now = Date.now();
+      this.queueV37DegradedFallback(now, Boolean(forceSoon));
+      this.queueV37CapacitySheddingAmbient(now, Boolean(forceSoon));
 
       if (source === "alarm") {
         const result = await super.alarm();
@@ -264,10 +314,16 @@ export class ChatRoom extends V37ChatRoom {
       };
     }
     const workersResetAt = Math.max(0, Number(this.v37WorkersDailyQuotaResetAt || 0));
+    const preferredReady = this.preferredStructuredReadyProviders(now);
+    const constrained = this.providerCapacityConstrained(now);
     return {
       requestLocalStatuses: [400, 413, 422],
       rateLimitRetryAfterPreserved: true,
       preferredStructuredProviders: ["gemini", "groq"],
+      preferredStructuredReadyProviders: preferredReady,
+      providerCapacityConstrained: constrained,
+      humanPriorityModelBudget: true,
+      ambientAiSuppressedWhenConstrained: true,
       emergencyBrainProvider: "workers-ai",
       emergencyOnlyWhenPreferredUnavailable: true,
       degradedModeBuiltInFallback: true,
@@ -300,7 +356,9 @@ export class ChatRoom extends V37ChatRoom {
         emergencyWorkersBrainFallback: true,
         providerDegradedModeBuiltInFallback: true,
         effectiveStructuredProviderReadiness: true,
-        workersAiDailyQuotaState: true
+        workersAiDailyQuotaState: true,
+        humanPriorityProviderBudget: true,
+        ambientAiCapacityShedding: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
