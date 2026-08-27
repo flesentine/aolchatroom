@@ -3,7 +3,9 @@ import fs from "node:fs";
 import {
   effectiveStructuredProviders,
   emergencyWorkersBrainEligible,
-  isRequestLocalProviderFailure
+  isRequestLocalProviderFailure,
+  isWorkersAiDailyQuotaExhaustion,
+  nextUtcDailyQuotaResetAt
 } from "../src/provider_failover_v37.js";
 
 assert.equal(isRequestLocalProviderFailure(400), true);
@@ -12,6 +14,18 @@ assert.equal(isRequestLocalProviderFailure(422), true);
 assert.equal(isRequestLocalProviderFailure(429), false, "rate limits must remain provider-health events");
 assert.equal(isRequestLocalProviderFailure(500), false);
 assert.equal(isRequestLocalProviderFailure(401), false);
+
+assert.equal(isWorkersAiDailyQuotaExhaustion(
+  "workers-ai",
+  "4006: you have used up your daily free allocation of 10,000 neurons, please upgrade"
+), true, "Workers AI daily free-allocation exhaustion must be recognized even when surfaced as an SDK error");
+assert.equal(isWorkersAiDailyQuotaExhaustion("workers-ai", "3040: out of capacity"), false);
+assert.equal(isWorkersAiDailyQuotaExhaustion("gemini", "used up your daily free allocation of 10,000 neurons"), false);
+assert.equal(
+  nextUtcDailyQuotaResetAt(Date.UTC(2026, 7, 27, 5, 14, 44)),
+  Date.UTC(2026, 7, 28, 0, 0, 0),
+  "Workers AI daily quota must remain suppressed until the documented 00:00 UTC reset"
+);
 
 assert.deepEqual(effectiveStructuredProviders({
   configuredProviders: ["gemini", "groq", "workers-ai"],
@@ -82,6 +96,11 @@ assert.equal(emergencyWorkersBrainEligible({
 const hotfix = fs.readFileSync(new URL("../src/index_v37_hotfix.js", import.meta.url), "utf8");
 const v35Followup = fs.readFileSync(new URL("../src/v35_followup.js", import.meta.url), "utf8");
 assert.ok(hotfix.includes("isRequestLocalProviderFailure(status)"));
+assert.ok(hotfix.includes("isWorkersAiDailyQuotaExhaustion(provider, detail)"));
+assert.ok(hotfix.includes("nextUtcDailyQuotaResetAt(now)"));
+assert.ok(hotfix.includes("workersDailyQuotaExhaustions"));
+assert.ok(hotfix.includes("workersAiDailyQuotaResetAt"));
+assert.ok(hotfix.includes("this.providerCooldownUntil.set"));
 assert.ok(hotfix.includes("return super.noteProviderFailure(provider, status, response, detail)"));
 assert.ok(hotfix.includes("HTTP ${Number(status)} request rejected"));
 assert.ok(v35Followup.includes("this.v35StructuredGenerationDepth"), "v35 canonical structured-depth field must remain discoverable");
