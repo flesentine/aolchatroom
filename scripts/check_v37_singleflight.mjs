@@ -35,7 +35,6 @@ assert.equal(gate.snapshot().replayForce, true, "human forceSoon must survive co
 
 releaseFirst();
 await Promise.all([first, overlappingAlarm, overlappingHuman]);
-
 assert.equal(calls.length, 2, "many overlapping requests should collapse into one replay");
 assert.deepEqual(calls[0], { source: "tick", forceSoon: false });
 assert.deepEqual(calls[1], { source: "replay", forceSoon: true });
@@ -44,9 +43,6 @@ assert.equal(gate.snapshot().maxConcurrent, 1);
 assert.equal(gate.snapshot().replays, 1);
 assert.equal(gate.snapshot().active, false);
 
-// A new event can arrive while the first replay is itself awaiting I/O. It must
-// still coalesce rather than open a second production provider flight. The gate
-// may spend its second bounded replay to preserve a newly-forced human turn.
 let releaseInitial2;
 let releaseReplay2;
 const initialBlocked2 = new Promise((resolve) => { releaseInitial2 = resolve; });
@@ -102,15 +98,19 @@ assert.ok(wrapper.includes("productionTurnSingleFlight: true"));
 assert.ok(wrapper.includes("live-model-shadow-paused"));
 assert.equal(wrapper.includes("setTimeout("), false, "single-flight and shadow isolation must not be timing-delay patches");
 
-const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_only.js", import.meta.url), "utf8");
-assert.ok(productionEntrypoint.includes('from "./index_v37_hotfix.js"'), "adaptive ambient entrypoint must retain the single-flight/provider hotfix layer");
-assert.ok(productionEntrypoint.includes("adaptiveAmbientAi: true"));
-assert.ok(productionEntrypoint.includes("ambientSingleProviderAttempt: true"));
-assert.ok(productionEntrypoint.includes("ambientModelGenerationDisabled: false"));
-assert.ok(productionEntrypoint.includes("humanOnlyModelBudget: false"));
+const adaptiveEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_only.js", import.meta.url), "utf8");
+assert.ok(adaptiveEntrypoint.includes('from "./index_v37_hotfix.js"'), "adaptive ambient layer must retain the single-flight/provider hotfix layer");
+assert.ok(adaptiveEntrypoint.includes("adaptiveAmbientAi: true"));
+assert.ok(adaptiveEntrypoint.includes("ambientSingleProviderAttempt: true"));
+assert.ok(adaptiveEntrypoint.includes("ambientModelGenerationDisabled: false"));
+assert.ok(adaptiveEntrypoint.includes("humanOnlyModelBudget: false"));
+
+const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
+assert.ok(productionEntrypoint.includes('from "./index_v37_human_only.js"'), "extended provider entrypoint must retain adaptive ambient and all hotfix layers beneath it");
+assert.ok(productionEntrypoint.includes("extendedFreeProviderPool: true"));
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v37_human_only.js"'));
+assert.ok(wrangler.includes('"main": "src/index_v37_free_providers.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "37"'));
 
-console.log("v37 production-turn single-flight + adaptive ambient provider isolation regression checks passed");
+console.log("v37 production-turn single-flight + adaptive ambient + extended-provider regression checks passed");

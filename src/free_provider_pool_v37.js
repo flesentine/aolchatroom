@@ -17,6 +17,15 @@ export const AMBIENT_PROVIDER_PRIORITY = [
   "vercel-ai-gateway"
 ];
 
+export const EXTENDED_ONLY_PROVIDERS = new Set([
+  "mistral",
+  "vercel-ai-gateway",
+  "openrouter",
+  "huggingface",
+  "cerebras",
+  "cohere-trial"
+]);
+
 export const PROVIDER_LABELS_V37 = {
   gemini: "Gemini",
   groq: "Groq",
@@ -52,24 +61,39 @@ export function configuredExtendedProviders(env = {}, inherited = []) {
   return providers;
 }
 
+function inPriority(priority, configuredSet, readySet) {
+  return priority.filter((provider) => configuredSet.has(provider) && readySet.has(provider));
+}
+
+function structuredWorkersBoundary(ordered, structuredGenerationDepth) {
+  if (Number(structuredGenerationDepth || 0) <= 0) return ordered;
+  const nonWorkers = ordered.filter((provider) => provider !== "workers-ai");
+  if (nonWorkers.length) return nonWorkers;
+  return ordered.includes("workers-ai") ? ["workers-ai"] : [];
+}
+
 export function orderedExtendedProviders({ configured = [], hardReady = [], softReady = [], structuredGenerationDepth = 0 } = {}) {
   const configuredSet = new Set(configured);
   const hardSet = new Set(hardReady);
   const softSet = new Set(softReady);
-  const ordered = EXTENDED_PROVIDER_PRIORITY.filter((provider) => configuredSet.has(provider) && hardSet.has(provider) && softSet.has(provider));
 
-  if (Number(structuredGenerationDepth || 0) > 0) {
-    const nonWorkers = ordered.filter((provider) => provider !== "workers-ai");
-    if (nonWorkers.length) return nonWorkers;
-    if (ordered.includes("workers-ai")) return ["workers-ai"];
-  }
-  return ordered;
+  const softOrdered = inPriority(EXTENDED_PROVIDER_PRIORITY, configuredSet, softSet)
+    .filter((provider) => hardSet.has(provider));
+  if (softOrdered.length) return structuredWorkersBoundary(softOrdered, structuredGenerationDepth);
+
+  // Preserve v25's anti-silence rule: a soft output breaker may suppress a bad
+  // provider temporarily, but if every hard-healthy provider is soft-suppressed,
+  // allow exactly the highest-priority hard-healthy provider to prove recovery.
+  const hardOrdered = inPriority(EXTENDED_PROVIDER_PRIORITY, configuredSet, hardSet);
+  return structuredWorkersBoundary(hardOrdered.slice(0, 1), structuredGenerationDepth);
 }
 
 export function ambientReadyProviders({ configured = [], hardReady = [], softReady = [] } = {}) {
   const configuredSet = new Set(configured);
   const hardSet = new Set(hardReady);
   const softSet = new Set(softReady);
+  // Ambient AI is optional, so unlike human-facing routing it never bypasses a
+  // soft output breaker just to create background chatter.
   return AMBIENT_PROVIDER_PRIORITY.filter((provider) => configuredSet.has(provider) && hardSet.has(provider) && softSet.has(provider));
 }
 

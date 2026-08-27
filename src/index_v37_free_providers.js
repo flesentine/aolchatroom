@@ -1,6 +1,7 @@
 import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v37_human_only.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
+  EXTENDED_ONLY_PROVIDERS,
   PROVIDER_LABELS_V37,
   ambientReadyProviders,
   configuredExtendedProviders,
@@ -65,7 +66,7 @@ export class ChatRoom extends AdaptiveChatRoom {
   }
 
   configuredProviders() {
-    return configuredExtendedProviders(this.env, super.configuredProviders?.() || []);
+    return configuredExtendedProviders(this.env || {}, super.configuredProviders?.() || []);
   }
 
   preferredStructuredReadyProviders(now = Date.now()) {
@@ -99,7 +100,7 @@ export class ChatRoom extends AdaptiveChatRoom {
   }
 
   noteExtendedProvider(provider, ok) {
-    if (!["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras", "cohere-trial"].includes(provider)) return;
+    if (!EXTENDED_ONLY_PROVIDERS.has(provider)) return;
     this.v37ExtendedProviderStats.calls += 1;
     if (ok) this.v37ExtendedProviderStats.successes += 1;
     else this.v37ExtendedProviderStats.failures += 1;
@@ -197,8 +198,7 @@ export class ChatRoom extends AdaptiveChatRoom {
       apiKey: this.env.CEREBRAS_API_KEY,
       model: this.env.CEREBRAS_MODEL || "gpt-oss-120b",
       prompt,
-      maxTokens,
-      body: { reasoning_effort: "none" }
+      maxTokens
     });
   }
 
@@ -244,14 +244,68 @@ export class ChatRoom extends AdaptiveChatRoom {
   }
 
   providerEvent(provider, payload = {}) {
-    const event = {
+    this.broadcast?.({
       type: "ai_provider",
       provider,
       label: PROVIDER_LABELS_V37[provider] || provider,
       at: Date.now(),
       ...payload
+    });
+  }
+
+  // Older realism/memory layers know the generic `ai` source plus the original
+  // three provider names. Normalize only the newly-added providers to `ai`, while
+  // retaining the concrete provider in message metadata for diagnostics.
+  say(from, text, kind = "bot", source = "built-in", meta = {}) {
+    if (kind === "bot" && EXTENDED_ONLY_PROVIDERS.has(source)) {
+      return super.say(from, text, kind, "ai", { ...meta, aiProvider: source, provider: source });
+    }
+    return super.say(from, text, kind, source, meta);
+  }
+
+  v37ProviderFailoverSnapshot(now = Date.now()) {
+    const base = super.v37ProviderFailoverSnapshot(now);
+    return {
+      ...base,
+      preferredStructuredProviders: ["gemini", "groq", "mistral", "vercel-ai-gateway"],
+      preferredStructuredReadyProviders: this.preferredStructuredReadyProviders(now),
+      effectiveStructuredReadyProviders: this.effectiveStructuredReadyProviders(now),
+      providerPoolDegraded: this.providerPoolDegraded(now),
+      adaptiveAmbientAi: true,
+      ambientAiSuppressedWhenConstrained: false,
+      humanEmergencyProviders: ["openrouter", "huggingface", "cerebras"],
+      cohereTrialProductionDisabledByDefault: true
     };
-    this.broadcast?.(event);
+  }
+
+  async fetch(request) {
+    const response = await super.fetch(request);
+    const url = new URL(request.url);
+    if (url.pathname !== "/ai-status") return response;
+    const data = await json(response);
+    if (!data) return response;
+    const now = Date.now();
+    const extendedProviders = this.configuredProviders()
+      .filter((provider) => EXTENDED_ONLY_PROVIDERS.has(provider))
+      .map((provider) => {
+        const hardCooldownMs = Math.max(0, Number(this.providerCooldownUntil?.get(provider) || 0) - now);
+        const softCooldownMs = Math.max(0, Number(this.providerSoftRejectUntil?.get(provider) || 0) - now);
+        const stats = this.providerStats?.get(provider) || {};
+        const quality = this.providerQuality?.get(provider) || {};
+        return {
+          provider,
+          label: PROVIDER_LABELS_V37[provider] || provider,
+          hardReady: typeof this.providerReady !== "function" ? true : this.providerReady(provider, now),
+          softReady: typeof this.softReady !== "function" ? true : this.softReady(provider, now),
+          hardCooldownMs,
+          softCooldownMs,
+          successes: Number(stats.successes || quality.successes || 0),
+          failures: Number(stats.failures || quality.failures || 0),
+          outputRejects: Number(this.outputRejectStats?.get(provider) || quality.outputRejects || 0),
+          lastDetail: this.providerLastDetail?.get(provider) || ""
+        };
+      });
+    return Response.json({ ...data, extendedFreeProviders: extendedProviders });
   }
 
   v37Snapshot() {

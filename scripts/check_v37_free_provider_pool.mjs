@@ -3,16 +3,17 @@ import fs from "node:fs";
 import {
   EXTENDED_PROVIDER_PRIORITY,
   AMBIENT_PROVIDER_PRIORITY,
+  EXTENDED_ONLY_PROVIDERS,
   configuredExtendedProviders,
   orderedExtendedProviders,
   ambientReadyProviders
 } from "../src/free_provider_pool_v37.js";
 
 assert.deepEqual(EXTENDED_PROVIDER_PRIORITY.slice(0, 4), ["gemini", "groq", "mistral", "vercel-ai-gateway"]);
-assert.ok(EXTENDED_PROVIDER_PRIORITY.includes("openrouter"));
-assert.ok(EXTENDED_PROVIDER_PRIORITY.includes("huggingface"));
-assert.ok(EXTENDED_PROVIDER_PRIORITY.includes("cerebras"));
-assert.ok(EXTENDED_PROVIDER_PRIORITY.includes("cohere-trial"));
+for (const provider of ["openrouter", "huggingface", "cerebras", "cohere-trial"]) {
+  assert.ok(EXTENDED_PROVIDER_PRIORITY.includes(provider));
+  assert.ok(EXTENDED_ONLY_PROVIDERS.has(provider));
+}
 assert.deepEqual(AMBIENT_PROVIDER_PRIORITY, ["gemini", "groq", "mistral", "vercel-ai-gateway"]);
 
 const configured = configuredExtendedProviders({
@@ -23,11 +24,7 @@ const configured = configuredExtendedProviders({
   CEREBRAS_API_KEY: "x",
   COHERE_TRIAL_API_KEY: "x"
 }, ["gemini", "groq", "workers-ai"]);
-assert.ok(configured.includes("mistral"));
-assert.ok(configured.includes("vercel-ai-gateway"));
-assert.ok(configured.includes("openrouter"));
-assert.ok(configured.includes("huggingface"));
-assert.ok(configured.includes("cerebras"));
+for (const provider of ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"]) assert.ok(configured.includes(provider));
 assert.equal(configured.includes("cohere-trial"), false, "Cohere trial must stay disabled in production by default");
 
 const devConfigured = configuredExtendedProviders({ COHERE_TRIAL_API_KEY: "x", ALLOW_DEV_TRIAL_PROVIDERS: "1" }, []);
@@ -46,12 +43,21 @@ const emergencyWorkers = orderedExtendedProviders({
 });
 assert.deepEqual(emergencyWorkers, ["workers-ai"]);
 
+const softSuppressedRecovery = orderedExtendedProviders({
+  configured: ["mistral", "openrouter"],
+  hardReady: ["mistral", "openrouter"],
+  softReady: [],
+  structuredGenerationDepth: 1
+});
+assert.deepEqual(softSuppressedRecovery, ["mistral"], "all-soft-suppressed must still allow exactly one hard-healthy recovery probe");
+
 const ambient = ambientReadyProviders({
   configured: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"],
   hardReady: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"],
   softReady: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"]
 });
 assert.deepEqual(ambient, ["mistral", "vercel-ai-gateway"], "tiny/trial free pools must not be spent on ambient chatter");
+assert.deepEqual(ambientReadyProviders({ configured: ["mistral"], hardReady: ["mistral"], softReady: [] }), [], "ambient chatter must honor the soft breaker");
 
 const runtime = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
 for (const needle of [
@@ -64,5 +70,9 @@ for (const needle of [
 ]) assert.ok(runtime.includes(needle), `missing provider endpoint: ${needle}`);
 assert.ok(runtime.includes('return super.callProvider(provider, prompt, maxTokens)'));
 assert.ok(runtime.includes("cohereTrialProductionDisabledByDefault: true"));
+assert.ok(runtime.includes('return super.say(from, text, kind, "ai", { ...meta, aiProvider: source, provider: source })'), "new provider lines must remain AI-classified in inherited realism/memory layers");
+assert.ok(runtime.includes("async fetch(request)"));
+assert.ok(runtime.includes('url.pathname !== "/ai-status"'), "AI status must expose new-provider health");
+assert.equal(runtime.includes('reasoning_effort: "none"'), false, "do not send provider-specific unsupported reasoning fields by default");
 
 console.log("v37 extended free-provider pool regression checks passed");
