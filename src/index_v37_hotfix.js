@@ -1,4 +1,5 @@
 import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
+import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { CoalescingTurnGate } from "./production_turn_gate.js";
 import { stripInternalChatMetadata } from "./output_hygiene_v37.js";
 import {
@@ -31,7 +32,8 @@ export default {
         shadowPacketsStillRecordedWhileModelPaused: true,
         internalMetadataOutputHygiene: true,
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
-        emergencyWorkersBrainFallback: true
+        emergencyWorkersBrainFallback: true,
+        providerDegradedModeBuiltInFallback: true
       }
     });
   }
@@ -55,7 +57,11 @@ export class ChatRoom extends V37ChatRoom {
       internalMetadataStrips: 0,
       internalMetadataDroppedLines: 0,
       requestLocalProviderRejects: 0,
-      emergencyWorkersBrainRoutes: 0
+      emergencyWorkersBrainRoutes: 0,
+      degradedModeTicks: 0,
+      degradedHumanFallbacksQueued: 0,
+      degradedAmbientFallbacksQueued: 0,
+      degradedFallbackMisses: 0
     };
     this.v37ProductionTurnGate = new CoalescingTurnGate({
       run: (source, forceSoon) => this.runV37BaseProductionTurn(source, forceSoon),
@@ -66,9 +72,57 @@ export class ChatRoom extends V37ChatRoom {
     });
   }
 
+  hardReadyProviders(now = Date.now()) {
+    const configured = this.configuredProviders?.() || [];
+    if (typeof this.providerReady !== "function") return configured;
+    return configured.filter((provider) => this.providerReady(provider, now));
+  }
+
+  providerPoolDegraded(now = Date.now()) {
+    const configured = this.configuredProviders?.() || [];
+    return configured.length > 0 && this.hardReadyProviders(now).length === 0;
+  }
+
+  queueV37DegradedFallback(now = Date.now(), forceSoon = false) {
+    if (!this.providerPoolDegraded(now)) return false;
+    this.v37ProductionTurnStats.degradedModeTicks += 1;
+
+    const retryMs = typeof this.shortestCooldownMs === "function"
+      ? Math.max(0, Number(this.shortestCooldownMs(now) || 0))
+      : 0;
+    const retrySeconds = Math.max(1, Math.ceil((retryMs || 1000) / 1000));
+    let queued = 0;
+
+    if (this.pendingHumans?.length) {
+      const human = this.pendingHumans.shift();
+      const replies = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
+      if (replies.length) queued = Number(this.queueAiLines?.(replies.slice(0, 3), "human") || 0);
+
+      if (!queued) {
+        this.pendingHumans.unshift(human);
+        this.v37ProductionTurnStats.degradedFallbackMisses += 1;
+      } else {
+        this.v37ProductionTurnStats.degradedHumanFallbacksQueued += queued;
+      }
+    } else if (!(this.aiQueue?.length) && (forceSoon || now >= Number(this.nextBotAt || 0))) {
+      const ambient = ContinuityFallbackChatRoom.prototype.builtInAmbient.call(this);
+      if (ambient) queued = Number(this.queueAiLines?.([ambient], "scene") || 0);
+      if (queued) this.v37ProductionTurnStats.degradedAmbientFallbacksQueued += queued;
+    }
+
+    this.setAiStatus?.(`AI degraded · built-in fallback active · provider retry in ~${retrySeconds}s`);
+    return queued > 0;
+  }
+
   async runV37BaseProductionTurn(source, forceSoon = false) {
     this.v37ProductionTurnStats.baseTurnsStarted += 1;
     try {
+      // The inherited v19.2 provider layer returns early when a human is pending and
+      // every configured provider is cooling. Queue the existing period-safe built-in
+      // fallback first so that old early-return path cannot freeze the room. AI
+      // cooldowns stay intact and normal model routing resumes automatically later.
+      this.queueV37DegradedFallback(Date.now(), Boolean(forceSoon));
+
       if (source === "alarm") {
         const result = await super.alarm();
         this.maybeRunV37Shadow(Date.now());
@@ -183,6 +237,9 @@ export class ChatRoom extends V37ChatRoom {
       preferredStructuredProviders: ["gemini", "groq"],
       emergencyBrainProvider: "workers-ai",
       emergencyOnlyWhenPreferredUnavailable: true,
+      degradedModeBuiltInFallback: true,
+      hardReadyProviders: this.hardReadyProviders(now),
+      providerPoolDegraded: this.providerPoolDegraded(now),
       cooldowns
     };
   }
@@ -201,7 +258,8 @@ export class ChatRoom extends V37ChatRoom {
         shadowPacketsStillRecordedWhileModelPaused: true,
         internalMetadataOutputHygiene: true,
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
-        emergencyWorkersBrainFallback: true
+        emergencyWorkersBrainFallback: true,
+        providerDegradedModeBuiltInFallback: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
