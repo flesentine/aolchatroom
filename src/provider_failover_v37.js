@@ -1,8 +1,26 @@
 const REQUEST_LOCAL_PROVIDER_STATUSES = new Set([400, 413, 422]);
 const PREFERRED_STRUCTURED_PROVIDERS = Object.freeze(["gemini", "groq"]);
+const WORKERS_DAILY_QUOTA_CUE = /(?:daily free allocation|10\s*,?\s*000\s+neurons|used up[^.]{0,80}neurons|daily quota)/i;
 
 export function isRequestLocalProviderFailure(status) {
   return REQUEST_LOCAL_PROVIDER_STATUSES.has(Number(status || 0));
+}
+
+export function isWorkersAiDailyQuotaExhaustion(provider, detail = "") {
+  return String(provider || "") === "workers-ai" && WORKERS_DAILY_QUOTA_CUE.test(String(detail || ""));
+}
+
+export function nextUtcDailyQuotaResetAt(now = Date.now()) {
+  const date = new Date(Number(now || Date.now()));
+  return Date.UTC(
+    date.getUTCFullYear(),
+    date.getUTCMonth(),
+    date.getUTCDate() + 1,
+    0,
+    0,
+    0,
+    0
+  );
 }
 
 export function effectiveStructuredProviders({
