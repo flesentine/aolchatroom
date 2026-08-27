@@ -3,6 +3,8 @@ import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { CoalescingTurnGate } from "./production_turn_gate.js";
 import { stripInternalChatMetadata } from "./output_hygiene_v37.js";
 import {
+  degradedBuiltInFallbackEligible,
+  effectiveStructuredProviders,
   emergencyWorkersBrainEligible,
   isRequestLocalProviderFailure
 } from "./provider_failover_v37.js";
@@ -33,7 +35,8 @@ export default {
         internalMetadataOutputHygiene: true,
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
         emergencyWorkersBrainFallback: true,
-        providerDegradedModeBuiltInFallback: true
+        providerDegradedModeBuiltInFallback: true,
+        effectiveStructuredProviderReadiness: true
       }
     });
   }
@@ -78,9 +81,25 @@ export class ChatRoom extends V37ChatRoom {
     return configured.filter((provider) => this.providerReady(provider, now));
   }
 
+  softReadyProviders(now = Date.now()) {
+    const hardReady = this.hardReadyProviders(now);
+    if (typeof this.softReady !== "function") return hardReady;
+    return hardReady.filter((provider) => this.softReady(provider, now));
+  }
+
+  effectiveStructuredReadyProviders(now = Date.now()) {
+    return effectiveStructuredProviders({
+      configuredProviders: this.configuredProviders?.() || [],
+      hardReadyProviders: this.hardReadyProviders(now),
+      softReadyProviders: this.softReadyProviders(now)
+    });
+  }
+
   providerPoolDegraded(now = Date.now()) {
-    const configured = this.configuredProviders?.() || [];
-    return configured.length > 0 && this.hardReadyProviders(now).length === 0;
+    return degradedBuiltInFallbackEligible({
+      configuredProviders: this.configuredProviders?.() || [],
+      effectiveReadyProviders: this.effectiveStructuredReadyProviders(now)
+    });
   }
 
   queueV37DegradedFallback(now = Date.now(), forceSoon = false) {
@@ -117,10 +136,10 @@ export class ChatRoom extends V37ChatRoom {
   async runV37BaseProductionTurn(source, forceSoon = false) {
     this.v37ProductionTurnStats.baseTurnsStarted += 1;
     try {
-      // The inherited v19.2 provider layer returns early when a human is pending and
-      // every configured provider is cooling. Queue the existing period-safe built-in
-      // fallback first so that old early-return path cannot freeze the room. AI
-      // cooldowns stay intact and normal model routing resumes automatically later.
+      // Decide degradation from providers that are actually usable for structured
+      // production, not merely configured/bound. This avoids the old mismatch where
+      // Workers AI looked "ready" to hasReadyAi() while v35 still filtered it out of
+      // structured Brain generation.
       this.queueV37DegradedFallback(Date.now(), Boolean(forceSoon));
 
       if (source === "alarm") {
@@ -160,17 +179,11 @@ export class ChatRoom extends V37ChatRoom {
   noteProviderFailure(provider, status = 0, response = null, detail = "") {
     if (isRequestLocalProviderFailure(status)) {
       this.v37ProductionTurnStats.requestLocalProviderRejects += 1;
-      // 400/413/422 describe this request, not provider availability. Treat them
-      // like unusable model output so the existing soft-reject circuit can back off
-      // repeated bad requests without poisoning the provider's global hard-health
-      // cooldown used by unrelated Brain/Voice work.
       return this.noteOutputReject?.(
         provider,
         `HTTP ${Number(status)} request rejected: ${String(detail || "provider request rejected").slice(0, 120)}`
       );
     }
-    // 429/5xx/network/credential failures remain true provider-health events. In
-    // particular, preserve Retry-After on 429 rather than hammering the provider.
     return super.noteProviderFailure(provider, status, response, detail);
   }
 
@@ -179,18 +192,16 @@ export class ChatRoom extends V37ChatRoom {
     const configured = this.configuredProviders?.() || [];
     const workersHardReady = configured.includes("workers-ai")
       && (typeof this.providerReady !== "function" || this.providerReady("workers-ai", now));
+    const workersSoftReady = typeof this.softReady !== "function" || this.softReady("workers-ai", now);
 
     if (!emergencyWorkersBrainEligible({
       orderedProviders: ordered,
-      structuredBrainDepth: this.v35StructuredBrainDepth,
+      structuredBrainDepth: this.v35StructuredGenerationDepth,
       configuredProviders: configured,
-      workersHardReady
+      workersHardReady,
+      workersSoftReady
     })) return ordered;
 
-    // v35 intentionally keeps Workers AI out of normal structured Brain traffic
-    // because Gemini/Groq produce better structured plans. Only restore Workers AI
-    // when BOTH preferred structured providers are unavailable. This is a degraded
-    // emergency route, not a new normal provider priority.
     this.v37ProductionTurnStats.emergencyWorkersBrainRoutes += 1;
     return ["workers-ai"];
   }
@@ -239,6 +250,8 @@ export class ChatRoom extends V37ChatRoom {
       emergencyOnlyWhenPreferredUnavailable: true,
       degradedModeBuiltInFallback: true,
       hardReadyProviders: this.hardReadyProviders(now),
+      softReadyProviders: this.softReadyProviders(now),
+      effectiveStructuredReadyProviders: this.effectiveStructuredReadyProviders(now),
       providerPoolDegraded: this.providerPoolDegraded(now),
       cooldowns
     };
@@ -259,7 +272,8 @@ export class ChatRoom extends V37ChatRoom {
         internalMetadataOutputHygiene: true,
         requestLocalProviderFailuresDoNotTripGlobalCooldown: true,
         emergencyWorkersBrainFallback: true,
-        providerDegradedModeBuiltInFallback: true
+        providerDegradedModeBuiltInFallback: true,
+        effectiveStructuredProviderReadiness: true
       },
       productionTurn: {
         ...this.v37ProductionTurnStats,
