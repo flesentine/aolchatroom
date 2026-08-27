@@ -103,11 +103,14 @@ assert.ok(wrapper.includes("live-model-shadow-paused"));
 assert.equal(wrapper.includes("setTimeout("), false, "single-flight and shadow isolation must not be timing-delay patches");
 
 const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_only.js", import.meta.url), "utf8");
-assert.ok(productionEntrypoint.includes('from "./index_v37_hotfix.js"'), "human-only entrypoint must retain the single-flight/provider hotfix layer");
-assert.ok(productionEntrypoint.includes("ambientModelGenerationDisabled: true"));
+assert.ok(productionEntrypoint.includes('from "./index_v37_hotfix.js"'), "adaptive ambient entrypoint must retain the single-flight/provider hotfix layer");
+assert.ok(productionEntrypoint.includes("adaptiveAmbientAi: true"));
+assert.ok(productionEntrypoint.includes("ambientSingleProviderAttempt: true"));
+assert.ok(productionEntrypoint.includes("ambientModelGenerationDisabled: false"));
+assert.ok(productionEntrypoint.includes("humanOnlyModelBudget: false"));
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v37_human_only.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "37"'));
 
-console.log("v37 production-turn single-flight + provider-isolation shadow pause regression checks passed");
+console.log("v37 production-turn single-flight + adaptive ambient provider isolation regression checks passed");
