@@ -1,7 +1,10 @@
 import { inferHumanMoveType } from "./conversation_director.js";
 
-const REPETITION_CUE = /\b(?:again|still|same|repeat(?:ing|ed)?|keeps?|kept|already|another)\b/i;
-const META_CUE = /\b(?:talk(?:ing)?|topic|subject|conversation|this|that|it)\b/i;
+const DISCUSSION_CUE = /\b(?:talk(?:ing|ed)?|discuss(?:ing|ed)?|topic|subject|conversation)\b/i;
+const AGAIN_CUE = /\bagain\b/i;
+const DEICTIC_CUE = /\b(?:this|that)\b/i;
+const CONTINUATION_CUE = /\b(?:still|already|keeps?|keeping|kept)\b/i;
+const EXPLICIT_FATIGUE_CUE = /\b(?:here we go again|not this again|same (?:thing|topic|subject|conversation)|been over this|we(?:'ve|ve| have) (?:talked|discussed) about (?:this|that) before|you(?:'re|re| are) repeating yourself)\b/i;
 const STOP = new Set([
   "about", "again", "already", "also", "another", "been", "being", "conversation", "does", "from", "have",
   "into", "just", "keep", "keeps", "kept", "like", "more", "really", "same", "still", "subject", "talk", "talking",
@@ -26,10 +29,28 @@ function overlapCount(a, b) {
   return overlap;
 }
 
+export function hasConversationFatigueCue(value) {
+  const text = String(value || "");
+  if (!text) return false;
+  if (EXPLICIT_FATIGUE_CUE.test(text)) return true;
+
+  // "again" only means fatigue when it refers to the conversation itself
+  // ("talking about this again", "this again?"). It must not turn ordinary
+  // repeatable actions such as "play it again" into a topic pivot.
+  if (AGAIN_CUE.test(text) && (DISCUSSION_CUE.test(text) || DEICTIC_CUE.test(text))) return true;
+
+  // Words such as "still" and "already" are common grammar. They only count
+  // as fatigue when paired with an explicit discourse cue, so questions like
+  // "do you still have it?" and "is that still happening?" stay answerable.
+  if (CONTINUATION_CUE.test(text) && DISCUSSION_CUE.test(text)) return true;
+
+  return false;
+}
+
 export function conversationFatigueEvidence(packet) {
   const trigger = packet?.trigger;
   const text = String(trigger?.text || "");
-  if (!trigger || trigger.kind !== "human" || !REPETITION_CUE.test(text) || !META_CUE.test(text)) {
+  if (!trigger || trigger.kind !== "human" || !hasConversationFatigueCue(text)) {
     return { fatigue: false, reason: "no-contextual-repetition-signal", overlap: 0, sameSceneLines: 0 };
   }
 
@@ -42,9 +63,8 @@ export function conversationFatigueEvidence(packet) {
   const anchored = Boolean(exact?.text) || sameSceneLines >= 2;
 
   // This is an observation about interaction structure, not a topic keyword rule:
-  // a human uses repetition/meta language while anchored to recent conversation.
-  // Meaningful lexical overlap strengthens the signal but is not required when
-  // reply/scene linkage already establishes what "this/again" refers to.
+  // a human uses explicit conversation-fatigue language while anchored to a
+  // recent exchange. Reply/scene linkage tells us what the complaint refers to.
   const fatigue = anchored && (overlap >= 1 || sameSceneLines >= 2 || Boolean(exact?.text));
   return {
     fatigue,
