@@ -17,7 +17,7 @@ const closeProfileBottom = document.querySelector("#closeProfileBottom");
 const debugPanel = document.querySelector("#debugPanel");
 const exportChat = document.querySelector("#exportChat");
 
-let socket;
+let socket = null;
 let pulseTimer;
 let capture = null;
 let capturePersistTimer = null;
@@ -214,29 +214,49 @@ function setUsers(users = []) {
   count.textContent = String(users.length);
 }
 
+function socketIsActive(candidate = socket) {
+  return Boolean(candidate && (
+    candidate.readyState === WebSocket.CONNECTING
+    || candidate.readyState === WebSocket.OPEN
+  ));
+}
+
 function connect() {
+  if (socketIsActive()) return;
+
   const name = cleanName(screenName.value);
+  signOn.disabled = true;
   localStorage.setItem("aol96-screen-name", name);
   startOrResumeCapture(name);
 
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const debugArg = debug ? "&debug=1" : "";
   const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}${debugArg}`;
-  socket = new WebSocket(url);
+  let connection;
+  try {
+    connection = new WebSocket(url);
+  } catch (error) {
+    signOn.disabled = false;
+    status.textContent = "Connection error";
+    recordCaptureEvent({ type: "connection", action: "error", detail: String(error?.message || error || "") });
+    return;
+  }
+  socket = connection;
   status.textContent = "Connecting...";
 
-  socket.addEventListener("open", () => {
+  connection.addEventListener("open", () => {
+    if (socket !== connection) return;
     signin.classList.add("hidden");
     status.textContent = "Connected";
     recordCaptureEvent({ type: "connection", action: "open" });
     clearInterval(pulseTimer);
     pulseTimer = setInterval(() => {
-      if (socket.readyState === WebSocket.OPEN) socket.send("pulse");
+      if (socket === connection && connection.readyState === WebSocket.OPEN) connection.send("pulse");
     }, 1500);
   });
 
-  socket.addEventListener("message", (event) => {
-    if (event.data === "pong") return;
+  connection.addEventListener("message", (event) => {
+    if (socket !== connection || event.data === "pong") return;
     let data;
     try { data = JSON.parse(event.data); } catch { return; }
 
@@ -286,15 +306,20 @@ function connect() {
     }
   });
 
-  socket.addEventListener("close", () => {
+  connection.addEventListener("close", () => {
+    if (socket !== connection) return;
     clearInterval(pulseTimer);
+    pulseTimer = null;
+    socket = null;
+    signOn.disabled = false;
     recordCaptureEvent({ type: "connection", action: "close" });
     persistCapture(true);
     status.textContent = "Disconnected - click Sign On to reconnect";
     signin.classList.remove("hidden");
   });
 
-  socket.addEventListener("error", () => {
+  connection.addEventListener("error", () => {
+    if (socket !== connection) return;
     recordCaptureEvent({ type: "connection", action: "error" });
     status.textContent = "Connection error";
   });
@@ -359,7 +384,10 @@ function renderDebug(state) {
 
 signOn.addEventListener("click", connect);
 screenName.addEventListener("keydown", (event) => {
-  if (event.key === "Enter") connect();
+  if (event.key === "Enter") {
+    event.preventDefault();
+    connect();
+  }
 });
 send.addEventListener("click", sendMessage);
 message.addEventListener("keydown", (event) => {
