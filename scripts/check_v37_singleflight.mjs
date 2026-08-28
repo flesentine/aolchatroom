@@ -105,12 +105,16 @@ assert.ok(adaptiveEntrypoint.includes("ambientSingleProviderAttempt: true"));
 assert.ok(adaptiveEntrypoint.includes("ambientModelGenerationDisabled: false"));
 assert.ok(adaptiveEntrypoint.includes("humanOnlyModelBudget: false"));
 
-const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
-assert.ok(productionEntrypoint.includes('from "./index_v37_human_only.js"'), "extended provider entrypoint must retain adaptive ambient and all hotfix layers beneath it");
-assert.ok(productionEntrypoint.includes("extendedFreeProviderPool: true"));
+const providerEntrypoint = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
+assert.ok(providerEntrypoint.includes('from "./index_v37_human_only.js"'), "extended provider layer must retain adaptive ambient and all hotfix layers beneath it");
+assert.ok(providerEntrypoint.includes("extendedFreeProviderPool: true"));
+
+const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_director.js", import.meta.url), "utf8");
+assert.ok(productionEntrypoint.includes('from "./index_v37_free_providers.js"'), "human Director cutover must retain the extended provider/single-flight layers beneath it");
+assert.ok(productionEntrypoint.includes("directHumanDirectorAuthoritative: true"));
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v37_free_providers.js"'));
+assert.ok(wrangler.includes('"main": "src/index_v37_human_director.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "37"'));
 
-console.log("v37 production-turn single-flight + adaptive ambient + extended-provider regression checks passed");
+console.log("v37 production-turn single-flight + adaptive ambient + extended-provider + human-Director regression checks passed");
