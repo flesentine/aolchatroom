@@ -27,6 +27,7 @@ assert.equal(
 const worker = fs.readFileSync(new URL("../src/index_v37_human_only.js", import.meta.url), "utf8");
 const providerWrapper = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
 const directorWrapper = fs.readFileSync(new URL("../src/index_v37_human_director.js", import.meta.url), "utf8");
+const livelyWrapper = fs.readFileSync(new URL("../src/index_v37_lively_ambient.js", import.meta.url), "utf8");
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 
 assert.ok(worker.includes("async generateAdaptiveAmbientAi(now = Date.now())"));
@@ -43,9 +44,9 @@ assert.ok(worker.includes("const lines = await super.generateHumanReplan(human)"
 assert.ok(worker.includes("ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human)"));
 assert.ok(worker.includes("AI human reply fallback · built-in"));
 assert.ok(providerWrapper.includes('from "./index_v37_human_only.js"'));
-assert.ok(providerWrapper.includes("preferredStructuredReadyProviders(now = Date.now())"), "extended provider wrapper must feed Mistral/Vercel into adaptive ambient readiness");
-assert.ok(directorWrapper.includes('from "./index_v37_free_providers.js"'), "production human Director wrapper must retain adaptive ambient/provider layers");
-assert.ok(directorWrapper.includes("ambientStillLegacyAuthoritative: true"));
-assert.ok(wrangler.includes('"main": "src/index_v37_human_director.js"'));
+assert.ok(providerWrapper.includes("preferredStructuredReadyProviders(now = Date.now())"), "extended provider wrapper must feed Mistral/Vercel into ambient readiness");
+assert.ok(directorWrapper.includes('from "./index_v37_free_providers.js"'), "human Director wrapper must retain adaptive/provider layers beneath it");
+assert.ok(livelyWrapper.includes('from "./index_v37_human_director.js"'), "production lively layer must retain human Director beneath it");
+assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'));
 
-console.log("v37 adaptive ambient AI budget regression checks passed under human Director + extended provider wrapper");
+console.log("v37 adaptive ambient safety layer remains intact beneath lively production ambient");

@@ -76,7 +76,10 @@ assert.ok(runtime.includes("this.closeLegacySceneForPivot(human, move)"), "pivot
 assert.ok(runtime.includes("this.clearSceneCarryPlan?.(planId)"), "pivot must break inherited scene carry");
 assert.ok(runtime.includes("voiced.slice(0, 1)"), "one Director move must render as one surface line in this cutover");
 
+const production = fs.readFileSync(new URL("../src/index_v37_lively_ambient.js", import.meta.url), "utf8");
+assert.ok(production.includes('from "./index_v37_human_director.js"'), "production ambient layer must preserve authoritative direct-human routing");
+
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v37_human_director.js"'), "production entrypoint must use the human Director wrapper");
+assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'), "production entrypoint must retain human Director under lively ambient wrapper");
 
 console.log("v37 direct-human Director cutover regression checks passed");

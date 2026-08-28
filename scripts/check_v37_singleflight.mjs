@@ -109,12 +109,17 @@ const providerEntrypoint = fs.readFileSync(new URL("../src/index_v37_free_provid
 assert.ok(providerEntrypoint.includes('from "./index_v37_human_only.js"'), "extended provider layer must retain adaptive ambient and all hotfix layers beneath it");
 assert.ok(providerEntrypoint.includes("extendedFreeProviderPool: true"));
 
-const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_director.js", import.meta.url), "utf8");
-assert.ok(productionEntrypoint.includes('from "./index_v37_free_providers.js"'), "human Director cutover must retain the extended provider/single-flight layers beneath it");
-assert.ok(productionEntrypoint.includes("directHumanDirectorAuthoritative: true"));
+const humanDirectorEntrypoint = fs.readFileSync(new URL("../src/index_v37_human_director.js", import.meta.url), "utf8");
+assert.ok(humanDirectorEntrypoint.includes('from "./index_v37_free_providers.js"'), "human Director cutover must retain the extended provider/single-flight layers beneath it");
+assert.ok(humanDirectorEntrypoint.includes("directHumanDirectorAuthoritative: true"));
+
+const productionEntrypoint = fs.readFileSync(new URL("../src/index_v37_lively_ambient.js", import.meta.url), "utf8");
+assert.ok(productionEntrypoint.includes('from "./index_v37_human_director.js"'), "lively ambient production layer must retain human Director and all safety layers beneath it");
+assert.ok(productionEntrypoint.includes("livelyAmbientAi: true"));
+assert.ok(productionEntrypoint.includes("ambientBuiltInFillerBetweenCalls: false"));
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v37_human_director.js"'));
+assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "37"'));
 
-console.log("v37 production-turn single-flight + adaptive ambient + extended-provider + human-Director regression checks passed");
+console.log("v37 production-turn single-flight + extended-provider + human-Director + lively-ambient regression checks passed");
