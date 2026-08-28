@@ -41,6 +41,28 @@ assert.ok(runtime.includes("closeExhaustedAmbientScenes(now)"), "overlong ambien
 assert.ok(runtime.includes("EXHAUSTED_SCENE_TURNS = 15"));
 assert.ok(runtime.includes("safe.length < LIVELY_AMBIENT_MIN_LINES || distinctSpeakers.size < 2"), "output validator must require enough lines and multiple speakers");
 
+// Live-capture regression: the v37 burst must not be filtered through the old
+// v14/v16/v17 parse stack before its own 3-line / 2-speaker acceptance gate.
+assert.ok(runtime.includes("function parseLivelyAmbientBurst"), "lively ambient must have a dedicated v37 burst parser");
+assert.ok(runtime.includes("safe = parseLivelyAmbientBurst(result.content, activeNames, LIVELY_AMBIENT_MAX_LINES)"), "provider output must use the dedicated v37 parser");
+assert.equal(runtime.includes("this.parseGroqMessages(extractJson(result.content)"), false, "lively ambient must not inherit legacy parser rejection layers");
+assert.ok(runtime.includes("canonical.get(clean(raw?.speaker, 32).toLowerCase())"), "burst parser must canonicalize only currently active bot speakers");
+assert.ok(runtime.includes("canonical.get(requestedTarget.toLowerCase()) || \"room\""), "invalid burst targets must fall safely back to room");
+
+// Live-capture regression: explicit scene closure is terminal in production v37.
+assert.ok(runtime.includes("sceneIsClosed(scene)"), "production v37 must recognize explicit closed scenes");
+assert.ok(runtime.includes("explicitlyClosed.set(id"), "pruning must preserve explicit scene closure");
+assert.ok(runtime.includes("closedSceneResurrectionBlocks"), "closed-scene resurrection attempts must be observable");
+assert.ok(runtime.includes("if (!this.sceneIsClosed(scene)) return scene"), "scene lookup must refuse a closed scene");
+assert.ok(runtime.includes("if (this.sceneIsClosed(scene))"), "scene touch must not reactivate a closed scene");
+
+// Runtime diagnostics must describe the authoritative production path, not the old shadow era.
+assert.ok(runtime.includes("shadowOnly: false"), "v37 diagnostics must no longer claim shadow-only mode");
+assert.ok(runtime.includes("visibleRoutingChanges: true"), "v37 diagnostics must acknowledge visible routing changes");
+assert.ok(runtime.includes("legacyPlannerAuthoritative: false"), "v37 diagnostics must not call the legacy planner authoritative");
+assert.ok(runtime.includes("noVisibleRoutingChanges: false"), "top-level v37 diagnostics must clear the old no-visible-routing flag");
+assert.ok(runtime.includes("ambientStillLegacyAuthoritative: false"), "ambient diagnostics must identify lively v37 as authoritative");
+
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'), "production entrypoint must use lively ambient wrapper");
 
