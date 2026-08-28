@@ -35,6 +35,7 @@ export default {
         legacyBrainGetsSecondVoteOnDirectHuman: false,
         contextualHumanFatigueObservation: true,
         pivotBreaksLegacySceneCarry: true,
+        pivotForcesFreshLegacyScene: true,
         ambientStillLegacyAuthoritative: true
       }
     });
@@ -166,6 +167,14 @@ export class ChatRoom extends FreeProviderChatRoom {
     return selected.slice(0, 8);
   }
 
+  sceneForMessage(message, now = Date.now()) {
+    // A replace/pivot must never rediscover the scene it just closed through
+    // replyTo or direct-target history. Returning null makes the inherited
+    // pushMessage path create a genuinely new scene for this targeted line.
+    if (message?._v37ForceNewScene) return null;
+    return super.sceneForMessage(message, now);
+  }
+
   closeLegacySceneForPivot(human, move) {
     if (move?.sceneAction !== "replace") return;
     const row = this.humanHistoryRow?.(human) || null;
@@ -250,6 +259,7 @@ export class ChatRoom extends FreeProviderChatRoom {
         _v37SceneAction: move.sceneAction,
         _v37MoveType: move.moveType,
         _v37DirectorProvider: decision.provider,
+        _v37ForceNewScene: move.sceneAction === "replace",
         replyTo: move.replyTo || line.replyTo || ""
       }));
     }
@@ -270,6 +280,7 @@ export class ChatRoom extends FreeProviderChatRoom {
       for (const item of this.aiQueue || []) {
         if (item?._scenePlanId !== planId) continue;
         delete item._continuitySceneId;
+        item._v37ForceNewScene = true;
       }
       this.v37HumanDirectorStats.pivotSceneCarryBreaks += 1;
     }
@@ -286,6 +297,7 @@ export class ChatRoom extends FreeProviderChatRoom {
         legacyBrainGetsSecondVoteOnDirectHuman: false,
         contextualHumanFatigueObservation: true,
         pivotBreaksLegacySceneCarry: true,
+        pivotForcesFreshLegacyScene: true,
         ambientStillLegacyAuthoritative: true
       },
       humanDirector: {

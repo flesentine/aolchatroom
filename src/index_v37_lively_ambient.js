@@ -28,6 +28,35 @@ function extractJson(value) {
   return text;
 }
 
+export function parseLivelyAmbientBurst(content, activeNames = [], max = LIVELY_AMBIENT_MAX_LINES) {
+  const parsed = JSON.parse(extractJson(content));
+  const canonical = new Map((activeNames || []).filter(Boolean).map((name) => [String(name).toLowerCase(), String(name)]));
+  const messages = Array.isArray(parsed?.messages) ? parsed.messages : [];
+  const accepted = [];
+
+  for (const raw of messages) {
+    const speaker = canonical.get(clean(raw?.speaker, 32).toLowerCase());
+    const text = clean(raw?.text, 140);
+    if (!speaker || !text) continue;
+
+    const requestedTarget = clean(raw?.target || "room", 32);
+    const target = requestedTarget.toLowerCase() === "room"
+      ? "room"
+      : canonical.get(requestedTarget.toLowerCase()) || "room";
+
+    accepted.push({
+      speaker,
+      target,
+      text,
+      intent: clean(raw?.intent || (target === "room" ? "ambient" : "reply"), 48) || "ambient",
+      topic: clean(raw?.topic || "general", 64) || "general"
+    });
+    if (accepted.length >= max) break;
+  }
+
+  return accepted;
+}
+
 async function responseDetail(response) {
   if (!response) return "";
   try { return clean(await response.clone().text(), 180); } catch { return ""; }
@@ -37,6 +66,25 @@ async function json(response) {
   try { return await response.json(); } catch { return null; }
 }
 
+function authoritativeMode(mode = {}) {
+  return {
+    ...mode,
+    shadowOnly: false,
+    visibleRoutingChanges: true,
+    legacyPlannerAuthoritative: false,
+    directHumanDirectorAuthoritative: true,
+    legacyBrainGetsSecondVoteOnDirectHuman: false,
+    adaptiveAmbientAi: false,
+    livelyAmbientAi: true,
+    ambientSingleCallBurst: true,
+    ambientAiDominantWhenHealthy: true,
+    ambientBuiltInFillerBetweenCalls: false,
+    ambientBuiltInOnlyOnProviderFailure: true,
+    ambientStillLegacyAuthoritative: false,
+    ambientLivelySingleCallAuthoritative: true
+  };
+}
+
 export default {
   async fetch(request, env) {
     const response = await humanDirectorWorker.fetch(request, env);
@@ -44,16 +92,31 @@ export default {
     if (!["/api/health", "/api/everything", "/api/full-status"].includes(url.pathname)) return response;
     const data = await json(response);
     if (!data) return response;
+
+    const conversationDirectorV37 = data.conversationDirectorV37
+      ? {
+          ...data.conversationDirectorV37,
+          mode: authoritativeMode(data.conversationDirectorV37.mode || {})
+        }
+      : data.conversationDirectorV37;
+
     return Response.json({
       ...data,
+      ...(conversationDirectorV37 ? { conversationDirectorV37 } : {}),
       v37: {
         ...(data.v37 || {}),
+        shadowOnly: false,
+        noVisibleRoutingChanges: false,
+        directHumanDirectorAuthoritative: true,
+        legacyBrainGetsSecondVoteOnDirectHuman: false,
         adaptiveAmbientAi: false,
         livelyAmbientAi: true,
         ambientSingleCallBurst: true,
         ambientAiDominantWhenHealthy: true,
         ambientBuiltInFillerBetweenCalls: false,
         ambientBuiltInOnlyOnProviderFailure: true,
+        ambientStillLegacyAuthoritative: false,
+        ambientLivelySingleCallAuthoritative: true,
         ambientBurstLines: [LIVELY_AMBIENT_MIN_LINES, LIVELY_AMBIENT_MAX_LINES]
       }
     });
@@ -75,8 +138,50 @@ export class ChatRoom extends HumanDirectorChatRoom {
       queueSkips: 0,
       naturalPauses: 0,
       builtInFailureFallbacks: 0,
-      exhaustedScenesClosedBeforePlan: 0
+      exhaustedScenesClosedBeforePlan: 0,
+      closedSceneResurrectionBlocks: 0
     };
+  }
+
+  sceneIsClosed(scene) {
+    return Boolean(scene?.closedAt || scene?.status === "closed");
+  }
+
+  pruneScenes(now = Date.now()) {
+    const explicitlyClosed = new Map();
+    if (this.sceneBoard instanceof Map) {
+      for (const [id, scene] of this.sceneBoard.entries()) {
+        if (this.sceneIsClosed(scene)) explicitlyClosed.set(id, {
+          closedAt: Number(scene.closedAt || now),
+          closeReason: scene.closeReason || "closed"
+        });
+      }
+    }
+
+    const result = super.pruneScenes(now);
+    for (const [id, closure] of explicitlyClosed.entries()) {
+      const scene = this.sceneBoard?.get(id);
+      if (!scene) continue;
+      scene.status = "closed";
+      scene.closedAt = closure.closedAt;
+      scene.closeReason = closure.closeReason;
+    }
+    return result;
+  }
+
+  sceneForMessage(message, now = Date.now()) {
+    const scene = super.sceneForMessage(message, now);
+    if (!this.sceneIsClosed(scene)) return scene;
+    this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+    return null;
+  }
+
+  touchScene(scene, message, now = Date.now()) {
+    if (this.sceneIsClosed(scene)) {
+      this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+      return;
+    }
+    return super.touchScene(scene, message, now);
   }
 
   recentHumanInScene(sceneId, now = Date.now()) {
@@ -187,27 +292,22 @@ export class ChatRoom extends HumanDirectorChatRoom {
       return { lines: [], reason: "provider-failure", provider, preferred };
     }
 
-    let parsed = [];
+    const activeNames = (this.activeAmbientCharacters?.() || []).map((character) => character.name);
+    let safe = [];
     try {
-      parsed = this.parseGroqMessages(extractJson(result.content), LIVELY_AMBIENT_MAX_LINES, "room") || [];
+      safe = parseLivelyAmbientBurst(result.content, activeNames, LIVELY_AMBIENT_MAX_LINES)
+        .map((row) => ({
+          ...row,
+          source: provider,
+          _v37LivelyAmbient: true
+        }));
     } catch (error) {
       this.v37LivelyAmbientStats.outputRejects += 1;
       this.noteOutputReject?.(provider, `lively ambient JSON rejected: ${error?.message || "parse error"}`);
       return { lines: [], reason: "output-reject", provider, preferred };
     }
 
-    const activeNames = new Set((this.activeAmbientCharacters?.() || []).map((character) => character.name));
-    const safe = parsed
-      .filter((row) => activeNames.has(row?.speaker))
-      .slice(0, LIVELY_AMBIENT_MAX_LINES)
-      .map((row) => ({
-        ...row,
-        target: row.target === "room" || activeNames.has(row.target) ? row.target : "room",
-        source: provider,
-        _v37LivelyAmbient: true
-      }));
     const distinctSpeakers = new Set(safe.map((row) => row.speaker));
-
     if (safe.length < LIVELY_AMBIENT_MIN_LINES || distinctSpeakers.size < 2) {
       this.v37LivelyAmbientStats.outputRejects += 1;
       this.noteOutputReject?.(provider, `lively ambient returned ${safe.length} lines from ${distinctSpeakers.size} speakers`);
@@ -245,24 +345,14 @@ export class ChatRoom extends HumanDirectorChatRoom {
     const preferred = this.preferredStructuredReadyProviders?.(Date.now()) || [];
     return {
       ...base,
-      mode: {
-        ...(base.mode || {}),
-        adaptiveAmbientAi: false,
-        livelyAmbientAi: true,
-        ambientSingleCallBurst: true,
-        ambientAiDominantWhenHealthy: true,
-        ambientBuiltInFillerBetweenCalls: false,
-        ambientBuiltInOnlyOnProviderFailure: true,
-        ambientStillLegacyAuthoritative: false,
-        ambientLivelySingleCallAuthoritative: true
-      },
+      mode: authoritativeMode(base.mode || {}),
       livelyAmbientAi: {
         ...this.v37LivelyAmbientStats,
         preferredReadyProviders: preferred,
         burstLines: [LIVELY_AMBIENT_MIN_LINES, LIVELY_AMBIENT_MAX_LINES],
         nextIntervalMs: livelyAmbientIntervalMs(preferred.length),
         lastAmbientAiAgoMs: this.v37LastLivelyAmbientAiAt ? Math.max(0, Date.now() - this.v37LastLivelyAmbientAiAt) : null,
-        policy: "one provider request creates a 3-5 line, 2-4 speaker room burst; built-in is failure-only while AI providers are healthy"
+        policy: "one provider request creates a 3-5 line, 2-4 speaker room burst; v37 validates the burst directly; built-in is failure-only while AI providers are healthy"
       }
     };
   }
