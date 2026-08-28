@@ -1,7 +1,11 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import { structuralShadowMove } from "../src/conversation_director.js";
-import { contextualHumanMoveType, contextualStructuralMove } from "../src/human_move_context_v37.js";
+import {
+  contextualHumanMoveType,
+  contextualStructuralMove,
+  hasConversationFatigueCue
+} from "../src/human_move_context_v37.js";
 
 function packet(text, { replyText = "closing shifts at the mall are the worst", sceneId = "s-capture", replyTo = "m-bot" } = {}) {
   return {
@@ -46,8 +50,11 @@ function packet(text, { replyText = "closing shifts at the mall are the worst", 
 for (const text of [
   "we talking about closing shfits again",
   "are we seriously talking about this again",
-  "this again?"
+  "this again?",
+  "are we still talking about this?",
+  "we already talked about this before"
 ]) {
+  assert.equal(hasConversationFatigueCue(text), true, `must recognize actual conversation fatigue: ${text}`);
   const p = packet(text);
   const contextual = contextualHumanMoveType(p);
   assert.equal(contextual.moveType, "pivot", `must infer contextual fatigue for: ${text}`);
@@ -62,8 +69,14 @@ for (const text of [
 
 for (const text of [
   "are you still working tonight?",
-  "do you still like green day?"
+  "do you still like green day?",
+  "do you still have it?",
+  "is that still happening?",
+  "did you already see it?",
+  "is that the same?",
+  "can you play it again?"
 ]) {
+  assert.equal(hasConversationFatigueCue(text), false, `ordinary grammar must not count as fatigue: ${text}`);
   const p = packet(text, { replyText: "yeah work was busy" });
   assert.notEqual(contextualHumanMoveType(p).moveType, "pivot", `ordinary question must not become pivot: ${text}`);
 }
@@ -74,6 +87,10 @@ assert.ok(runtime.includes("legacyBrainBypasses"), "direct-human cutover must ex
 assert.ok(runtime.includes("legacyBrainGetsSecondVoteOnDirectHuman: false"), "old Brain must not get a second vote on authoritative direct-human turns");
 assert.ok(runtime.includes("this.closeLegacySceneForPivot(human, move)"), "pivot must close the old legacy scene");
 assert.ok(runtime.includes("this.clearSceneCarryPlan?.(planId)"), "pivot must break inherited scene carry");
+assert.ok(runtime.includes('_v37ForceNewScene: move.sceneAction === "replace"'), "pivot output must carry an explicit fresh-scene marker");
+assert.ok(runtime.includes("if (message?._v37ForceNewScene) return null"), "legacy scene lookup must refuse inheritance for pivot replacement lines");
+assert.ok(runtime.includes("item._v37ForceNewScene = true"), "queue normalization must preserve the fresh-scene marker");
+assert.ok(runtime.includes("pivotForcesFreshLegacyScene: true"), "fresh-scene pivot behavior must be exposed in diagnostics");
 assert.ok(runtime.includes("voiced.slice(0, 1)"), "one Director move must render as one surface line in this cutover");
 
 const production = fs.readFileSync(new URL("../src/index_v37_lively_ambient.js", import.meta.url), "utf8");
