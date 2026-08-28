@@ -5,9 +5,9 @@ import {
   buildContextPacket,
   directorPrompt,
   parseDirectorMove,
-  reconstructConversationState,
   structuralShadowMove
 } from "./conversation_director.js";
+import { reconstructConversationState } from "./conversation_state.js";
 import { contextualHumanMoveType, contextualStructuralMove } from "./human_move_context_v37.js";
 
 const DIRECTOR_MAX_TOKENS = 360;
