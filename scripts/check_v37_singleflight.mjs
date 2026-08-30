@@ -121,13 +121,17 @@ assert.ok(productionEntrypoint.includes("ambientBuiltInFillerBetweenCalls: false
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 const directV37 = wrangler.includes('"main": "src/index_v37_lively_ambient.js"')
   && wrangler.includes('"DEPLOY_VERSION": "37"');
-let wrappedV38 = false;
-if (fs.existsSync(new URL("../src/index_v38_quality_guard.js", import.meta.url))) {
-  const v38Entrypoint = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
-  wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
-    && wrangler.includes('"DEPLOY_VERSION": "38"')
-    && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
-}
-assert.ok(directV37 || wrappedV38, "production must deploy v37 lively ambient directly or through a wrapper that explicitly inherits it");
+const v38Url = new URL("../src/index_v38_quality_guard.js", import.meta.url);
+const v39Url = new URL("../src/index_v39_coherence.js", import.meta.url);
+const v38Entrypoint = fs.existsSync(v38Url) ? fs.readFileSync(v38Url, "utf8") : "";
+const wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "38"')
+  && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+const v39Entrypoint = fs.existsSync(v39Url) ? fs.readFileSync(v39Url, "utf8") : "";
+const wrappedV39 = wrangler.includes('"main": "src/index_v39_coherence.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"')
+  && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+assert.ok(directV37 || wrappedV38 || wrappedV39, "production must deploy v37 lively ambient through an explicit v37/v38/v39 wrapper chain");
 
 console.log("v37 production-turn single-flight + extended-provider + human-Director + lively-ambient regression checks passed");
