@@ -47,6 +47,14 @@ assert.ok(providerWrapper.includes('from "./index_v37_human_only.js"'));
 assert.ok(providerWrapper.includes("preferredStructuredReadyProviders(now = Date.now())"), "extended provider wrapper must feed Mistral/Vercel into ambient readiness");
 assert.ok(directorWrapper.includes('from "./index_v37_free_providers.js"'), "human Director wrapper must retain adaptive/provider layers beneath it");
 assert.ok(livelyWrapper.includes('from "./index_v37_human_director.js"'), "production lively layer must retain human Director beneath it");
-assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'));
+
+const directV37 = wrangler.includes('"main": "src/index_v37_lively_ambient.js"');
+let wrappedV38 = false;
+if (fs.existsSync(new URL("../src/index_v38_quality_guard.js", import.meta.url))) {
+  const v38Entrypoint = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
+  wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
+    && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+}
+assert.ok(directV37 || wrappedV38, "production must retain lively v37 directly or through an explicit v38 wrapper");
 
 console.log("v37 adaptive ambient safety layer remains intact beneath lively production ambient");
