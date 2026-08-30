@@ -15,6 +15,7 @@ const REPAIR_CUE = /\b(?:who\s+me|what\s+do\s+you\s+mean|what\s+does\b.{0,70}\bh
 const CHALLENGE_CUE = /\b(?:doesn'?t\s+make\s+sense|makes?\s+no\s+sense|not\s+even\s+the\s+same\s+topic|that\s+contradicts|you\s+just\s+said|u\s+just\s+said|i\s+thought|why\s+(?:are|r)\s+(?:you|u)\s+saying|so\s+why\s+(?:are|r)\s+(?:you|u)\s+saying|but\s+someone\s+said|that'?s\s+not\s+what|how\s+is\s+that|what\s+does\b.{0,70}\bhave\s+to\s+do\s+with)\b/i;
 const CLARIFY_CUE = /\b(?:who\s+me|what\s+do\s+you\s+mean|had\s+what|who\s+is|who'?s|what'?s\s+(?:he|she|that)|give\s+me\s+an\s+example|do\s+you\s+have\s+an\s+example|what\s+are\s+you\s+talking\s+about)\b/i;
 const SECOND_PERSON = /\b(?:you|your|youre|you're|u|ur)\b/i;
+const IMPLIED_SECOND_PERSON = /\b(?:dude|man|stop|quit|knock it off|trying to|dont|don't)\b/i;
 const REACTIVE_INTENT = /^(?:reply|answer|agree|disagree|react|clarify|respond|confirm|question|challenge|tease|correct|acknowledge)$/i;
 
 function compact(value, max = 260) {
@@ -102,7 +103,7 @@ export function inferClarificationTarget(history = [], text = "", sender = "", a
     let score = lexical * 24;
     score += Math.max(0, 34 - ageMs / 2200);
     if (row.target === sender) score += 30;
-    if (whoMe && SECOND_PERSON.test(row.text || "")) score += 42;
+    if (whoMe && (SECOND_PERSON.test(row.text || "") || IMPLIED_SECOND_PERSON.test(row.text || ""))) score += 42;
     if (/\bhotel\b/i.test(value) && /\bhotel\b/i.test(row.text || "")) score += 42;
     if (/\b(?:netscape|netcape)\b/i.test(value) && /\b(?:netscape|netcape)\b/i.test(row.text || "")) score += 30;
     if (/\bsaturn\b/i.test(value) && /\bsaturn\b/i.test(row.text || "")) score += 28;
