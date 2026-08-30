@@ -64,6 +64,13 @@ assert.ok(runtime.includes("noVisibleRoutingChanges: false"), "top-level v37 dia
 assert.ok(runtime.includes("ambientStillLegacyAuthoritative: false"), "ambient diagnostics must identify lively v37 as authoritative");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v37_lively_ambient.js"'), "production entrypoint must use lively ambient wrapper");
+const directV37 = wrangler.includes('"main": "src/index_v37_lively_ambient.js"');
+let wrappedV38 = false;
+if (fs.existsSync(new URL("../src/index_v38_quality_guard.js", import.meta.url))) {
+  const v38Entrypoint = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
+  wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
+    && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+}
+assert.ok(directV37 || wrappedV38, "production entrypoint must use lively v37 directly or through an explicit v38 wrapper");
 
 console.log("v37 lively AI-dominant ambient regression checks passed");
