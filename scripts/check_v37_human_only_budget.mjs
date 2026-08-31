@@ -51,6 +51,7 @@ assert.ok(livelyWrapper.includes('from "./index_v37_human_director.js"'), "produ
 const directV37 = wrangler.includes('"main": "src/index_v37_lively_ambient.js"');
 const v38Url = new URL("../src/index_v38_quality_guard.js", import.meta.url);
 const v39Url = new URL("../src/index_v39_coherence.js", import.meta.url);
+const v39PresenceUrl = new URL("../src/index_v39_presence_fix.js", import.meta.url);
 const v38Entrypoint = fs.existsSync(v38Url) ? fs.readFileSync(v38Url, "utf8") : "";
 const wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
@@ -58,6 +59,11 @@ const v39Entrypoint = fs.existsSync(v39Url) ? fs.readFileSync(v39Url, "utf8") : 
 const wrappedV39 = wrangler.includes('"main": "src/index_v39_coherence.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
-assert.ok(directV37 || wrappedV38 || wrappedV39, "production must retain lively v37 through an explicit v37/v38/v39 wrapper chain");
+const v39PresenceEntrypoint = fs.existsSync(v39PresenceUrl) ? fs.readFileSync(v39PresenceUrl, "utf8") : "";
+const wrappedV39Presence = wrangler.includes('"main": "src/index_v39_presence_fix.js"')
+  && v39PresenceEntrypoint.includes('from "./index_v39_coherence.js"')
+  && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence, "production must retain lively v37 through an explicit v37/v38/v39 wrapper chain");
 
 console.log("v37 adaptive ambient safety layer remains intact beneath lively production ambient");
