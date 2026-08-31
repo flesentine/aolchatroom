@@ -9,12 +9,12 @@ import {
   ambientReadyProviders
 } from "../src/free_provider_pool_v37.js";
 
-assert.deepEqual(EXTENDED_PROVIDER_PRIORITY.slice(0, 4), ["gemini", "groq", "mistral", "vercel-ai-gateway"]);
+assert.deepEqual(EXTENDED_PROVIDER_PRIORITY.slice(0, 4), ["gemini", "mistral", "groq", "vercel-ai-gateway"]);
 for (const provider of ["openrouter", "huggingface", "cerebras", "cohere-trial"]) {
   assert.ok(EXTENDED_PROVIDER_PRIORITY.includes(provider));
   assert.ok(EXTENDED_ONLY_PROVIDERS.has(provider));
 }
-assert.deepEqual(AMBIENT_PROVIDER_PRIORITY, ["gemini", "groq", "mistral", "vercel-ai-gateway"]);
+assert.deepEqual(AMBIENT_PROVIDER_PRIORITY, ["gemini", "mistral", "groq", "vercel-ai-gateway"]);
 
 const configured = configuredExtendedProviders({
   MISTRAL_API_KEY: "x",
@@ -29,6 +29,14 @@ assert.equal(configured.includes("cohere-trial"), false, "Cohere trial must stay
 
 const devConfigured = configuredExtendedProviders({ COHERE_TRIAL_API_KEY: "x", ALLOW_DEV_TRIAL_PROVIDERS: "1" }, []);
 assert.ok(devConfigured.includes("cohere-trial"));
+
+const humanPrimaryOrder = orderedExtendedProviders({
+  configured: ["gemini", "groq", "mistral"],
+  hardReady: ["gemini", "groq", "mistral"],
+  softReady: ["gemini", "groq", "mistral"],
+  structuredGenerationDepth: 1
+});
+assert.deepEqual(humanPrimaryOrder, ["gemini", "mistral", "groq"], "human-facing routing must prefer Gemini, then Mistral, before Groq");
 
 const ordered = orderedExtendedProviders({
   configured: ["gemini", "groq", "mistral", "vercel-ai-gateway", "openrouter", "workers-ai", "huggingface", "cerebras"],
@@ -51,12 +59,31 @@ const softSuppressedRecovery = orderedExtendedProviders({
 });
 assert.deepEqual(softSuppressedRecovery, ["mistral"], "all-soft-suppressed must still allow exactly one hard-healthy recovery probe");
 
+const ambientGeminiPrimary = ambientReadyProviders({
+  configured: ["gemini", "groq", "mistral", "vercel-ai-gateway"],
+  hardReady: ["gemini", "groq", "mistral", "vercel-ai-gateway"],
+  softReady: ["gemini", "groq", "mistral", "vercel-ai-gateway"]
+});
+assert.deepEqual(ambientGeminiPrimary, ["gemini"], "healthy Gemini must exclusively own routine ambient generation");
+
+const ambientMistralFallback = ambientReadyProviders({
+  configured: ["groq", "mistral", "vercel-ai-gateway"],
+  hardReady: ["groq", "mistral", "vercel-ai-gateway"],
+  softReady: ["groq", "mistral", "vercel-ai-gateway"]
+});
+assert.deepEqual(ambientMistralFallback, ["mistral"], "Mistral must be the first ambient fallback when Gemini is unavailable");
+
+const ambientGroqEmergency = ambientReadyProviders({
+  configured: ["groq"], hardReady: ["groq"], softReady: ["groq"]
+});
+assert.deepEqual(ambientGroqEmergency, ["groq"], "Groq remains an anti-silence ambient fallback, not a routine provider");
+
 const ambient = ambientReadyProviders({
   configured: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"],
   hardReady: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"],
   softReady: ["mistral", "vercel-ai-gateway", "openrouter", "huggingface", "cerebras"]
 });
-assert.deepEqual(ambient, ["mistral", "vercel-ai-gateway"], "tiny/trial free pools must not be spent on ambient chatter");
+assert.deepEqual(ambient, ["mistral"], "ambient generation should use one best ready provider instead of rotating across the pool");
 assert.deepEqual(ambientReadyProviders({ configured: ["mistral"], hardReady: ["mistral"], softReady: [] }), [], "ambient chatter must honor the soft breaker");
 
 const runtime = fs.readFileSync(new URL("../src/index_v37_free_providers.js", import.meta.url), "utf8");
