@@ -7,6 +7,11 @@ import {
   markHumanDisconnectPending,
   markHumanSuperseded
 } from "../src/presence_guard_v39.js";
+import {
+  applyErrorChallengePlan,
+  historicalDateMismatch,
+  isExplicitErrorChallenge
+} from "../src/v39_capture_fixes.js";
 
 const attachments = [
   { name: "Crateman", joinedAt: 1000 },
@@ -35,6 +40,29 @@ const reconnect = [
 assert.deepEqual(logicalHumanNames(reconnect), ["Crateman"], "a replacement socket restores exactly one logical Crateman presence");
 assert.equal(activeHumanConnectionCount(reconnect, "Crateman"), 1);
 
+// Production regression: an explicit challenge about a bot's mistake must be treated
+// as error repair, not as a request for another date/fact.
+assert.equal(isExplicitErrorChallenge("hmm how can you make such a big mistake"), true);
+assert.equal(isExplicitErrorChallenge("how did you get that so wrong"), true);
+assert.equal(isExplicitErrorChallenge("what movies do you like"), false);
+const repaired = applyErrorChallengePlan({
+  goal: "Respond to Crateman.",
+  moves: [{ speaker: "VideoStoreGuy", target: "Crateman", intent: "respond", meaning: "Correct the date." }]
+}, { from: "Crateman", text: "hmm how can you make such a big mistake" });
+assert.match(repaired.goal, /V39 ERROR-REPAIR LOCK/);
+assert.match(repaired.moves[0].meaning, /Admit or explain the mistake FIRST/i);
+assert.match(repaired.moves[0].meaning, /Do not answer the challenge by merely supplying another date/i);
+
+// Production regression: on Aug 31, claiming Independence Day was released "last
+// Friday" is impossible; its known opening date is July 3. Watching it last Friday
+// is fine because that does not claim a release date.
+const NOW = Date.parse("2026-08-31T13:30:00-07:00");
+const badRelease = historicalDateMismatch("independence day got released last friday <g>", NOW);
+assert.equal(badRelease?.kind, "historical-date-mismatch");
+assert.equal(badRelease?.actualDate, "1996-07-03");
+assert.equal(historicalDateMismatch("independence day opened july 3", NOW), null);
+assert.equal(historicalDateMismatch("i watched independence day last friday", NOW), null);
+
 const runtime = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
 assert.ok(runtime.includes('from "./index_v39_coherence.js"'), "presence patch must stay additive above v39 coherence");
 assert.ok(runtime.includes("logicalHumanNames(this.humanSocketRows()"), "runtime humanNames must use logical identity dedupe");
@@ -42,9 +70,16 @@ assert.ok(runtime.includes("markHumanDisconnectPending"), "closing sockets must 
 assert.ok(runtime.includes("markHumanSuperseded"), "new same-name sessions must supersede stale sockets");
 assert.ok(runtime.includes('row.ws.close(4001, "replaced by newer session")'), "newest same-name connection must replace stale active sessions");
 assert.ok(runtime.includes("attachment?.v39Superseded"), "superseded close callbacks must not emit a logical departure");
+assert.ok(runtime.includes("async generateGroqBatch()"), "legacy v11 qbg generation must be explicitly intercepted at the production top layer");
+assert.equal(runtime.includes("return super.generateGroqBatch"), false, "legacy qbg path must never fall through to Mistral/Groq generation");
+assert.ok(runtime.includes("historicalDateMismatch(text, now)"), "generated lines must validate relative public event dates");
+assert.ok(runtime.includes("applyErrorChallengePlan(plan, human)"), "explicit mistake challenges must get the error-repair lock before voice generation");
+
+const legacyQuickBackground = fs.readFileSync(new URL("../src/index_v11.js", import.meta.url), "utf8");
+assert.ok(legacyQuickBackground.includes('const sceneId = `qbg${this.sceneSeq}`'), "regression must remain tied to the actual legacy qbg generator found in the production capture");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v39_presence_fix.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
 
-console.log("v39 human-presence dedupe regression checks passed");
+console.log("v39 presence + capture-derived provider/coherence/history regression checks passed");
