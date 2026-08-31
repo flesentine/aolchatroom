@@ -125,7 +125,11 @@ assert.ok(runtime.includes('url.pathname === "/v39-status"'));
 assert.ok(runtime.includes("diagnostics?.inheritedV38"), "v39 should repair the nullable top-level v38 diagnostics path");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v39_coherence.js"'));
+const directV39 = wrangler.includes('"main": "src/index_v39_coherence.js"');
+const presenceWrapper = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
+const wrappedV39 = wrangler.includes('"main": "src/index_v39_presence_fix.js"')
+  && presenceWrapper.includes('from "./index_v39_coherence.js"');
+assert.ok(directV39 || wrappedV39, "production must deploy v39 coherence directly or through the additive v39 presence wrapper");
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
 
 console.log("v39 conversation-coherence regression checks passed");
