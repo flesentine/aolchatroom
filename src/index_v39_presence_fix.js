@@ -7,6 +7,12 @@ import {
   markHumanDisconnectPending,
   markHumanSuperseded
 } from "./presence_guard_v39.js";
+import {
+  applyErrorChallengePlan,
+  auditHistoricalDateClaims,
+  historicalDateMismatch,
+  isExplicitErrorChallenge
+} from "./v39_capture_fixes.js";
 
 const HUMAN_REPLACEMENT_WINDOW_MS = 5000;
 
@@ -27,7 +33,10 @@ export default {
         ...(data.v39 || {}),
         logicalHumanPresenceDeduplication: true,
         newestSameNameSessionWins: true,
-        pendingDisconnectSocketsExcludedFromPresence: true
+        pendingDisconnectSocketsExcludedFromPresence: true,
+        legacyQuickBackgroundSuppressed: true,
+        explicitErrorChallengeRepair: true,
+        relativePublicDateValidation: true
       }
     });
   }
@@ -42,6 +51,11 @@ export class ChatRoom extends V39ChatRoom {
       duplicateEnterAnnouncementsSuppressed: 0,
       pendingCloseSocketsMarked: 0,
       supersededCloseCallbacksIgnored: 0
+    };
+    this.v39CaptureFixStats = {
+      legacyQuickBackgroundCallsSuppressed: 0,
+      explicitErrorChallengesRepaired: 0,
+      historicalDateClaimsBlocked: 0
     };
   }
 
@@ -78,6 +92,34 @@ export class ChatRoom extends V39ChatRoom {
     return rows.length;
   }
 
+  // v11's old qbg quick-background generator is still reachable through inherited
+  // scheduler code. v37 lively ambient is authoritative now, so never allow that
+  // legacy side path to make a second provider call or inject Mistral/Groq chatter.
+  async generateGroqBatch() {
+    this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1;
+    return [];
+  }
+
+  lineViolation(text, now = Date.now(), context = this.recentContextText?.() || "", speaker = "") {
+    const mismatch = historicalDateMismatch(text, now);
+    if (mismatch) return mismatch;
+    return super.lineViolation(text, now, context, speaker);
+  }
+
+  noteViolation(violation, stage, speaker = "") {
+    if (violation?.kind === "historical-date-mismatch") this.v39CaptureFixStats.historicalDateClaimsBlocked += 1;
+    return super.noteViolation(violation, stage, speaker);
+  }
+
+  async voiceBrainPlan(plan, active, human = null) {
+    if (!human || !isExplicitErrorChallenge(human?.text || "")) return super.voiceBrainPlan(plan, active, human);
+    const repairedPlan = applyErrorChallengePlan(plan, human);
+    const voiced = await super.voiceBrainPlan(repairedPlan, active, human);
+    this.v39CaptureFixStats.explicitErrorChallengesRepaired += 1;
+    if (this.v39LastCoherenceLock) this.v39LastCoherenceLock.mode = "challenge";
+    return voiced;
+  }
+
   system(text, ...args) {
     const match = /^(.+?) has entered the room\.$/.exec(String(text || ""));
     if (match) {
@@ -112,6 +154,20 @@ export class ChatRoom extends V39ChatRoom {
     return super.webSocketClose(ws, code, reason, wasClean);
   }
 
+  historicalAudit(includeAll = false) {
+    const base = super.historicalAudit(includeAll);
+    const floor = includeAll ? 0 : Number(this.realismHarnessStartedAt || Date.now());
+    const relativeDates = auditHistoricalDateClaims(this.history || [], floor);
+    return {
+      ...base,
+      violations: Number(base?.violations || 0) + relativeDates.violations,
+      blockers: Number(base?.blockers || 0) + relativeDates.blockers,
+      examples: [...(base?.examples || []), ...(relativeDates.examples || [])].slice(-8),
+      v39HistoricalDateViolations: relativeDates.violations,
+      v39HistoricalDateExamples: relativeDates.examples
+    };
+  }
+
   v39Snapshot(now = Date.now()) {
     const base = super.v39Snapshot(now);
     const rows = this.humanSocketRows();
@@ -131,7 +187,16 @@ export class ChatRoom extends V39ChatRoom {
         supersededSocketCount: superseded,
         policy: "screen name is one logical room identity; pending/old same-name sockets do not increase humanCount"
       },
-      presenceFixStats: { ...this.v39PresenceFixStats }
+      presenceFixStats: { ...this.v39PresenceFixStats },
+      captureFixStats: { ...this.v39CaptureFixStats },
+      historicalDateAuditAllRetained: auditHistoricalDateClaims(this.history || [], 0),
+      captureFixPolicy: {
+        legacyQuickBackgroundDisabled: true,
+        v37LivelyAmbientOnlyBackgroundModelPath: true,
+        explicitErrorChallengeRepair: true,
+        relativePublicDateClaimsValidated: true,
+        providerOrder: ["gemini", "mistral", "groq"]
+      }
     };
   }
 
