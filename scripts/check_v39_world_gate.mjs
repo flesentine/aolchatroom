@@ -1,0 +1,87 @@
+import assert from "node:assert/strict";
+import fs from "node:fs";
+import {
+  auditFutureGameProductHistory,
+  auditedPublicClaimViolation,
+  futureGameProductViolation,
+  normalizeEraConsoleLabels
+} from "../src/v39_public_world_gate.js";
+
+const NOW = Date.parse("2026-08-31T13:30:00-07:00");
+const emptyCulture = { events: [], movies: [], tv: [], anchors: [] };
+const pacific = { timezone: "PT", occupation: "student" };
+
+const tony = futureGameProductViolation(
+  "tony hawk is coming out eventually anyway",
+  NOW,
+  "snes games playstation cartridges"
+);
+assert.equal(tony?.kind, "future-game-product");
+assert.equal(tony?.product, "Tony Hawk's Pro Skater");
+assert.equal(tony?.notBefore, "1999-08-31");
+
+const goldenEyeGame = futureGameProductViolation("oh it was goldeneye for the n64", NOW);
+assert.equal(goldenEyeGame?.kind, "future-game-product");
+assert.equal(goldenEyeGame?.notBefore, "1997-08-25");
+
+// GoldenEye was also a Bond movie, so ordinary film discussion must remain valid.
+assert.equal(
+  futureGameProductViolation("goldeneye came out last year lol", NOW, "whats the latest james bond film"),
+  null
+);
+assert.equal(futureGameProductViolation("tony hawk is awesome", NOW, "skateboarding"), null);
+
+const novelty = auditedPublicClaimViolation("did anyone see that new show about the single lawyers", {
+  culture: emptyCulture,
+  now: NOW,
+  context: "",
+  speaker: pacific
+});
+assert.equal(novelty?.kind, "unsupported-audited-public-claim");
+assert.equal(novelty?.claimType, "novelty");
+
+const relativeSchedule = auditedPublicClaimViolation("yo anyone catch that game last night", {
+  culture: emptyCulture,
+  now: NOW,
+  context: "",
+  speaker: pacific
+});
+assert.equal(relativeSchedule?.kind, "unsupported-audited-public-claim");
+assert.equal(relativeSchedule?.claimType, "schedule");
+
+assert.equal(
+  auditedPublicClaimViolation("anyone like scary movies", {
+    culture: emptyCulture,
+    now: NOW,
+    context: "",
+    speaker: pacific
+  }),
+  null
+);
+
+assert.equal(normalizeEraConsoleLabels("nah snes still rules over ps1"), "nah snes still rules over playstation");
+assert.equal(normalizeEraConsoleLabels("PS1 has good games"), "PlayStation has good games");
+
+const retained = [
+  { kind: "bot", from: "JerseyGirl", text: "goldeneye came out last year lol", topic: "general", at: NOW - 3000 },
+  { kind: "human", from: "Crateman", text: "what n64 games are coming", topic: "gaming", at: NOW - 2000 },
+  { kind: "bot", from: "Sk8rGuy16", text: "tony hawk is coming out eventually anyway", topic: "gaming", at: NOW - 1000 },
+  { kind: "bot", from: "JennJenn", text: "oh it was goldeneye for the n64", topic: "gaming", at: NOW }
+];
+const audit = auditFutureGameProductHistory(retained, 0);
+assert.equal(audit.violations, 2, JSON.stringify(audit));
+assert.ok(audit.examples.some((row) => /Tony Hawk/i.test(row.product)));
+assert.ok(audit.examples.some((row) => /GoldenEye/i.test(row.product)));
+
+const runtime = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
+assert.ok(runtime.includes('from "./index_v39_presence_fix.js"'), "world gate must remain additive above the stable presence/capture wrapper");
+assert.ok(runtime.includes("futureGameProductViolation(text, now, context)"));
+assert.ok(runtime.includes("auditedPublicClaimViolation(text"));
+assert.ok(runtime.includes("normalizeEraConsoleLabels(text)"));
+assert.ok(runtime.includes("v39FutureGameProductViolations"));
+
+const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+assert.ok(wrangler.includes('"main": "src/index_v39_world_gate.js"'));
+assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
+
+console.log("v39 focused public-world pre-display gate regression checks passed");

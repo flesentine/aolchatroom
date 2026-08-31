@@ -79,7 +79,11 @@ const legacyQuickBackground = fs.readFileSync(new URL("../src/index_v11.js", imp
 assert.ok(legacyQuickBackground.includes('const sceneId = `qbg${this.sceneSeq}`'), "regression must remain tied to the actual legacy qbg generator found in the production capture");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v39_presence_fix.js"'));
+const directPresence = wrangler.includes('"main": "src/index_v39_presence_fix.js"');
+const worldWrapper = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
+const wrappedPresence = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"');
+assert.ok(directPresence || wrappedPresence, "production must retain the v39 presence/capture wrapper directly or beneath the v39 world gate");
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
 
 console.log("v39 presence + capture-derived provider/coherence/history regression checks passed");
