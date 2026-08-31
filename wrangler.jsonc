@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aolchatroom",
-  "main": "src/index_v39_coherence.js",
+  "main": "src/index_v39_presence_fix.js",
   "compatibility_date": "2026-08-19",
   "assets": {
     "directory": "./public",
