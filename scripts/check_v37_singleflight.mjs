@@ -124,6 +124,7 @@ const directV37 = wrangler.includes('"main": "src/index_v37_lively_ambient.js"')
 const v38Url = new URL("../src/index_v38_quality_guard.js", import.meta.url);
 const v39Url = new URL("../src/index_v39_coherence.js", import.meta.url);
 const v39PresenceUrl = new URL("../src/index_v39_presence_fix.js", import.meta.url);
+const v39WorldUrl = new URL("../src/index_v39_world_gate.js", import.meta.url);
 const v38Entrypoint = fs.existsSync(v38Url) ? fs.readFileSync(v38Url, "utf8") : "";
 const wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
   && wrangler.includes('"DEPLOY_VERSION": "38"')
@@ -139,6 +140,13 @@ const wrappedV39Presence = wrangler.includes('"main": "src/index_v39_presence_fi
   && v39PresenceEntrypoint.includes('from "./index_v39_coherence.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
-assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence, "production must deploy v37 lively ambient through an explicit v37/v38/v39 wrapper chain");
+const v39WorldEntrypoint = fs.existsSync(v39WorldUrl) ? fs.readFileSync(v39WorldUrl, "utf8") : "";
+const wrappedV39World = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"')
+  && v39WorldEntrypoint.includes('from "./index_v39_presence_fix.js"')
+  && v39PresenceEntrypoint.includes('from "./index_v39_coherence.js"')
+  && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence || wrappedV39World, "production must deploy v37 lively ambient through an explicit v37/v38/v39 wrapper chain");
 
 console.log("v37 production-turn single-flight + extended-provider + human-Director + lively-ambient regression checks passed");
