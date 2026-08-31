@@ -1,7 +1,7 @@
 export const EXTENDED_PROVIDER_PRIORITY = [
   "gemini",
-  "groq",
   "mistral",
+  "groq",
   "vercel-ai-gateway",
   "openrouter",
   "workers-ai",
@@ -12,8 +12,8 @@ export const EXTENDED_PROVIDER_PRIORITY = [
 
 export const AMBIENT_PROVIDER_PRIORITY = [
   "gemini",
-  "groq",
   "mistral",
+  "groq",
   "vercel-ai-gateway"
 ];
 
@@ -92,9 +92,20 @@ export function ambientReadyProviders({ configured = [], hardReady = [], softRea
   const configuredSet = new Set(configured);
   const hardSet = new Set(hardReady);
   const softSet = new Set(softReady);
-  // Ambient AI is optional, so unlike human-facing routing it never bypasses a
-  // soft output breaker just to create background chatter.
-  return AMBIENT_PROVIDER_PRIORITY.filter((provider) => configuredSet.has(provider) && hardSet.has(provider) && softSet.has(provider));
+  const ready = AMBIENT_PROVIDER_PRIORITY.filter((provider) =>
+    configuredSet.has(provider) && hardSet.has(provider) && softSet.has(provider)
+  );
+
+  // Routine ambient chatter is where lower-quality generations can poison the
+  // room by inventing facts that later replies must rationalize. While Gemini
+  // is healthy it owns ambient generation exclusively. Mistral is the first
+  // fallback. Groq is retained only as an anti-silence fallback when neither
+  // Gemini nor Mistral is currently usable.
+  if (ready.includes("gemini")) return ["gemini"];
+  if (ready.includes("mistral")) return ["mistral"];
+  if (ready.includes("groq")) return ["groq"];
+  if (ready.includes("vercel-ai-gateway")) return ["vercel-ai-gateway"];
+  return [];
 }
 
 export function providerPoolSummary(env = {}) {
