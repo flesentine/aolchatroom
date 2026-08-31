@@ -19,12 +19,17 @@ const exportChat = document.querySelector("#exportChat");
 
 let socket = null;
 let pulseTimer;
+let reconnectTimer = null;
+let reconnectAttempts = 0;
+let pageUnloading = false;
 let capture = null;
 let capturePersistTimer = null;
 const captureMessageKeys = new Set();
 const debug = new URLSearchParams(location.search).get("debug") === "1";
 const CAPTURE_KEY = "aol96-chat-capture-v1";
 const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
+const RECONNECT_DELAYS_MS = [750, 1500, 2500, 4000, 6000, 10000];
+const RECONNECT_SHOW_SIGNIN_AFTER = 6;
 
 screenName.value = localStorage.getItem("aol96-screen-name") || "";
 screenName.focus();
@@ -221,13 +226,67 @@ function socketIsActive(candidate = socket) {
   ));
 }
 
-function connect() {
+function clearReconnectTimer() {
+  if (reconnectTimer !== null) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
+}
+
+function scheduleReconnect(name, detail = {}) {
+  if (pageUnloading || socketIsActive()) return;
+  clearReconnectTimer();
+
+  reconnectAttempts += 1;
+  const delayMs = RECONNECT_DELAYS_MS[Math.min(reconnectAttempts - 1, RECONNECT_DELAYS_MS.length - 1)];
+  const networkOffline = navigator.onLine === false;
+  recordCaptureEvent({
+    type: "connection",
+    action: "reconnect-scheduled",
+    attempt: reconnectAttempts,
+    delayMs,
+    code: Number(detail.code || 0),
+    reason: String(detail.reason || ""),
+    wasClean: Boolean(detail.wasClean),
+    networkOffline
+  });
+
+  if (reconnectAttempts >= RECONNECT_SHOW_SIGNIN_AFTER) {
+    signOn.disabled = false;
+    signin.classList.remove("hidden");
+    status.textContent = networkOffline
+      ? "Connection lost · waiting for network"
+      : "Still reconnecting · you can also click Sign On";
+  } else {
+    signOn.disabled = true;
+    signin.classList.add("hidden");
+    status.textContent = networkOffline
+      ? "Connection lost · waiting for network"
+      : `Connection lost · reconnecting (${reconnectAttempts})...`;
+  }
+
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (pageUnloading || socketIsActive()) return;
+    connect({ automatic: true, name });
+  }, delayMs);
+}
+
+function connect(options = {}) {
+  const automatic = Boolean(options?.automatic);
   if (socketIsActive()) return;
 
-  const name = cleanName(screenName.value);
+  if (!automatic) {
+    clearReconnectTimer();
+    reconnectAttempts = 0;
+  }
+
+  const name = cleanName(options?.name || screenName.value);
   signOn.disabled = true;
   localStorage.setItem("aol96-screen-name", name);
-  startOrResumeCapture(name);
+  if (!automatic || !capture) {
+    startOrResumeCapture(name);
+  } else {
+    recordCaptureEvent({ type: "connection", action: "reconnect-attempt", attempt: reconnectAttempts });
+  }
 
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const debugArg = debug ? "&debug=1" : "";
@@ -236,19 +295,31 @@ function connect() {
   try {
     connection = new WebSocket(url);
   } catch (error) {
-    signOn.disabled = false;
-    status.textContent = "Connection error";
-    recordCaptureEvent({ type: "connection", action: "error", detail: String(error?.message || error || "") });
+    socket = null;
+    const detail = String(error?.message || error || "");
+    recordCaptureEvent({ type: "connection", action: "error", detail, automatic });
+    if (automatic) {
+      scheduleReconnect(name, { reason: detail });
+    } else {
+      signOn.disabled = false;
+      status.textContent = "Connection error";
+      signin.classList.remove("hidden");
+    }
     return;
   }
+
   socket = connection;
-  status.textContent = "Connecting...";
+  status.textContent = automatic ? "Reconnecting..." : "Connecting...";
 
   connection.addEventListener("open", () => {
     if (socket !== connection) return;
+    const wasReconnect = automatic || reconnectAttempts > 0;
+    clearReconnectTimer();
+    reconnectAttempts = 0;
     signin.classList.add("hidden");
+    signOn.disabled = false;
     status.textContent = "Connected";
-    recordCaptureEvent({ type: "connection", action: "open" });
+    recordCaptureEvent({ type: "connection", action: wasReconnect ? "reconnected" : "open" });
     clearInterval(pulseTimer);
     pulseTimer = setInterval(() => {
       if (socket === connection && connection.readyState === WebSocket.OPEN) connection.send("pulse");
@@ -306,22 +377,27 @@ function connect() {
     }
   });
 
-  connection.addEventListener("close", () => {
+  connection.addEventListener("close", (event) => {
     if (socket !== connection) return;
     clearInterval(pulseTimer);
     pulseTimer = null;
     socket = null;
-    signOn.disabled = false;
-    recordCaptureEvent({ type: "connection", action: "close" });
+    recordCaptureEvent({
+      type: "connection",
+      action: "close",
+      code: Number(event.code || 0),
+      reason: String(event.reason || ""),
+      wasClean: Boolean(event.wasClean)
+    });
     persistCapture(true);
-    status.textContent = "Disconnected - click Sign On to reconnect";
-    signin.classList.remove("hidden");
+    if (pageUnloading) return;
+    scheduleReconnect(name, event);
   });
 
   connection.addEventListener("error", () => {
     if (socket !== connection) return;
     recordCaptureEvent({ type: "connection", action: "error" });
-    status.textContent = "Connection error";
+    status.textContent = "Connection problem · waiting to reconnect";
   });
 }
 
@@ -382,7 +458,7 @@ function renderDebug(state) {
   debugPanel.textContent = `PASS ${state.pass || "?"} · ${state.simulated || ""} · bots ${state.roster || 0}\nthreads: ${threads}\nmemory: ${state.memory || "none"}\nrelationships: ${relationships}`;
 }
 
-signOn.addEventListener("click", connect);
+signOn.addEventListener("click", () => connect());
 screenName.addEventListener("keydown", (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -401,4 +477,25 @@ people.addEventListener("dblclick", requestProfile);
 closeProfile.addEventListener("click", () => profileDialog.classList.add("hidden"));
 closeProfileBottom.addEventListener("click", () => profileDialog.classList.add("hidden"));
 if (exportChat) exportChat.addEventListener("click", exportCapture);
-window.addEventListener("beforeunload", () => persistCapture(true));
+
+window.addEventListener("offline", () => {
+  if (!socketIsActive()) status.textContent = "Connection lost · waiting for network";
+});
+
+window.addEventListener("online", () => {
+  if (pageUnloading || socketIsActive() || (!reconnectTimer && reconnectAttempts === 0)) return;
+  clearReconnectTimer();
+  status.textContent = "Network back · reconnecting...";
+  reconnectTimer = setTimeout(() => {
+    reconnectTimer = null;
+    if (!pageUnloading && !socketIsActive()) {
+      connect({ automatic: true, name: cleanName(screenName.value) });
+    }
+  }, 100);
+});
+
+window.addEventListener("beforeunload", () => {
+  pageUnloading = true;
+  clearReconnectTimer();
+  persistCapture(true);
+});

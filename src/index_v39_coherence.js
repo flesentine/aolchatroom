@@ -11,6 +11,20 @@ import {
 } from "./coherence_guard_v39.js";
 
 const PASS = "conversation-coherence-v39";
+const V39_HUMAN_RECONNECT_GRACE_MS = 5000;
+
+function sleep(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function humanNameFromAttachment(ws) {
+  try {
+    const attachment = ws?.deserializeAttachment?.() || {};
+    return String(attachment.name || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
+  } catch {
+    return "Guest";
+  }
+}
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -60,6 +74,8 @@ export default {
         ambientSelfDialogueSuppression: true,
         botReentryCooldown: true,
         botReentryCooldownMs: V39_BOT_REENTRY_COOLDOWN_MS,
+        transientHumanReconnectGrace: true,
+        humanReconnectGraceMs: V39_HUMAN_RECONNECT_GRACE_MS,
         diagnostics
       }
     });
@@ -70,6 +86,7 @@ export class ChatRoom extends V38ChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v39RecentBotLeaves = new Map();
+    this.v39PendingHumanDisconnects = new Map();
     this.v39LastTargetRepair = null;
     this.v39LastCoherenceLock = null;
     this.v39Stats = {
@@ -78,7 +95,10 @@ export class ChatRoom extends V38ChatRoom {
       futureEventLinesBlocked: 0,
       selfDialogueLinesBlocked: 0,
       backgroundPlansFiltered: 0,
-      botReentryBlocks: 0
+      botReentryBlocks: 0,
+      humanDisconnectsDeferred: 0,
+      transientHumanReconnects: 0,
+      humanDisconnectsCommitted: 0
     };
   }
 
@@ -199,6 +219,63 @@ export class ChatRoom extends V38ChatRoom {
     return super.announceBotEnter(name, now);
   }
 
+  system(text, ...args) {
+    const match = /^(.+?) has entered the room\.$/.exec(String(text || ""));
+    if (match) {
+      const name = String(match[1] || "");
+      const pending = this.v39PendingHumanDisconnects.get(name);
+      if (pending && Date.now() - Number(pending.at || 0) <= V39_HUMAN_RECONNECT_GRACE_MS) {
+        this.v39PendingHumanDisconnects.delete(name);
+        this.v39Stats.transientHumanReconnects += 1;
+        this.broadcast?.({
+          type: "connection_guard",
+          action: "v39-transient-human-reconnect",
+          name,
+          closeCode: pending.code,
+          closeReason: pending.reason,
+          reconnectAfterMs: Date.now() - pending.at,
+          at: Date.now()
+        });
+        return false;
+      }
+    }
+    return super.system(text, ...args);
+  }
+
+  webSocketClose(ws, code = 1005, reason = "", wasClean = false) {
+    const name = humanNameFromAttachment(ws);
+    const token = `${Date.now()}-${Math.random().toString(36).slice(2, 9)}`;
+    const pending = {
+      token,
+      at: Date.now(),
+      code: Number(code || 0),
+      reason: String(reason || "").slice(0, 160),
+      wasClean: Boolean(wasClean)
+    };
+    this.v39PendingHumanDisconnects.set(name, pending);
+    this.v39Stats.humanDisconnectsDeferred += 1;
+
+    const settle = async () => {
+      await sleep(V39_HUMAN_RECONNECT_GRACE_MS);
+      const current = this.v39PendingHumanDisconnects.get(name);
+      if (!current || current.token !== token) return;
+
+      const stillConnected = (this.humanNames?.() || []).includes(name);
+      this.v39PendingHumanDisconnects.delete(name);
+      if (stillConnected) {
+        this.v39Stats.transientHumanReconnects += 1;
+        return;
+      }
+
+      this.v39Stats.humanDisconnectsCommitted += 1;
+      return super.webSocketClose(ws, code, reason, wasClean);
+    };
+
+    const task = settle();
+    if (typeof this.ctx?.waitUntil === "function") this.ctx.waitUntil(task);
+    else task.catch(() => {});
+  }
+
   historicalAudit(includeAll = false) {
     const base = super.historicalAudit(includeAll);
     const floor = includeAll ? 0 : Number(this.realismHarnessStartedAt || Date.now());
@@ -220,6 +297,15 @@ export class ChatRoom extends V38ChatRoom {
     ])]
       .map((name) => ({ name, remainingMs: this.v39ReentryRemaining(name, now) }))
       .filter((row) => row.remainingMs > 0);
+    const pendingHumanDisconnects = [...this.v39PendingHumanDisconnects.entries()]
+      .map(([name, row]) => ({
+        name,
+        ageMs: Math.max(0, now - Number(row.at || now)),
+        graceRemainingMs: Math.max(0, V39_HUMAN_RECONNECT_GRACE_MS - (now - Number(row.at || now))),
+        code: row.code,
+        reason: row.reason,
+        wasClean: row.wasClean
+      }));
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
@@ -227,6 +313,7 @@ export class ChatRoom extends V38ChatRoom {
       lastTargetRepair: this.v39LastTargetRepair,
       lastCoherenceLock: this.v39LastCoherenceLock,
       recentlyDeparted,
+      pendingHumanDisconnects,
       inheritedV38: super.v38Snapshot(now),
       futureEventAuditAllRetained: auditFutureEventHistory(this.history || [], 0),
       policy: {
@@ -234,7 +321,9 @@ export class ChatRoom extends V38ChatRoom {
         contradictionRepairPreferredOverRationalization: true,
         explicitNamedTargetsNeverOverriddenByRepair: true,
         selfDialogueFilteringBackgroundOnly: true,
-        reentryCooldownMs: V39_BOT_REENTRY_COOLDOWN_MS
+        reentryCooldownMs: V39_BOT_REENTRY_COOLDOWN_MS,
+        transientHumanReconnectGrace: true,
+        humanReconnectGraceMs: V39_HUMAN_RECONNECT_GRACE_MS
       }
     };
   }
