@@ -129,7 +129,11 @@ const directV39 = wrangler.includes('"main": "src/index_v39_coherence.js"');
 const presenceWrapper = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
 const wrappedV39 = wrangler.includes('"main": "src/index_v39_presence_fix.js"')
   && presenceWrapper.includes('from "./index_v39_coherence.js"');
-assert.ok(directV39 || wrappedV39, "production must deploy v39 coherence directly or through the additive v39 presence wrapper");
+const worldWrapper = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
+const wrappedV39World = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"')
+  && presenceWrapper.includes('from "./index_v39_coherence.js"');
+assert.ok(directV39 || wrappedV39 || wrappedV39World, "production must deploy v39 coherence directly or through the additive v39 presence/world wrappers");
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
 
 console.log("v39 conversation-coherence regression checks passed");
