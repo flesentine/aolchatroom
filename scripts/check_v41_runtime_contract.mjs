@@ -211,7 +211,7 @@ test("queue pipeline exposes v39 filtering, v38 cooling, v20 planning, and v40 c
     env: { GEMINI_API_KEY: "test-gemini" }
   });
   hydrate(room);
-  room.v38TopicCooling.set("music", NOW + 60000);
+  room.v38TopicCooling.set("metal", NOW + 60000);
 
   const queued = room.queueScenePlan([
     { speaker: "SegaMan", target: "SegaMan", intent: "reply", topic: "gaming", text: "yeah me too", source: "gemini" },
