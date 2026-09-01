@@ -157,7 +157,7 @@ export function scoreSceneCandidate(scene, message, history = [], now = Date.now
     if (speakerRecentlyPresent) score += 10;
     if (continuationIntent) score += 8;
     if (reaction && speakerParticipant) score += 14;
-    if (newTopicIntent && lexicalOverlap === 0 && !openQuestionOwned) score -= 18;
+    if (newTopicIntent && lexicalOverlap === 0 && !openQuestionOwned) score -= 30;
   }
 
   const features = {
@@ -193,7 +193,7 @@ export function selectSceneAssociation({ message, scenes = [], history = [], now
   const candidates = (scenes || [])
     .map((scene) => scoreSceneCandidate(scene, message, history, now))
     .filter(Boolean)
-    .sort((a, b) => b.score - a.score || Number(b.features?.recencyMs || 0) - Number(a.features?.recencyMs || 0));
+    .sort((a, b) => b.score - a.score || Number(a.features?.recencyMs || 0) - Number(b.features?.recencyMs || 0));
 
   const top = candidates[0] || null;
   if (!top || top.score < threshold) {
