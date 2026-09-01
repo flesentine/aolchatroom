@@ -7,6 +7,12 @@ import {
   selectSceneCarryIndices
 } from "./scene_continuity_v40.js";
 import { canonicalRoomTopic } from "./quality_guard_v38.js";
+import {
+  V41_AMBIGUITY_MARGIN,
+  V41_DIRECT_ASSOCIATION_THRESHOLD,
+  V41_ROOM_ASSOCIATION_THRESHOLD,
+  selectSceneAssociation
+} from "./scene_identity_v41.js";
 
 export const V41_FATIGUE_WARN_TURNS = 8;
 export const V41_FATIGUE_STRONG_TURNS = 12;
@@ -54,6 +60,16 @@ export class SceneCoordinator {
   constructor(room) {
     this.room = room;
     this.stats = {
+      associationQueries: 0,
+      explicitAssociations: 0,
+      replyToAssociations: 0,
+      scoredAssociations: 0,
+      directPairAssociations: 0,
+      participantAssociations: 0,
+      topicContextAssociations: 0,
+      associationRejects: 0,
+      ambiguousAssociationRejects: 0,
+      forcedNewAssociations: 0,
       momentumQueries: 0,
       momentumEligible: 0,
       ambientHumanOwnershipBlocks: 0,
@@ -69,6 +85,7 @@ export class SceneCoordinator {
       roomTopicFatigueCloses: 0,
       humanPivotCloses: 0
     };
+    this.lastAssociation = null;
     this.lastDecision = null;
     this.lastClose = null;
   }
@@ -79,6 +96,105 @@ export class SceneCoordinator {
 
   activeHumanNames() {
     return this.room?.humanNames?.() || [];
+  }
+
+  sceneById(sceneId) {
+    if (!sceneId || !(this.room?.sceneBoard instanceof Map)) return null;
+    return this.room.sceneBoard.get(sceneId) || null;
+  }
+
+  associationRecord({ message, scene = null, reason, score = 0, candidates = [], at = Date.now() } = {}) {
+    const record = {
+      sceneId: scene?.id || "",
+      reason: reason || "no-match",
+      score: Number(score || 0),
+      from: String(message?.from || message?.speaker || ""),
+      target: String(message?.target || "room"),
+      text: String(message?.text || "").slice(0, 120),
+      candidates: (candidates || []).slice(0, 3).map((candidate) => ({
+        sceneId: candidate?.sceneId || "",
+        score: Number(candidate?.score || 0),
+        reason: candidate?.reason || "",
+        features: candidate?.features || null
+      })),
+      at
+    };
+    this.lastAssociation = record;
+    return { scene, ...record };
+  }
+
+  associateScene(message, now = Date.now()) {
+    this.stats.associationQueries += 1;
+    if (!message) {
+      this.stats.associationRejects += 1;
+      return this.associationRecord({ message, reason: "no-message", at: now });
+    }
+
+    // Preserve the Human Director's explicit pivot boundary before doing any
+    // fuzzy association. A replace move must always be allowed to create a new ID.
+    if (message?._v37ForceNewScene) {
+      this.stats.forcedNewAssociations += 1;
+      return this.associationRecord({ message, reason: "forced-new-scene", at: now });
+    }
+
+    // Exact scene IDs are structural authority. This includes v25/v40 scene carry.
+    // If that exact ID is gone, fail cleanly instead of silently changing identity.
+    if (message.sceneId) {
+      const explicit = this.sceneById(message.sceneId);
+      if (explicit) {
+        this.stats.explicitAssociations += 1;
+        return this.associationRecord({ message, scene: explicit, reason: "explicit-scene-id", score: 100, at: now });
+      }
+      this.stats.associationRejects += 1;
+      return this.associationRecord({ message, reason: "explicit-scene-missing", score: 100, at: now });
+    }
+
+    // replyTo is the second hard anchor. It preserves ownership even when topic
+    // labels are coarse or the reply text itself is contextless. If the parent is
+    // known but its scene has expired, do not remap the reply into another scene.
+    const parent = this.room?.messageById?.(message.replyTo) || null;
+    if (parent?.sceneId) {
+      const replyScene = this.sceneById(parent.sceneId);
+      if (replyScene) {
+        this.stats.replyToAssociations += 1;
+        return this.associationRecord({ message, scene: replyScene, reason: "reply-to", score: 100, at: now });
+      }
+      this.stats.associationRejects += 1;
+      return this.associationRecord({ message, reason: "reply-scene-missing", score: 100, at: now });
+    }
+
+    const scenes = typeof this.room?.openScenes === "function" ? this.room.openScenes(now) : [];
+    const selected = selectSceneAssociation({
+      message,
+      scenes,
+      history: this.history(),
+      now
+    });
+    const scene = selected.sceneId ? this.sceneById(selected.sceneId) : null;
+    if (!scene) {
+      this.stats.associationRejects += 1;
+      if (selected.reason === "ambiguous") this.stats.ambiguousAssociationRejects += 1;
+      return this.associationRecord({
+        message,
+        reason: selected.reason,
+        score: selected.score,
+        candidates: selected.candidates,
+        at: now
+      });
+    }
+
+    this.stats.scoredAssociations += 1;
+    if (selected.reason === "direct-pair" || selected.reason === "open-question") this.stats.directPairAssociations += 1;
+    else if (selected.reason === "participant-context" || selected.reason === "participant-continuation") this.stats.participantAssociations += 1;
+    else if (selected.reason === "topic-context") this.stats.topicContextAssociations += 1;
+    return this.associationRecord({
+      message,
+      scene,
+      reason: selected.reason,
+      score: selected.score,
+      candidates: selected.candidates,
+      at: now
+    });
   }
 
   recentHumanNames(now = Date.now()) {
@@ -337,10 +453,19 @@ export class SceneCoordinator {
     return {
       stats: { ...this.stats },
       currentMomentum: this.ambientMomentum(now, { record: false }),
+      lastAssociation: this.lastAssociation,
       lastDecision: this.lastDecision,
       lastClose: this.lastClose,
       policy: {
-        preservesV17SceneIds: true,
+        preservesV17SceneIdsAndStorageSchema: true,
+        sceneAssociationAuthority: "scored-v41",
+        directAssociationThreshold: V41_DIRECT_ASSOCIATION_THRESHOLD,
+        roomAssociationThreshold: V41_ROOM_ASSOCIATION_THRESHOLD,
+        ambiguityMargin: V41_AMBIGUITY_MARGIN,
+        explicitSceneIdAndReplyToAreHardAnchors: true,
+        missingStructuralAnchorNeverFuzzyRemaps: true,
+        coarseTopicAloneCannotClaimScene: true,
+        directTargetAloneCannotClaimUnrelatedScene: true,
         ambientMomentumWindowMs: V40_MOMENTUM_WINDOW_MS,
         ambientTargetTurns: V40_TARGET_SCENE_TURNS,
         ambientCarryStopsAtTurns: V40_MAX_SCENE_TURNS,
