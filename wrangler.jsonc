@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aolchatroom",
-  "main": "src/index_v39_world_gate.js",
+  "main": "src/index_v40_scene_continuity.js",
   "compatibility_date": "2026-08-19",
   "assets": {
     "directory": "./public",
@@ -37,6 +37,6 @@
     "COHERE_MODEL": "command-r7b-12-2024",
     "ALLOW_DEV_TRIAL_PROVIDERS": "0",
     "SIMULATED_DATE": "November 22, 1996",
-    "DEPLOY_VERSION": "39"
+    "DEPLOY_VERSION": "40"
   }
 }

@@ -40,8 +40,6 @@ const reconnect = [
 assert.deepEqual(logicalHumanNames(reconnect), ["Crateman"], "a replacement socket restores exactly one logical Crateman presence");
 assert.equal(activeHumanConnectionCount(reconnect, "Crateman"), 1);
 
-// Production regression: an explicit challenge about a bot's mistake must be treated
-// as error repair, not as a request for another date/fact.
 assert.equal(isExplicitErrorChallenge("hmm how can you make such a big mistake"), true);
 assert.equal(isExplicitErrorChallenge("how did you get that so wrong"), true);
 assert.equal(isExplicitErrorChallenge("what movies do you like"), false);
@@ -53,9 +51,6 @@ assert.match(repaired.goal, /V39 ERROR-REPAIR LOCK/);
 assert.match(repaired.moves[0].meaning, /Admit or explain the mistake FIRST/i);
 assert.match(repaired.moves[0].meaning, /Do not answer the challenge by merely supplying another date/i);
 
-// Production regression: on Aug 31, claiming Independence Day was released "last
-// Friday" is impossible; its known opening date is July 3. Watching it last Friday
-// is fine because that does not claim a release date.
 const NOW = Date.parse("2026-08-31T13:30:00-07:00");
 const badRelease = historicalDateMismatch("independence day got released last friday <g>", NOW);
 assert.equal(badRelease?.kind, "historical-date-mismatch");
@@ -79,11 +74,17 @@ const legacyQuickBackground = fs.readFileSync(new URL("../src/index_v11.js", imp
 assert.ok(legacyQuickBackground.includes('const sceneId = `qbg${this.sceneSeq}`'), "regression must remain tied to the actual legacy qbg generator found in the production capture");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-const directPresence = wrangler.includes('"main": "src/index_v39_presence_fix.js"');
+const directPresence = wrangler.includes('"main": "src/index_v39_presence_fix.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"');
 const worldWrapper = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
 const wrappedPresence = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"');
-assert.ok(directPresence || wrappedPresence, "production must retain the v39 presence/capture wrapper directly or beneath the v39 world gate");
-assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
+const v40Wrapper = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
+const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "40"')
+  && v40Wrapper.includes('from "./index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"');
+assert.ok(directPresence || wrappedPresence || wrappedByV40, "production must retain the v39 presence/capture wrapper directly or beneath the v39 world/v40 scene wrappers");
 
 console.log("v39 presence + capture-derived provider/coherence/history regression checks passed");

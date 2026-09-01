@@ -24,7 +24,6 @@ const goldenEyeGame = futureGameProductViolation("oh it was goldeneye for the n6
 assert.equal(goldenEyeGame?.kind, "future-game-product");
 assert.equal(goldenEyeGame?.notBefore, "1997-08-25");
 
-// GoldenEye was also a Bond movie, so ordinary film discussion must remain valid.
 assert.equal(
   futureGameProductViolation("goldeneye came out last year lol", NOW, "whats the latest james bond film"),
   null
@@ -81,7 +80,12 @@ assert.ok(runtime.includes("normalizeEraConsoleLabels(text)"));
 assert.ok(runtime.includes("v39FutureGameProductViolations"));
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v39_world_gate.js"'));
-assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
+const directWorld = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"');
+const v40Runtime = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
+const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "40"')
+  && v40Runtime.includes('from "./index_v39_world_gate.js"');
+assert.ok(directWorld || wrappedByV40, "production must retain the v39 world gate directly or beneath the additive v40 scene-continuity wrapper");
 
 console.log("v39 focused public-world pre-display gate regression checks passed");

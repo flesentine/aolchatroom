@@ -41,22 +41,18 @@ assert.ok(runtime.includes("closeExhaustedAmbientScenes(now)"), "overlong ambien
 assert.ok(runtime.includes("EXHAUSTED_SCENE_TURNS = 15"));
 assert.ok(runtime.includes("safe.length < LIVELY_AMBIENT_MIN_LINES || distinctSpeakers.size < 2"), "output validator must require enough lines and multiple speakers");
 
-// Live-capture regression: the v37 burst must not be filtered through the old
-// v14/v16/v17 parse stack before its own 3-line / 2-speaker acceptance gate.
 assert.ok(runtime.includes("function parseLivelyAmbientBurst"), "lively ambient must have a dedicated v37 burst parser");
 assert.ok(runtime.includes("safe = parseLivelyAmbientBurst(result.content, activeNames, LIVELY_AMBIENT_MAX_LINES)"), "provider output must use the dedicated v37 parser");
 assert.equal(runtime.includes("this.parseGroqMessages(extractJson(result.content)"), false, "lively ambient must not inherit legacy parser rejection layers");
 assert.ok(runtime.includes("canonical.get(clean(raw?.speaker, 32).toLowerCase())"), "burst parser must canonicalize only currently active bot speakers");
 assert.ok(runtime.includes("canonical.get(requestedTarget.toLowerCase()) || \"room\""), "invalid burst targets must fall safely back to room");
 
-// Live-capture regression: explicit scene closure is terminal in production v37.
 assert.ok(runtime.includes("sceneIsClosed(scene)"), "production v37 must recognize explicit closed scenes");
 assert.ok(runtime.includes("explicitlyClosed.set(id"), "pruning must preserve explicit scene closure");
 assert.ok(runtime.includes("closedSceneResurrectionBlocks"), "closed-scene resurrection attempts must be observable");
 assert.ok(runtime.includes("if (!this.sceneIsClosed(scene)) return scene"), "scene lookup must refuse a closed scene");
 assert.ok(runtime.includes("if (this.sceneIsClosed(scene))"), "scene touch must not reactivate a closed scene");
 
-// Runtime diagnostics must describe the authoritative production path, not the old shadow era.
 assert.ok(runtime.includes("shadowOnly: false"), "v37 diagnostics must no longer claim shadow-only mode");
 assert.ok(runtime.includes("visibleRoutingChanges: true"), "v37 diagnostics must acknowledge visible routing changes");
 assert.ok(runtime.includes("legacyPlannerAuthoritative: false"), "v37 diagnostics must not call the legacy planner authoritative");
@@ -69,6 +65,7 @@ const v38Url = new URL("../src/index_v38_quality_guard.js", import.meta.url);
 const v39Url = new URL("../src/index_v39_coherence.js", import.meta.url);
 const v39PresenceUrl = new URL("../src/index_v39_presence_fix.js", import.meta.url);
 const v39WorldUrl = new URL("../src/index_v39_world_gate.js", import.meta.url);
+const v40Url = new URL("../src/index_v40_scene_continuity.js", import.meta.url);
 const v38Entrypoint = fs.existsSync(v38Url) ? fs.readFileSync(v38Url, "utf8") : "";
 const wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
@@ -87,6 +84,13 @@ const wrappedV39World = wrangler.includes('"main": "src/index_v39_world_gate.js"
   && v39PresenceEntrypoint.includes('from "./index_v39_coherence.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
-assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence || wrappedV39World, "production entrypoint must use lively v37 through an explicit v37/v38/v39 wrapper chain");
+const v40Entrypoint = fs.existsSync(v40Url) ? fs.readFileSync(v40Url, "utf8") : "";
+const wrappedV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
+  && v40Entrypoint.includes('from "./index_v39_world_gate.js"')
+  && v39WorldEntrypoint.includes('from "./index_v39_presence_fix.js"')
+  && v39PresenceEntrypoint.includes('from "./index_v39_coherence.js"')
+  && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
+assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence || wrappedV39World || wrappedV40, "production entrypoint must use lively v37 through an explicit v37/v38/v39/v40 wrapper chain");
 
 console.log("v37 lively AI-dominant ambient regression checks passed");
