@@ -118,6 +118,7 @@ class FakeCtx {
 }
 
 const { ChatRoom } = await import("../src/index_v40_scene_continuity.js");
+const { ChatRoom: BrainVoiceChatRoom } = await import("../src/index_v22.js");
 
 function bot(from, text, offset, extra = {}) {
   return {
@@ -355,7 +356,7 @@ test("reconnect grace marks the old socket non-present and suppresses a fake re-
   assert.deepEqual(room.humanNames(), ["Crateman"]);
 });
 
-test("known deficiency: Voice currently accepts semantically incomplete wording while preserving the intended brain meaning", async () => {
+test("known architectural deficiency: inherited v22 Voice accepts short surface text without semantic-completeness validation", async () => {
   const { room } = makeRoom({ bots: ["MetallicaFan"], env: { GEMINI_API_KEY: "test-gemini" } });
   room.callGroq = async () => [{
     speaker: "MetallicaFan",
@@ -379,7 +380,7 @@ test("known deficiency: Voice currently accepts semantically incomplete wording 
     }]
   };
 
-  const voiced = await room.voiceBrainPlan(plan, room.activeCharacters(), null);
+  const voiced = await BrainVoiceChatRoom.prototype.voiceBrainPlan.call(room, plan, room.activeCharacters(), null);
   assert.equal(voiced.length, 1);
   assert.equal(voiced[0].text, "nah");
   assert.match(voiced[0].brainMeaning, /owns a Neo Geo.*how much/i);
