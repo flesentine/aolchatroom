@@ -12,7 +12,6 @@ import {
 
 const NOW = Date.parse("2026-08-30T13:30:00-07:00");
 
-// Production regression: nobody in August 1996 can know the March 1997 Phoenix Lights event.
 const phoenix = futureEventViolation("phoenix lights man yeah in ninety seven", NOW);
 assert.equal(phoenix?.kind, "future-era-event");
 assert.equal(phoenix?.event, "Phoenix Lights");
@@ -32,7 +31,6 @@ function bot(from, text, atOffsetMs, extra = {}) {
   };
 }
 
-// Production regression: a short clarification should repair stale target ownership to the line it actually references.
 const hotelHistory = [
   bot("MoonChild", "aint heard it yet, is it seriously that bad", -18000),
   bot("RaveChick", "haha yeah we had that at our hotel last week ;)", -5000)
@@ -61,13 +59,11 @@ const whoHistory = [
 const whoRepair = inferClarificationTarget(whoHistory, "who me?", "Crateman", ["MoonChild", "MetallicaFan"], NOW);
 assert.equal(whoRepair?.name, "MetallicaFan");
 
-// An explicit screen name is authoritative and should be left to the normal router.
 assert.equal(
   inferClarificationTarget(hotelHistory, "RaveChick had what at your hotel?", "Crateman", ["MoonChild", "RaveChick"], NOW),
   null
 );
 
-// Voice-stage coherence lock must carry the exact referenced line, not only a broad topic label.
 const human = {
   kind: "human",
   from: "Crateman",
@@ -95,7 +91,6 @@ const wrapped = withCoherenceConstraint({
 assert.match(wrapped.plan.goal, /V39 COHERENCE LOCK/);
 assert.match(wrapped.plan.moves[0].meaning, /Exact referenced line/);
 
-// Production regression: a background burst cannot immediately make one bot react to itself.
 const selfDialogue = filterSelfDialogueLines([
   { speaker: "TexTom", target: "room", intent: "ambient", text: "yall ever hear the one about the abandoned asylums" },
   { speaker: "TexTom", target: "room", intent: "reply", text: "abandoned asylums? i heard about one in Dallas" },
@@ -106,14 +101,12 @@ assert.equal(selfDialogue.blocked.length, 2);
 assert.deepEqual(selfDialogue.blocked.map((row) => row._v39SelfDialogueReason), ["consecutive-self-reaction", "self-target"]);
 assert.equal(selfDialogue.kept.length, 2);
 
-// A bot that just left cannot instantly re-enter during normal population churn.
 const leaveHistory = [{ kind: "system", from: "", text: "CoolChick17 has left the room.", at: NOW - 10000 }];
 const remaining = reentryCooldownRemaining(leaveHistory, "CoolChick17", NOW);
 assert.ok(remaining > 0);
 assert.ok(remaining <= V39_BOT_REENTRY_COOLDOWN_MS);
 assert.equal(reentryCooldownRemaining(leaveHistory, "CoolChick17", NOW + V39_BOT_REENTRY_COOLDOWN_MS + 1), 0);
 
-// Source-level contract: v39 is additive and keeps the stable v38/v37 stack below it.
 const runtime = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
 assert.ok(runtime.includes('from "./index_v38_quality_guard.js"'));
 assert.ok(runtime.includes("futureEventViolation(text, now)"));
@@ -125,15 +118,23 @@ assert.ok(runtime.includes('url.pathname === "/v39-status"'));
 assert.ok(runtime.includes("diagnostics?.inheritedV38"), "v39 should repair the nullable top-level v38 diagnostics path");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-const directV39 = wrangler.includes('"main": "src/index_v39_coherence.js"');
+const directV39 = wrangler.includes('"main": "src/index_v39_coherence.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"');
 const presenceWrapper = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
 const wrappedV39 = wrangler.includes('"main": "src/index_v39_presence_fix.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"')
   && presenceWrapper.includes('from "./index_v39_coherence.js"');
 const worldWrapper = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
 const wrappedV39World = wrangler.includes('"main": "src/index_v39_world_gate.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "39"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"')
   && presenceWrapper.includes('from "./index_v39_coherence.js"');
-assert.ok(directV39 || wrappedV39 || wrappedV39World, "production must deploy v39 coherence directly or through the additive v39 presence/world wrappers");
-assert.ok(wrangler.includes('"DEPLOY_VERSION": "39"'));
+const v40Wrapper = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
+const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "40"')
+  && v40Wrapper.includes('from "./index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"')
+  && presenceWrapper.includes('from "./index_v39_coherence.js"');
+assert.ok(directV39 || wrappedV39 || wrappedV39World || wrappedByV40, "production must deploy v39 coherence directly or through the additive v39/v40 wrappers");
 
 console.log("v39 conversation-coherence regression checks passed");
