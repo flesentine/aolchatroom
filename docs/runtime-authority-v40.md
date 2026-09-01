@@ -4,6 +4,8 @@ Baseline: `main` at `e21b3d6b5800fbb4018aab77301739a7af197fe5`.
 
 This document describes the **effective production responsibilities** before v41 consolidation work. It is intentionally organized by behavior rather than version number. A version wrapper should not be retired until every live responsibility it owns has moved behind an equivalent contract test.
 
+Phase 0 does **not** introduce a v41 production wrapper or change the production entrypoint. Its executable characterization suite runs the current v40 `ChatRoom` inside Wrangler/workerd with deterministic test-only provider responses.
+
 ## Active deployed chain
 
 `index_v40_scene_continuity.js`
@@ -58,14 +60,36 @@ The chain is not itself the desired architecture. This map exists so consolidati
 | `lineViolation()` | v39 world gate → v39 presence historical-date mismatch → v39 coherence future-event gate → v38 era gate → lower public-world/era validation. |
 | `webSocketClose()` | v39 presence marks socket logically pending, then v39 coherence owns reconnect grace and eventual committed close. |
 
-## Known architecture tensions captured by PR A
+## Phase 0 executable contracts
 
-1. **Scene decisions are split across time, turn count, topic fatigue, human ownership, and v40 carry policy.** The first consolidation target should be one scene-decision authority while preserving v17 storage initially.
-2. **v40 prompt wiring is live.** A zero `momentumPromptLocks` count means no eligible momentum existed when actual lively generation reached the prompt, not that the override was bypassed.
-3. **Queue state can change underneath v40's pre-queue momentum snapshot.** v39/v38 filters and closures run after v40 computes momentum and before v40 annotates surviving items.
-4. **Some wrappers are partially obsolete rather than fully obsolete.** Example: `index_v37_human_only.js` has a superseded ambient generator but still owns a live capacity decision.
-5. **The current Voice contract is structural, not semantic.** A short line such as `nah` can preserve the Director's routing metadata while failing to express all intended meaning.
-6. **SceneBoard is reconstructed from retained message history.** Early SceneManager work can preserve the existing message schema and avoid a Durable Object storage migration.
+The Worker-runtime characterization suite intentionally exercises the deployed class chain rather than checking only source strings. Current contracts cover:
+
+- one provider request for one healthy lively-ambient generation opportunity, with the v40 momentum prompt reaching that call;
+- v39 self-dialogue filtering → v38 topic cooling → v20 plan queueing → v40 carry in one queue execution;
+- recent and active human identities blocking ambient scene carry;
+- closed-scene resurrection prevention;
+- scene hydration from Durable Object storage;
+- production-turn singleflight;
+- pre-display historical/product blocking while preserving valid period discussion;
+- transient reconnect identity and duplicate-enter suppression;
+- explicit screen-name targeting surviving semantic retarget logic;
+- human interruption discarding stale planned future turns;
+- the known Director/Voice semantic-completeness gap as a characterization, not a Phase 0 fix.
+
+## Known architecture tensions captured by Phase 0
+
+1. **Scene decisions are split across time, turn count, topic fatigue, human ownership, and v40 carry policy.** The first consolidation target should be one scene-decision authority while preserving v17 storage and identity initially.
+2. **Scene identity is high blast radius.** `sceneForMessage()` feeds scene state, open questions, attention, focus, and later fatigue logic. Phase 1 should introduce a SceneCoordinator around existing IDs first; identity redesign comes only after parity is established.
+3. **v40 prompt wiring is live.** The Worker-runtime contract proves dynamic dispatch reaches the real lively provider call. A zero `momentumPromptLocks` count therefore means no eligible momentum existed when actual lively generation reached the prompt, not that the override was bypassed.
+4. **Queue state can change underneath v40's pre-queue momentum snapshot.** v39/v38 filters and closures run after v40 computes momentum and before v40 annotates surviving items.
+5. **Some wrappers are partially obsolete rather than fully obsolete.** Example: `index_v37_human_only.js` has a superseded ambient generator but still owns a live capacity decision.
+6. **The current Voice contract is structural, not semantic.** A short line such as `nah` can preserve the Director's routing metadata while failing to express all intended meaning.
+7. **SceneBoard is reconstructed from retained message history.** Early SceneCoordinator work can preserve the existing message schema and avoid a Durable Object storage migration.
+8. **Legacy v40 counters are a historical baseline.** Phase 0 adds parallel `observationStats` rather than changing the semantics of `backgroundPlansExamined` or other existing counters.
+
+## Phase 1 boundary
+
+Phase 1A should introduce one SceneCoordinator for **human ownership, continue/fade/close decisions, momentum, fatigue, and ambient eligibility while keeping v17 scene IDs intact**. Only after the runtime contracts remain green should duplicate v26/v37/v38/v40 lifecycle policy be retired. Replacing v17 scene association/identity is a later Phase 1 step, not the opening refactor.
 
 ## Retirement rule
 
