@@ -21,13 +21,13 @@ function sleep(ms) {
 }
 
 // The historical CI workflows intentionally run npm scripts without npm install.
-// Allow npx to bootstrap Wrangler only for this contract process so Phase 0 can run
-// in real workerd without changing the production dependency or workflow model.
+// Bootstrap a pinned Wrangler only for this contract process so Phase 0 executes
+// inside a workerd build new enough for production's 2026-08-19 compatibility date.
 const child = spawn(
   "npx",
   [
     "--yes",
-    "wrangler",
+    "wrangler@4.127.1",
     "dev",
     "--config",
     "wrangler.runtime-contract.jsonc",
@@ -60,7 +60,7 @@ async function stopWorker() {
 
 async function waitForWorker() {
   let lastError = "";
-  for (let attempt = 0; attempt < 240; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     if (exited) break;
     try {
       const response = await fetch(`${origin}/health`);
