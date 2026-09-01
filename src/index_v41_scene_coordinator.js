@@ -1,4 +1,5 @@
 import v40Worker, { ChatRoom as V40ChatRoom } from "./index_v40_scene_continuity.js";
+import { ChatRoom as HumanDirectorChatRoom } from "./index_v37_human_director.js";
 import { V38_TOPIC_COOLDOWN_MS } from "./quality_guard_v38.js";
 import {
   SceneCoordinator,
@@ -80,9 +81,17 @@ export class ChatRoom extends V40ChatRoom {
   }
 
   sceneForMessage(message, now = Date.now()) {
-    const scene = super.sceneForMessage(message, now);
+    // Skip only the v37 lively closed-scene veto so the coordinator owns the final
+    // continuation decision. HumanDirector's lookup is the immediately preceding
+    // semantic scene layer and still preserves the _v37ForceNewScene pivot rule.
+    const scene = HumanDirectorChatRoom.prototype.sceneForMessage.call(this, message, now);
     if (!scene) return null;
-    return this.sceneCoordinator.continuationDecision(scene, message, now).allow ? scene : null;
+    const decision = this.sceneCoordinator.continuationDecision(scene, message, now);
+    if (decision.allow) return scene;
+    if (this.sceneIsClosed?.(scene)) {
+      this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+    }
+    return null;
   }
 
   closeExhaustedAmbientScenes(now = Date.now()) {
@@ -226,6 +235,7 @@ export class ChatRoom extends V40ChatRoom {
         v37AmbientExhaustionRoutedThroughCoordinator: true,
         v37HumanPivotCloseRoutedThroughCoordinator: true,
         v38RoomTopicFatigueCloseRoutedThroughCoordinator: true,
+        closedSceneContinuationRoutedThroughCoordinator: true,
         existingLayerCountersAndBroadcastActionsPreserved: true,
         v17AgeAndStorageLifecycleRemainBaseOwnedIn1A: true,
         noProviderRoutingChange: true,
