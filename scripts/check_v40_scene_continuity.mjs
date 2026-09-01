@@ -5,6 +5,7 @@ import {
   V40_MOMENTUM_WINDOW_MS,
   V40_TARGET_SCENE_TURNS,
   inferSceneMomentum,
+  inferSceneMomentumCandidate,
   sceneHasHumanParticipant,
   sceneMomentumPrompt,
   selectSceneCarryIndices
@@ -37,12 +38,14 @@ assert.equal(momentum?.topic, "gaming");
 assert.ok(momentum?.participants.includes("SegaMan"));
 assert.ok(momentum?.participants.includes("CyberDude"));
 assert.ok(momentum.ageMs < V40_MOMENTUM_WINDOW_MS);
+assert.deepEqual(inferSceneMomentumCandidate(building, NOW), momentum, "raw v40 candidate must preserve bot-only momentum shape for v41 delegation");
 
 const humanOwned = [
   ...building,
   { kind: "human", from: "Crateman", target: "SegaMan", topic: "gaming", sceneId: "s1", text: "what games do you have", at: NOW - 1000 }
 ];
 assert.equal(inferSceneMomentum(humanOwned, NOW, ["Crateman"]), null, "ambient must not pile onto a recent human-owned scene");
+assert.equal(inferSceneMomentumCandidate(humanOwned, NOW)?.sceneId, "s1", "candidate export intentionally precedes human ownership filtering for SceneCoordinator");
 
 // Production capture regression: the human line and the bot answer can carry
 // different scene IDs. The bot-created scene still targets Crateman, so it is a
@@ -103,6 +106,7 @@ const exhausted = Array.from({ length: V40_MAX_SCENE_TURNS }, (_, index) =>
   })
 );
 assert.equal(inferSceneMomentum(exhausted, NOW), null, "a seven-turn scene must be free to end instead of being forcibly carried again");
+assert.equal(inferSceneMomentumCandidate(exhausted, NOW), null, "raw candidate must retain the same seven-turn ambient carry ceiling");
 
 const plan = [
   { speaker: "SegaMan", target: "CyberDude", intent: "reply", topic: "gaming", text: "saturn has better arcade ports" },
@@ -127,7 +131,7 @@ assert.equal(V40_MAX_SCENE_TURNS, 7);
 const runtime = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
 assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "v40 must remain additive above all stabilized v39 guards");
 assert.ok(runtime.includes('reason === "background" ? this.currentAmbientMomentum(now) : null'), "scene carry must be background-only");
-assert.ok(runtime.includes("inferSceneMomentum(this.history || [], now, this.humanNames?.() || [])"), "runtime must pass active human identities into the v40 exclusion guard");
+assert.ok(runtime.includes("inferSceneMomentum(this.history || [], now, this.humanNames?.() || [])"), "standalone v40 runtime must retain its original active-human exclusion fallback");
 assert.ok(runtime.includes("item._continuitySceneId = momentum.sceneId"));
 assert.ok(runtime.includes("this.registerSceneCarry?.(item, momentum.sceneId, planId)"));
 assert.ok(runtime.includes("selectSceneCarryIndices(planItems, momentum)"));
@@ -137,12 +141,16 @@ assert.ok(runtime.includes("noExtraProviderCallForContinuity: true"));
 assert.ok(runtime.includes('url.pathname === "/v40-status"'));
 
 const helper = fs.readFileSync(new URL("../src/scene_continuity_v40.js", import.meta.url), "utf8");
-assert.ok(helper.includes("sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)"), "v40 must block by human participant identity, not exact sceneId alone");
+assert.ok(helper.includes("sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)"), "legacy v40 must keep its standalone human participant guard");
 assert.ok(helper.includes("return participantNames(rows, 8)"), "prompt/display participant list may remain capped at eight");
 assert.ok(helper.includes("return participantNames(sceneRows).some"), "human safety exclusion must use the untruncated participant set");
+assert.ok(helper.includes("inferSceneMomentumCandidate"), "v41 must be able to ask v40 for a pre-ownership momentum candidate without changing legacy infer behavior");
+
+const v41 = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
+assert.ok(v41.includes('from "./index_v40_scene_continuity.js"'), "v41 must preserve v40 as its direct compatibility baseline");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v40_scene_continuity.js"'));
-assert.ok(wrangler.includes('"DEPLOY_VERSION": "40"'));
+assert.ok(wrangler.includes('"main": "src/index_v41_scene_coordinator.js"'));
+assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
 console.log("v40 scene-continuity and human-participant exclusion regression checks passed");

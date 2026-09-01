@@ -80,7 +80,7 @@ export function sceneHasHumanParticipant(history = [], sceneRows = [], now = Dat
   return participantNames(sceneRows).some((name) => humans.has(name));
 }
 
-export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNames = []) {
+function momentumCandidate(history = [], now = Date.now()) {
   const rows = (history || []).filter(conversational);
   if (!rows.length) return null;
 
@@ -97,6 +97,43 @@ export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNa
   );
   if (!recentSceneRows.length) return null;
 
+  const turns = rows.filter((row) => sceneIdOf(row) === sceneId).length;
+  if (turns >= V40_MAX_SCENE_TURNS) return null;
+
+  const participants = participantsFor(recentSceneRows);
+  if (participants.length < 2) return null;
+
+  const topic = dominantTopic(recentSceneRows);
+  const phase = turns < V40_TARGET_SCENE_TURNS ? "building" : turns <= 5 ? "live" : "aging";
+  return {
+    rows,
+    recentSceneRows,
+    momentum: {
+      sceneId,
+      topic,
+      turns,
+      ageMs,
+      phase,
+      participants,
+      lastFrom: String(latest.from || latest.speaker || ""),
+      lastTarget: String(latest.target || "room"),
+      lastText: compact(latest.text, 180)
+    }
+  };
+}
+
+// Phase 1A needs the same momentum shape before human-ownership filtering so the
+// SceneCoordinator can become the single authority for ownership decisions. The
+// legacy inferSceneMomentum export below retains its exact v40 behavior.
+export function inferSceneMomentumCandidate(history = [], now = Date.now()) {
+  return momentumCandidate(history, now)?.momentum || null;
+}
+
+export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNames = []) {
+  const candidate = momentumCandidate(history, now);
+  if (!candidate) return null;
+  const { rows, recentSceneRows, momentum } = candidate;
+
   // Direct human scenes already have a dedicated carry/replan mechanism. Ambient
   // generation should not pile onto a human conversation just to improve cohesion.
   // Keep the exact-scene check, then also reject by participant identity because a
@@ -107,26 +144,7 @@ export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNa
   );
   if (recentHuman) return null;
   if (sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)) return null;
-
-  const turns = rows.filter((row) => sceneIdOf(row) === sceneId).length;
-  if (turns >= V40_MAX_SCENE_TURNS) return null;
-
-  const participants = participantsFor(recentSceneRows);
-  if (participants.length < 2) return null;
-
-  const topic = dominantTopic(recentSceneRows);
-  const phase = turns < V40_TARGET_SCENE_TURNS ? "building" : turns <= 5 ? "live" : "aging";
-  return {
-    sceneId,
-    topic,
-    turns,
-    ageMs,
-    phase,
-    participants,
-    lastFrom: String(latest.from || latest.speaker || ""),
-    lastTarget: String(latest.target || "room"),
-    lastText: compact(latest.text, 180)
-  };
+  return momentum;
 }
 
 export function sceneMomentumPrompt(momentum) {

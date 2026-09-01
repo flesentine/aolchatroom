@@ -86,6 +86,11 @@ const v40Runtime = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js
 const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
   && wrangler.includes('"DEPLOY_VERSION": "40"')
   && v40Runtime.includes('from "./index_v39_world_gate.js"');
-assert.ok(directWorld || wrappedByV40, "production must retain the v39 world gate directly or beneath the additive v40 scene-continuity wrapper");
+const v41Runtime = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
+const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "41"')
+  && v41Runtime.includes('from "./index_v40_scene_continuity.js"')
+  && v40Runtime.includes('from "./index_v39_world_gate.js"');
+assert.ok(directWorld || wrappedByV40 || wrappedByV41, "production must retain the v39 world gate directly or beneath the additive v40/v41 scene wrappers");
 
 console.log("v39 focused public-world pre-display gate regression checks passed");

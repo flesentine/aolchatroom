@@ -85,6 +85,12 @@ const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.
   && wrangler.includes('"DEPLOY_VERSION": "40"')
   && v40Wrapper.includes('from "./index_v39_world_gate.js"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"');
-assert.ok(directPresence || wrappedPresence || wrappedByV40, "production must retain the v39 presence/capture wrapper directly or beneath the v39 world/v40 scene wrappers");
+const v41Wrapper = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
+const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "41"')
+  && v41Wrapper.includes('from "./index_v40_scene_continuity.js"')
+  && v40Wrapper.includes('from "./index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"');
+assert.ok(directPresence || wrappedPresence || wrappedByV40 || wrappedByV41, "production must retain the v39 presence/capture wrapper directly or beneath the v39 world/v40/v41 scene wrappers");
 
 console.log("v39 presence + capture-derived provider/coherence/history regression checks passed");
