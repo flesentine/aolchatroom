@@ -26,7 +26,7 @@ function conversational(row) {
   return row?.kind === "bot" || row?.kind === "human" || Boolean(row?.speaker && row?.text);
 }
 
-function participantsFor(rows = []) {
+function participantNames(rows = [], limit = Infinity) {
   const out = [];
   const seen = new Set();
   for (const row of rows) {
@@ -37,7 +37,11 @@ function participantsFor(rows = []) {
       out.push(value);
     }
   }
-  return out.slice(0, 8);
+  return Number.isFinite(limit) ? out.slice(0, Math.max(0, limit)) : out;
+}
+
+function participantsFor(rows = []) {
+  return participantNames(rows, 8);
 }
 
 function dominantTopic(rows = []) {
@@ -73,7 +77,7 @@ function recentHumanNames(history = [], now = Date.now(), activeHumanNames = [])
 export function sceneHasHumanParticipant(history = [], sceneRows = [], now = Date.now(), activeHumanNames = []) {
   const humans = recentHumanNames(history, now, activeHumanNames);
   if (!humans.size) return false;
-  return participantsFor(sceneRows).some((name) => humans.has(name));
+  return participantNames(sceneRows).some((name) => humans.has(name));
 }
 
 export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNames = []) {
