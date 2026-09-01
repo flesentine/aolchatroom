@@ -20,10 +20,13 @@ function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// The historical CI workflows intentionally run npm scripts without npm install.
+// Allow npx to bootstrap Wrangler only for this contract process so Phase 0 can run
+// in real workerd without changing the production dependency or workflow model.
 const child = spawn(
   "npx",
   [
-    "--no-install",
+    "--yes",
     "wrangler",
     "dev",
     "--config",
@@ -57,7 +60,7 @@ async function stopWorker() {
 
 async function waitForWorker() {
   let lastError = "";
-  for (let attempt = 0; attempt < 120; attempt += 1) {
+  for (let attempt = 0; attempt < 240; attempt += 1) {
     if (exited) break;
     try {
       const response = await fetch(`${origin}/health`);
