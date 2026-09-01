@@ -77,6 +77,16 @@ export class ChatRoom extends WorldGateChatRoom {
       liveSceneCarries: 0,
       agingSceneCarries: 0
     };
+    // Phase 0 observation counters are deliberately parallel to the legacy v40
+    // counters. Do not redefine the old counters: production captures already use
+    // them as a baseline, even though backgroundPlansExamined includes empty input.
+    this.v40ObservationStats = {
+      backgroundQueueAttempts: 0,
+      nonEmptyBackgroundInputs: 0,
+      momentumAtQueueAttempts: 0,
+      backgroundPlansQueued: 0,
+      backgroundLinesQueued: 0
+    };
     this.v40LastCarry = null;
   }
 
@@ -98,11 +108,24 @@ export class ChatRoom extends WorldGateChatRoom {
     const now = Date.now();
     const momentum = reason === "background" ? this.currentAmbientMomentum(now) : null;
     if (reason === "background") {
+      // Preserve original v40 counter semantics for before/after comparisons.
       this.v40Stats.backgroundPlansExamined += 1;
       if (momentum) this.v40Stats.backgroundPlansWithMomentum += 1;
+
+      // Parallel Phase 0 observations use literal names so an empty refill attempt
+      // cannot be mistaken for a generated or queued background plan.
+      this.v40ObservationStats.backgroundQueueAttempts += 1;
+      if ((lines || []).some((item) => item?.speaker && item?.text)) {
+        this.v40ObservationStats.nonEmptyBackgroundInputs += 1;
+      }
+      if (momentum) this.v40ObservationStats.momentumAtQueueAttempts += 1;
     }
 
     const queued = super.queueScenePlan(lines, reason, trigger, front);
+    if (reason === "background" && Number(queued || 0) > 0) {
+      this.v40ObservationStats.backgroundPlansQueued += 1;
+      this.v40ObservationStats.backgroundLinesQueued += Number(queued || 0);
+    }
     if (!queued || reason !== "background" || !momentum?.sceneId) return queued;
 
     const planId = this.currentScenePlan?.id || "";
@@ -153,6 +176,7 @@ export class ChatRoom extends WorldGateChatRoom {
       pass: PASS,
       deployVersion: 40,
       stats: { ...this.v40Stats },
+      observationStats: { ...this.v40ObservationStats },
       currentMomentum: this.currentAmbientMomentum(now),
       lastCarry: this.v40LastCarry,
       policy: {
@@ -163,7 +187,9 @@ export class ChatRoom extends WorldGateChatRoom {
         directHumanScenesRemainOwnedByHumanReplanPath: true,
         humanParticipantIdentityExclusion: "active-or-recent-90s",
         sideCrossTalkMayRemainIndependent: true,
-        noExtraProviderCallForContinuity: true
+        noExtraProviderCallForContinuity: true,
+        legacyV40CounterSemanticsPreserved: true,
+        phase0ObservationCountersAreAdditiveOnly: true
       }
     };
   }

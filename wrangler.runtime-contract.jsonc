@@ -1,0 +1,26 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aolchatroom-runtime-contract",
+  "main": "test/runtime_contract_worker.js",
+  "compatibility_date": "2026-08-19",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "CONTRACT_ROOMS",
+        "class_name": "RuntimeContractRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RuntimeContractRoom"]
+    }
+  ],
+  "vars": {
+    "GEMINI_API_KEY": "runtime-contract-gemini",
+    "GROQ_MODEL": "openai/gpt-oss-20b",
+    "GEMINI_MODEL": "gemini-3.5-flash-lite",
+    "DEPLOY_VERSION": "40"
+  }
+}
