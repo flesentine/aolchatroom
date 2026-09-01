@@ -91,6 +91,8 @@ export class ChatRoom extends WorldGateChatRoom {
   }
 
   currentAmbientMomentum(now = Date.now()) {
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.ambientMomentum) return authority.ambientMomentum(now);
     return inferSceneMomentum(this.history || [], now, this.humanNames?.() || []);
   }
 
@@ -135,7 +137,11 @@ export class ChatRoom extends WorldGateChatRoom {
       .sort((a, b) => Number(a?._scenePlanStep || 0) - Number(b?._scenePlanStep || 0));
     if (!planItems.length) return queued;
 
-    const carryIndices = new Set(selectSceneCarryIndices(planItems, momentum));
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    const selected = authority?.selectCarryIndices
+      ? authority.selectCarryIndices(planItems, momentum)
+      : selectSceneCarryIndices(planItems, momentum);
+    const carryIndices = new Set(selected);
     let carried = 0;
     for (let index = 0; index < planItems.length; index += 1) {
       const item = planItems[index];
