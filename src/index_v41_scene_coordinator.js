@@ -1,7 +1,7 @@
 import v40Worker, { ChatRoom as V40ChatRoom } from "./index_v40_scene_continuity.js";
 import { SceneCoordinator } from "./scene_coordinator_v41.js";
 
-const PASS = "scene-coordinator-v41-1b";
+const PASS = "scene-coordinator-v41-1c";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -43,8 +43,11 @@ export default {
       endpoints: { ...(data.endpoints || {}), v41: "/api/v41-status" },
       v41: {
         sceneCoordinator: true,
-        phase: "1B",
-        preservesV17SceneIds: true,
+        phase: "1C",
+        preservesV17SceneIdsAndStorageSchema: true,
+        ownsSceneAssociationDecision: true,
+        scoredAssociationInsteadOfLegacyFirstMatch: true,
+        exactSceneIdAndReplyToRemainHardAnchors: true,
         ownsAmbientMomentumDecision: true,
         ownsHumanSceneProtectionDecision: true,
         ownsTurnFatigueDecision: true,
@@ -53,7 +56,7 @@ export default {
         legacySceneLayersDelegateThroughAuthorityHook: true,
         duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true,
         legacyFallbacksRemainForStandaloneRegressionLayers: true,
-        v17AgeAndStorageLifecycleRemainBaseOwned: true,
+        v17SceneConstructionHydrationAndStorageRemainBaseOwned: true,
         noProviderRoutingChange: true,
         statusEndpoint: "/api/v41-status",
         ...(runtime ? { runtime } : {})
@@ -68,22 +71,40 @@ export class ChatRoom extends V40ChatRoom {
     this.sceneCoordinator = new SceneCoordinator(this);
   }
 
-  // Phase 1B's only production hook. Lower v26/v37/v38/v40 layers ask for this
-  // authority before making scene lifecycle decisions. When those layers are run
-  // by themselves in legacy tests this method is absent, so their frozen fallback
-  // behavior remains available without becoming a second production authority.
+  // Lower v26/v37/v38/v40 layers use this for lifecycle decisions. Phase 1C also
+  // uses the same authority for identity, so association and continuation cannot
+  // disagree about whether a scene is usable.
   sceneLifecycleAuthority() {
     return this.sceneCoordinator;
+  }
+
+  sceneForMessage(message, now = Date.now()) {
+    const association = this.sceneCoordinator.associateScene(message, now);
+    const scene = association?.scene || null;
+    if (!scene) return null;
+
+    const decision = this.sceneCoordinator.continuationDecision(scene, message, now);
+    if (decision.allow) return scene;
+    if (decision.reason === "scene-closed" && this.v37LivelyAmbientStats) {
+      this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+    }
+    return null;
   }
 
   v41Snapshot(now = Date.now()) {
     return {
       pass: PASS,
       deployVersion: 41,
-      phase: "1B",
+      phase: "1C",
       coordinator: this.sceneCoordinator.snapshot(now),
       policy: {
-        v17SceneIdentityAndHydrationPreserved: true,
+        v17SceneIdsAndStorageSchemaPreserved: true,
+        v17LegacyFuzzyMatcherBypassedInV41Production: true,
+        sceneAssociationRoutedThroughCoordinator: true,
+        explicitSceneIdAndReplyToRemainHardAnchors: true,
+        coarseTopicAloneCannotClaimScene: true,
+        unrelatedTargetPresenceAloneCannotClaimScene: true,
+        ambiguityCreatesNoAssociationInsteadOfArbitraryMerge: true,
         legacySceneLayersDelegateThroughAuthorityHook: true,
         duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true,
         legacyFallbacksRemainForStandaloneRegressionLayers: true,
@@ -95,7 +116,7 @@ export class ChatRoom extends V40ChatRoom {
         v40CarrySelectionRoutedThroughCoordinator: true,
         closedSceneContinuationRoutedThroughCoordinator: true,
         existingLayerCountersAndBroadcastActionsPreserved: true,
-        v17AgeAndStorageLifecycleRemainBaseOwned: true,
+        v17SceneConstructionHydrationAndAgeStorageLifecycleRemainBaseOwned: true,
         noProviderRoutingChange: true,
         noAdditionalProviderCall: true
       }
