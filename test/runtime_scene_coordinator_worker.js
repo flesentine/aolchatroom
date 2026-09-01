@@ -63,6 +63,119 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     ];
   }
 
+  parallelGamingScenes(now = Date.now()) {
+    return [
+      bot("SegaMan", "CyberDude", "saturn pad feels better", now - 9000, { sceneId: "s-saturn", messageId: "m-saturn-1" }),
+      bot("CyberDude", "SegaMan", "playstation pad is easier", now - 4000, { sceneId: "s-saturn", messageId: "m-saturn-2", intent: "reply" }),
+      bot("DoomKid", "QuakeGuy", "quake modem lag is brutal", now - 3000, { sceneId: "s-quake", messageId: "m-quake-1" })
+    ];
+  }
+
+  contractIdentityPairOwnership() {
+    const now = Date.now();
+    this.resetContractState({ history: this.parallelGamingScenes(now), bots: ["SegaMan", "CyberDude", "DoomKid", "QuakeGuy"] });
+    this.hydrateContractScenes();
+    const found = this.sceneForMessage({
+      kind: "bot",
+      from: "SegaMan",
+      target: "CyberDude",
+      text: "tekken still wins",
+      topic: "gaming",
+      intent: "disagree",
+      at: now
+    }, now);
+    equal(found?.id, "s-saturn", "direct pair must select its own scene over a newer same-topic scene");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "direct-pair", "pair ownership should be visible in diagnostics");
+    ensure(this.sceneCoordinator.stats.scoredAssociations >= 1, "scored association counter should increment");
+    return { sceneId: found.id, reason: this.sceneCoordinator.lastAssociation.reason };
+  }
+
+  contractIdentityStrangerTarget() {
+    const now = Date.now();
+    this.resetContractState({ history: this.parallelGamingScenes(now), bots: ["SegaMan", "CyberDude", "DoomKid", "QuakeGuy"] });
+    this.hydrateContractScenes();
+    const found = this.sceneForMessage({
+      kind: "human",
+      from: "NewKid",
+      target: "CyberDude",
+      text: "hey whats up",
+      topic: "general",
+      intent: "reply",
+      at: now
+    }, now);
+    equal(found, null, "target presence alone must not hijack CyberDude's unrelated scene");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "below-threshold", "weak target-only association should be explicitly rejected");
+    return { rejected: true, reason: this.sceneCoordinator.lastAssociation.reason };
+  }
+
+  contractIdentitySameTopicSplit() {
+    const now = Date.now();
+    const history = this.parallelGamingScenes(now).filter((row) => row.sceneId === "s-saturn");
+    this.resetContractState({ history, bots: ["SegaMan", "CyberDude"] });
+    this.hydrateContractScenes();
+    const oldScene = this.sceneBoard.get("s-saturn");
+    ensure(oldScene, "saturn scene should hydrate");
+
+    this.pushMessage({
+      kind: "bot",
+      from: "SegaMan",
+      target: "room",
+      text: "goldeneye was cool",
+      topic: "gaming",
+      intent: "ambient",
+      source: "contract",
+      at: now
+    });
+    const latest = this.history[this.history.length - 1];
+    ensure(latest?.sceneId, "same-topic new subject should still be allowed to create a v17 scene");
+    ensure(latest.sceneId !== "s-saturn", "coarse topic=gaming alone must not merge GoldenEye into the Saturn scene");
+    ensure(this.sceneBoard.has(latest.sceneId), "new association boundary must still use v17 scene construction/storage");
+    equal(this.sceneBoard.get("s-saturn")?.id, "s-saturn", "existing v17 ID must remain untouched");
+    return { oldSceneId: "s-saturn", newSceneId: latest.sceneId };
+  }
+
+  contractIdentityReplyAnchor() {
+    const now = Date.now();
+    this.resetContractState({ history: this.parallelGamingScenes(now), bots: ["SegaMan", "CyberDude", "DoomKid", "QuakeGuy"] });
+    this.hydrateContractScenes();
+    const found = this.sceneForMessage({
+      kind: "bot",
+      from: "NewKid",
+      target: "room",
+      text: "really?",
+      topic: "general",
+      intent: "reaction",
+      replyTo: "m-quake-1",
+      at: now
+    }, now);
+    equal(found?.id, "s-quake", "replyTo must remain a hard ownership anchor despite contextless text and a new speaker");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "reply-to", "reply anchor should be diagnosed explicitly");
+    return { sceneId: found.id, reason: this.sceneCoordinator.lastAssociation.reason };
+  }
+
+  contractIdentityAmbiguity() {
+    const now = Date.now();
+    const history = [
+      bot("A", "B", "games are fun tonight", now - 4000, { sceneId: "s-games-a", messageId: "m-games-a" }),
+      bot("C", "D", "games are fun lately", now - 4500, { sceneId: "s-games-b", messageId: "m-games-b" })
+    ];
+    this.resetContractState({ history, bots: ["A", "B", "C", "D", "NewKid"] });
+    this.hydrateContractScenes();
+    const found = this.sceneForMessage({
+      kind: "bot",
+      from: "NewKid",
+      target: "room",
+      text: "games are cool",
+      topic: "gaming",
+      intent: "reply",
+      at: now
+    }, now);
+    equal(found, null, "near-tied weak scenes must not be merged arbitrarily");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "ambiguous", "ambiguous rejection should be visible in diagnostics");
+    ensure(this.sceneCoordinator.stats.ambiguousAssociationRejects >= 1, "ambiguous association counter should increment");
+    return { rejected: true, reason: "ambiguous" };
+  }
+
   contractCoordinatorMomentum() {
     const now = Date.now();
     this.resetContractState({ history: this.liveBotScene(now), bots: ["SegaMan", "CyberDude"] });
@@ -112,7 +225,11 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     const planId = this.currentScenePlan?.id || "";
     const items = this.aiQueue.filter((item) => item?._scenePlanId === planId);
     ensure(items.length === 2 && items.every((item) => item._continuitySceneId === "s-live"), "delegated carry must preserve existing v40 scene-id annotation behavior");
-    return { queued, carried: 2, delegated: true };
+
+    const explicit = this.sceneForMessage({ kind: "bot", from: "SegaMan", target: "CyberDude", text: "saturn ports still win", topic: "gaming", sceneId: "s-live" }, now);
+    equal(explicit?.id, "s-live", "explicit v40 carry sceneId must remain a hard identity anchor in 1C");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "explicit-scene-id", "carry anchor should be diagnosed as structural, not fuzzy");
+    return { queued, carried: 2, delegated: true, explicitIdentityPreserved: true };
   }
 
   contractCoordinatorAmbientClose() {
@@ -175,7 +292,11 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     equal(scene.status, "closed", "human replace/pivot must close the old scene");
     equal(this.v37HumanDirectorStats.pivotScenesClosed, 1, "legacy v37 pivot counter must remain intact");
     equal(this.sceneCoordinator.stats.humanPivotCloses, 1, "v41 coordinator should own pivot close mutation");
-    return { sceneId: scene.id, closed: true };
+
+    const forced = this.sceneForMessage({ kind: "bot", from: "SegaMan", target: "Crateman", text: "new subject", _v37ForceNewScene: true }, now);
+    equal(forced, null, "replace/pivot must still force fresh identity after the old scene closes");
+    equal(this.sceneCoordinator.lastAssociation?.reason, "forced-new-scene", "forced identity boundary should be explicit in diagnostics");
+    return { sceneId: scene.id, closed: true, forcedFreshIdentity: true };
   }
 
   contractCoordinatorResurrectionGuard() {
@@ -208,17 +329,24 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
   contractCoordinatorStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.deployVersion, 41, "v41 status should identify deploy version 41");
-    equal(snapshot.phase, "1B", "v41 status should identify Phase 1B");
-    equal(snapshot.policy.v17SceneIdentityAndHydrationPreserved, true, "1B must preserve v17 identity/hydration");
-    equal(snapshot.policy.legacySceneLayersDelegateThroughAuthorityHook, true, "legacy scene layers must delegate instead of competing");
-    equal(snapshot.policy.duplicateLifecycleDecisionPolicyRetiredFromProductionPath, true, "duplicate lifecycle decisions must be retired from production");
+    equal(snapshot.phase, "1C", "v41 status should identify Phase 1C");
+    equal(snapshot.policy.v17SceneIdsAndStorageSchemaPreserved, true, "1C must preserve v17 IDs and storage schema");
+    equal(snapshot.policy.v17LegacyFuzzyMatcherBypassedInV41Production, true, "1C production must bypass the legacy first-match fuzzy matcher");
+    equal(snapshot.policy.sceneAssociationRoutedThroughCoordinator, true, "scene association must be coordinator-owned");
+    equal(snapshot.policy.legacySceneLayersDelegateThroughAuthorityHook, true, "legacy lifecycle layers must remain delegated instead of competing");
+    equal(snapshot.policy.duplicateLifecycleDecisionPolicyRetiredFromProductionPath, true, "duplicate lifecycle decisions must remain retired from production");
     equal(snapshot.policy.closedSceneContinuationRoutedThroughCoordinator, true, "closed-scene continuation must be coordinator-owned");
-    equal(snapshot.policy.noAdditionalProviderCall, true, "SceneCoordinator must remain provider-free");
+    equal(snapshot.policy.noAdditionalProviderCall, true, "SceneCoordinator identity must remain provider-free");
     equal(this.sceneLifecycleAuthority(), this.sceneCoordinator, "v41 must expose exactly its SceneCoordinator through the authority hook");
-    return { deployVersion: snapshot.deployVersion, phase: snapshot.phase };
+    return { deployVersion: snapshot.deployVersion, phase: snapshot.phase, identityAuthority: true };
   }
 
   async runContract(name) {
+    if (name === "identity-pair-ownership") return this.contractIdentityPairOwnership();
+    if (name === "identity-stranger-target") return this.contractIdentityStrangerTarget();
+    if (name === "identity-same-topic-split") return this.contractIdentitySameTopicSplit();
+    if (name === "identity-reply-anchor") return this.contractIdentityReplyAnchor();
+    if (name === "identity-ambiguity") return this.contractIdentityAmbiguity();
     if (name === "coordinator-momentum") return this.contractCoordinatorMomentum();
     if (name === "coordinator-fatigue-delegation") return this.contractCoordinatorFatigueDelegation();
     if (name === "coordinator-carry-delegation") return this.contractCoordinatorCarryDelegation();
@@ -251,7 +379,7 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === "/health") return Response.json({ ok: true, runtime: "workerd", phase: "1B" });
+    if (url.pathname === "/health") return Response.json({ ok: true, runtime: "workerd", phase: "1C" });
     if (!url.pathname.startsWith("/contract/")) return new Response("v41 SceneCoordinator contract only", { status: 404 });
     const name = decodeURIComponent(url.pathname.slice("/contract/".length));
     const id = env.CONTRACT_ROOMS.idFromName(`v41-scene-${name}`);
