@@ -73,7 +73,7 @@ async function waitForWorker() {
       const response = await fetch(`${origin}/health`);
       if (response.ok) {
         const data = await response.json();
-        if (data?.ok && data?.runtime === "workerd" && data?.phase === "1A") return data;
+        if (data?.ok && data?.runtime === "workerd" && data?.phase === "1B") return data;
       }
     } catch (error) {
       lastError = error?.message || String(error);
@@ -100,6 +100,8 @@ async function runContract(name) {
 
 const contracts = [
   "coordinator-momentum",
+  "coordinator-fatigue-delegation",
+  "coordinator-carry-delegation",
   "coordinator-ambient-close",
   "coordinator-topic-close",
   "coordinator-human-pivot",
@@ -110,7 +112,7 @@ const contracts = [
 try {
   await waitForWorker();
   for (const name of contracts) await runContract(name);
-  console.log(`v41 SceneCoordinator real-Worker contracts: ${contracts.length}/${contracts.length} passed`);
+  console.log(`v41 SceneCoordinator Phase 1B real-Worker contracts: ${contracts.length}/${contracts.length} passed`);
 } catch (error) {
   console.error(error?.stack || error);
   if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-40).join("\n"));
