@@ -54,6 +54,7 @@ export default {
         targetSceneTurns: V40_TARGET_SCENE_TURNS,
         maxSceneTurns: V40_MAX_SCENE_TURNS,
         humanScenePileOnBlocked: true,
+        humanParticipantIdentityExclusion: true,
         unrelatedSideExchangeLimit: 1,
         statusEndpoint: "/api/v40-status",
         ...(runtime ? { runtime } : {})
@@ -80,7 +81,7 @@ export class ChatRoom extends WorldGateChatRoom {
   }
 
   currentAmbientMomentum(now = Date.now()) {
-    return inferSceneMomentum(this.history || [], now);
+    return inferSceneMomentum(this.history || [], now, this.humanNames?.() || []);
   }
 
   livelyAmbientPrompt(now = Date.now()) {
@@ -160,6 +161,7 @@ export class ChatRoom extends WorldGateChatRoom {
         maxSceneTurns: V40_MAX_SCENE_TURNS,
         backgroundPlansCanCarryExistingSceneId: true,
         directHumanScenesRemainOwnedByHumanReplanPath: true,
+        humanParticipantIdentityExclusion: "active-or-recent-90s",
         sideCrossTalkMayRemainIndependent: true,
         noExtraProviderCallForContinuity: true
       }

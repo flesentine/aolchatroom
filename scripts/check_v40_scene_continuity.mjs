@@ -5,6 +5,7 @@ import {
   V40_MOMENTUM_WINDOW_MS,
   V40_TARGET_SCENE_TURNS,
   inferSceneMomentum,
+  sceneHasHumanParticipant,
   sceneMomentumPrompt,
   selectSceneCarryIndices
 } from "../src/scene_continuity_v40.js";
@@ -41,7 +42,60 @@ const humanOwned = [
   ...building,
   { kind: "human", from: "Crateman", target: "SegaMan", topic: "gaming", sceneId: "s1", text: "what games do you have", at: NOW - 1000 }
 ];
-assert.equal(inferSceneMomentum(humanOwned, NOW), null, "ambient must not pile onto a recent human-owned scene");
+assert.equal(inferSceneMomentum(humanOwned, NOW, ["Crateman"]), null, "ambient must not pile onto a recent human-owned scene");
+
+// Production capture regression: the human line and the bot answer can carry
+// different scene IDs. The bot-created scene still targets Crateman, so it is a
+// human-owned conversation and must never become an ambient carry target.
+const mismatchedHumanScene = [
+  { kind: "human", from: "Crateman", target: "BostonRob", topic: "general", sceneId: "s-human-question", text: "so who is the president", at: NOW - 8000 },
+  { kind: "bot", from: "BostonRob", target: "Crateman", topic: "general", sceneId: "s-president-answer", text: "Bill Clinton. Look it up later", intent: "answer", at: NOW - 3000 }
+];
+assert.equal(
+  sceneHasHumanParticipant(mismatchedHumanScene, [mismatchedHumanScene[1]], NOW, ["Crateman"]),
+  true,
+  "a bot scene targeting an active human must be recognized as human-participant even when scene IDs differ"
+);
+assert.equal(
+  inferSceneMomentum(mismatchedHumanScene, NOW, ["Crateman"]),
+  null,
+  "BostonRob/Crateman capture shape must never be eligible for background carry"
+);
+assert.equal(
+  inferSceneMomentum(mismatchedHumanScene, NOW),
+  null,
+  "recent human identity from history must also block the mismatched bot scene without relying only on active sockets"
+);
+
+const activeHumanTargetOnly = [
+  { kind: "bot", from: "BostonRob", target: "Crateman", topic: "general", sceneId: "s-active-human", text: "Bill Clinton. Look it up later", intent: "answer", at: NOW - 1000 }
+];
+assert.equal(
+  inferSceneMomentum(activeHumanTargetOnly, NOW, ["Crateman"]),
+  null,
+  "a scene targeting a currently active human must be excluded even if the matching human row is outside the local history window"
+);
+
+// Review regression: the prompt participant list is intentionally capped at eight,
+// but the safety exclusion must inspect every participant. Crateman appears only
+// after eight distinct bot participants here and still must block ambient carry.
+const crowdedHumanScene = [
+  { kind: "bot", from: "Bot1", target: "Bot2", topic: "gaming", sceneId: "s-crowded", text: "one", at: NOW - 5000 },
+  { kind: "bot", from: "Bot3", target: "Bot4", topic: "gaming", sceneId: "s-crowded", text: "two", at: NOW - 4000 },
+  { kind: "bot", from: "Bot5", target: "Bot6", topic: "gaming", sceneId: "s-crowded", text: "three", at: NOW - 3000 },
+  { kind: "bot", from: "Bot7", target: "Bot8", topic: "gaming", sceneId: "s-crowded", text: "four", at: NOW - 2000 },
+  { kind: "bot", from: "Bot9", target: "Crateman", topic: "gaming", sceneId: "s-crowded", text: "five", intent: "reply", at: NOW - 1000 }
+];
+assert.equal(
+  sceneHasHumanParticipant(crowdedHumanScene, crowdedHumanScene, NOW, ["Crateman"]),
+  true,
+  "human exclusion must inspect all scene participants, not only the first eight used for prompt display"
+);
+assert.equal(
+  inferSceneMomentum(crowdedHumanScene, NOW, ["Crateman"]),
+  null,
+  "an active human beyond the eight-name display cap must still categorically block carry"
+);
 
 const exhausted = Array.from({ length: V40_MAX_SCENE_TURNS }, (_, index) =>
   bot(index % 2 ? "CyberDude" : "SegaMan", `gaming line ${index}`, -7000 + index * 800, {
@@ -73,15 +127,22 @@ assert.equal(V40_MAX_SCENE_TURNS, 7);
 const runtime = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
 assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "v40 must remain additive above all stabilized v39 guards");
 assert.ok(runtime.includes('reason === "background" ? this.currentAmbientMomentum(now) : null'), "scene carry must be background-only");
+assert.ok(runtime.includes("inferSceneMomentum(this.history || [], now, this.humanNames?.() || [])"), "runtime must pass active human identities into the v40 exclusion guard");
 assert.ok(runtime.includes("item._continuitySceneId = momentum.sceneId"));
 assert.ok(runtime.includes("this.registerSceneCarry?.(item, momentum.sceneId, planId)"));
 assert.ok(runtime.includes("selectSceneCarryIndices(planItems, momentum)"));
 assert.ok(runtime.includes("directHumanScenesRemainOwnedByHumanReplanPath: true"));
+assert.ok(runtime.includes('humanParticipantIdentityExclusion: "active-or-recent-90s"'));
 assert.ok(runtime.includes("noExtraProviderCallForContinuity: true"));
 assert.ok(runtime.includes('url.pathname === "/v40-status"'));
+
+const helper = fs.readFileSync(new URL("../src/scene_continuity_v40.js", import.meta.url), "utf8");
+assert.ok(helper.includes("sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)"), "v40 must block by human participant identity, not exact sceneId alone");
+assert.ok(helper.includes("return participantNames(rows, 8)"), "prompt/display participant list may remain capped at eight");
+assert.ok(helper.includes("return participantNames(sceneRows).some"), "human safety exclusion must use the untruncated participant set");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v40_scene_continuity.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "40"'));
 
-console.log("v40 scene-continuity and topic-churn regression checks passed");
+console.log("v40 scene-continuity and human-participant exclusion regression checks passed");

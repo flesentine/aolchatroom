@@ -26,7 +26,7 @@ function conversational(row) {
   return row?.kind === "bot" || row?.kind === "human" || Boolean(row?.speaker && row?.text);
 }
 
-function participantsFor(rows = []) {
+function participantNames(rows = [], limit = Infinity) {
   const out = [];
   const seen = new Set();
   for (const row of rows) {
@@ -37,7 +37,11 @@ function participantsFor(rows = []) {
       out.push(value);
     }
   }
-  return out.slice(0, 8);
+  return Number.isFinite(limit) ? out.slice(0, Math.max(0, limit)) : out;
+}
+
+function participantsFor(rows = []) {
+  return participantNames(rows, 8);
 }
 
 function dominantTopic(rows = []) {
@@ -53,7 +57,30 @@ function dominantTopic(rows = []) {
   return [...counts.entries()].sort((a, b) => b[1] - a[1])[0][0];
 }
 
-export function inferSceneMomentum(history = [], now = Date.now()) {
+function recentHumanNames(history = [], now = Date.now(), activeHumanNames = []) {
+  const names = new Set(
+    (activeHumanNames || [])
+      .map((name) => String(name || "").trim())
+      .filter(Boolean)
+  );
+
+  for (const row of history || []) {
+    if (row?.kind !== "human") continue;
+    const at = Number(row.at || 0);
+    if (!at || Number(now || 0) - at > V40_RECENT_HUMAN_SCENE_MS) continue;
+    const name = String(row.from || "").trim();
+    if (name) names.add(name);
+  }
+  return names;
+}
+
+export function sceneHasHumanParticipant(history = [], sceneRows = [], now = Date.now(), activeHumanNames = []) {
+  const humans = recentHumanNames(history, now, activeHumanNames);
+  if (!humans.size) return false;
+  return participantNames(sceneRows).some((name) => humans.has(name));
+}
+
+export function inferSceneMomentum(history = [], now = Date.now(), activeHumanNames = []) {
   const rows = (history || []).filter(conversational);
   if (!rows.length) return null;
 
@@ -72,11 +99,14 @@ export function inferSceneMomentum(history = [], now = Date.now()) {
 
   // Direct human scenes already have a dedicated carry/replan mechanism. Ambient
   // generation should not pile onto a human conversation just to improve cohesion.
+  // Keep the exact-scene check, then also reject by participant identity because a
+  // bot reply can legitimately receive a fresh sceneId while still targeting a human.
   const recentHuman = recentSceneRows.find((row) =>
     row.kind === "human"
     && Number(now || 0) - Number(row.at || 0) <= V40_RECENT_HUMAN_SCENE_MS
   );
   if (recentHuman) return null;
+  if (sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)) return null;
 
   const turns = rows.filter((row) => sceneIdOf(row) === sceneId).length;
   if (turns >= V40_MAX_SCENE_TURNS) return null;
