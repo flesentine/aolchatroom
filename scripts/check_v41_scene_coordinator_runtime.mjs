@@ -103,6 +103,7 @@ const contracts = [
   "coordinator-ambient-close",
   "coordinator-topic-close",
   "coordinator-human-pivot",
+  "coordinator-resurrection-guard",
   "coordinator-status"
 ];
 
