@@ -171,12 +171,28 @@ export class ChatRoom extends HumanDirectorChatRoom {
 
   sceneForMessage(message, now = Date.now()) {
     const scene = super.sceneForMessage(message, now);
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.continuationDecision) {
+      const decision = authority.continuationDecision(scene, message, now);
+      if (decision.allow) return scene;
+      if (decision.reason === "scene-closed") this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+      return null;
+    }
     if (!this.sceneIsClosed(scene)) return scene;
     this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
     return null;
   }
 
   touchScene(scene, message, now = Date.now()) {
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.continuationDecision) {
+      const decision = authority.continuationDecision(scene, message, now);
+      if (!decision.allow) {
+        if (decision.reason === "scene-closed") this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
+        return;
+      }
+      return super.touchScene(scene, message, now);
+    }
     if (this.sceneIsClosed(scene)) {
       this.v37LivelyAmbientStats.closedSceneResurrectionBlocks += 1;
       return;
@@ -194,6 +210,32 @@ export class ChatRoom extends HumanDirectorChatRoom {
   }
 
   closeExhaustedAmbientScenes(now = Date.now()) {
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.closeExhaustedScenes) {
+      const closedRows = authority.closeExhaustedScenes({
+        source: "v37-ambient-exhaustion",
+        reason: "v37 lively ambient fatigue boundary",
+        now,
+        minTurns: EXHAUSTED_SCENE_TURNS
+      });
+      for (const row of closedRows) {
+        if (row.topic && row.topic !== "general" && this.topicFatigueUntil instanceof Map) {
+          const until = now + 2 * 60 * 1000;
+          this.topicFatigueUntil.set(row.topic, Math.max(until, Number(this.topicFatigueUntil.get(row.topic) || 0)));
+        }
+        this.v37LivelyAmbientStats.exhaustedScenesClosedBeforePlan += 1;
+        this.broadcast?.({
+          type: "scene_plan",
+          action: "v37-lively-fatigue-close",
+          sceneId: row.sceneId,
+          topic: row.topic,
+          turns: row.turns,
+          at: now
+        });
+      }
+      return closedRows.length;
+    }
+
     if (typeof this.openScenes !== "function") return 0;
     const humans = new Set(this.humanNames?.() || []);
     let closed = 0;
