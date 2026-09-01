@@ -76,6 +76,27 @@ assert.equal(
   "a scene targeting a currently active human must be excluded even if the matching human row is outside the local history window"
 );
 
+// Review regression: the prompt participant list is intentionally capped at eight,
+// but the safety exclusion must inspect every participant. Crateman appears only
+// after eight distinct bot participants here and still must block ambient carry.
+const crowdedHumanScene = [
+  { kind: "bot", from: "Bot1", target: "Bot2", topic: "gaming", sceneId: "s-crowded", text: "one", at: NOW - 5000 },
+  { kind: "bot", from: "Bot3", target: "Bot4", topic: "gaming", sceneId: "s-crowded", text: "two", at: NOW - 4000 },
+  { kind: "bot", from: "Bot5", target: "Bot6", topic: "gaming", sceneId: "s-crowded", text: "three", at: NOW - 3000 },
+  { kind: "bot", from: "Bot7", target: "Bot8", topic: "gaming", sceneId: "s-crowded", text: "four", at: NOW - 2000 },
+  { kind: "bot", from: "Bot9", target: "Crateman", topic: "gaming", sceneId: "s-crowded", text: "five", intent: "reply", at: NOW - 1000 }
+];
+assert.equal(
+  sceneHasHumanParticipant(crowdedHumanScene, crowdedHumanScene, NOW, ["Crateman"]),
+  true,
+  "human exclusion must inspect all scene participants, not only the first eight used for prompt display"
+);
+assert.equal(
+  inferSceneMomentum(crowdedHumanScene, NOW, ["Crateman"]),
+  null,
+  "an active human beyond the eight-name display cap must still categorically block carry"
+);
+
 const exhausted = Array.from({ length: V40_MAX_SCENE_TURNS }, (_, index) =>
   bot(index % 2 ? "CyberDude" : "SegaMan", `gaming line ${index}`, -7000 + index * 800, {
     target: index % 2 ? "SegaMan" : "CyberDude"
@@ -117,6 +138,8 @@ assert.ok(runtime.includes('url.pathname === "/v40-status"'));
 
 const helper = fs.readFileSync(new URL("../src/scene_continuity_v40.js", import.meta.url), "utf8");
 assert.ok(helper.includes("sceneHasHumanParticipant(rows, recentSceneRows, now, activeHumanNames)"), "v40 must block by human participant identity, not exact sceneId alone");
+assert.ok(helper.includes("return participantNames(rows, 8)"), "prompt/display participant list may remain capped at eight");
+assert.ok(helper.includes("return participantNames(sceneRows).some"), "human safety exclusion must use the untruncated participant set");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
 assert.ok(wrangler.includes('"main": "src/index_v40_scene_continuity.js"'));
