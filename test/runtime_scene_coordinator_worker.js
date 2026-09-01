@@ -146,11 +146,39 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     return { sceneId: scene.id, closed: true };
   }
 
+  contractCoordinatorResurrectionGuard() {
+    const now = Date.now();
+    this.resetContractState({ history: this.liveBotScene(now), bots: ["SegaMan", "CyberDude"] });
+    this.hydrateContractScenes();
+    const scene = this.sceneBoard.get("s-live");
+    ensure(scene, "scene must hydrate before close-resurrection contract");
+    scene.status = "closed";
+    scene.closedAt = now;
+    scene.closeReason = "runtime-contract";
+
+    const beforeCoordinatorBlocks = this.sceneCoordinator.stats.continuationBlocks;
+    const beforeLegacyBlocks = this.v37LivelyAmbientStats.closedSceneResurrectionBlocks;
+    const found = this.sceneForMessage({
+      kind: "bot",
+      from: "SegaMan",
+      target: "CyberDude",
+      topic: "gaming",
+      sceneId: "s-live",
+      text: "one more thing",
+      at: now
+    }, now);
+    equal(found, null, "closed scene must remain impossible to rediscover");
+    equal(this.sceneCoordinator.stats.continuationBlocks, beforeCoordinatorBlocks + 1, "SceneCoordinator must own the final closed-scene veto");
+    equal(this.v37LivelyAmbientStats.closedSceneResurrectionBlocks, beforeLegacyBlocks + 1, "legacy v37 resurrection telemetry must remain comparable");
+    return { blockedByCoordinator: true, legacyCounterPreserved: true };
+  }
+
   contractCoordinatorStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.deployVersion, 41, "v41 status should identify deploy version 41");
     equal(snapshot.phase, "1A", "v41 status should identify Phase 1A");
     equal(snapshot.policy.v17SceneIdentityAndHydrationPreserved, true, "1A must preserve v17 identity/hydration");
+    equal(snapshot.policy.closedSceneContinuationRoutedThroughCoordinator, true, "closed-scene continuation must be coordinator-owned");
     equal(snapshot.policy.noAdditionalProviderCall, true, "SceneCoordinator must remain provider-free");
     return { deployVersion: snapshot.deployVersion, phase: snapshot.phase };
   }
@@ -160,6 +188,7 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     if (name === "coordinator-ambient-close") return this.contractCoordinatorAmbientClose();
     if (name === "coordinator-topic-close") return this.contractCoordinatorTopicClose();
     if (name === "coordinator-human-pivot") return this.contractCoordinatorHumanPivot();
+    if (name === "coordinator-resurrection-guard") return this.contractCoordinatorResurrectionGuard();
     if (name === "coordinator-status") return this.contractCoordinatorStatus();
     throw new Error(`unknown v41 SceneCoordinator contract: ${name}`);
   }
