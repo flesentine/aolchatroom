@@ -138,16 +138,20 @@ export class SceneCoordinator {
     }
 
     // Exact scene IDs are structural authority. This includes v25/v40 scene carry.
+    // If that exact ID is gone, fail cleanly instead of silently changing identity.
     if (message.sceneId) {
       const explicit = this.sceneById(message.sceneId);
       if (explicit) {
         this.stats.explicitAssociations += 1;
         return this.associationRecord({ message, scene: explicit, reason: "explicit-scene-id", score: 100, at: now });
       }
+      this.stats.associationRejects += 1;
+      return this.associationRecord({ message, reason: "explicit-scene-missing", score: 100, at: now });
     }
 
     // replyTo is the second hard anchor. It preserves ownership even when topic
-    // labels are coarse or the reply text itself is contextless.
+    // labels are coarse or the reply text itself is contextless. If the parent is
+    // known but its scene has expired, do not remap the reply into another scene.
     const parent = this.room?.messageById?.(message.replyTo) || null;
     if (parent?.sceneId) {
       const replyScene = this.sceneById(parent.sceneId);
@@ -155,6 +159,8 @@ export class SceneCoordinator {
         this.stats.replyToAssociations += 1;
         return this.associationRecord({ message, scene: replyScene, reason: "reply-to", score: 100, at: now });
       }
+      this.stats.associationRejects += 1;
+      return this.associationRecord({ message, reason: "reply-scene-missing", score: 100, at: now });
     }
 
     const scenes = typeof this.room?.openScenes === "function" ? this.room.openScenes(now) : [];
@@ -457,6 +463,7 @@ export class SceneCoordinator {
         roomAssociationThreshold: V41_ROOM_ASSOCIATION_THRESHOLD,
         ambiguityMargin: V41_AMBIGUITY_MARGIN,
         explicitSceneIdAndReplyToAreHardAnchors: true,
+        missingStructuralAnchorNeverFuzzyRemaps: true,
         coarseTopicAloneCannotClaimScene: true,
         directTargetAloneCannotClaimUnrelatedScene: true,
         ambientMomentumWindowMs: V40_MOMENTUM_WINDOW_MS,
