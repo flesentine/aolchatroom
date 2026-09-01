@@ -3,7 +3,8 @@ import {
   V40_MOMENTUM_WINDOW_MS,
   V40_RECENT_HUMAN_SCENE_MS,
   V40_TARGET_SCENE_TURNS,
-  inferSceneMomentumCandidate
+  inferSceneMomentumCandidate,
+  selectSceneCarryIndices
 } from "./scene_continuity_v40.js";
 import { canonicalRoomTopic } from "./quality_guard_v38.js";
 
@@ -56,6 +57,7 @@ export class SceneCoordinator {
       momentumQueries: 0,
       momentumEligible: 0,
       ambientHumanOwnershipBlocks: 0,
+      carrySelectionQueries: 0,
       fatigueQueries: 0,
       continuationQueries: 0,
       continuationBlocks: 0,
@@ -172,6 +174,19 @@ export class SceneCoordinator {
     return candidate;
   }
 
+  selectCarryIndices(lines = [], momentum = null) {
+    this.stats.carrySelectionQueries += 1;
+    const selected = selectSceneCarryIndices(lines, momentum);
+    this.lastDecision = {
+      kind: "scene-carry",
+      action: selected.length ? "carry" : "none",
+      sceneId: momentum?.sceneId || "",
+      selected: [...selected],
+      at: Date.now()
+    };
+    return selected;
+  }
+
   fatigueForScene(scene, now = Date.now(), { record = true } = {}) {
     if (record) this.stats.fatigueQueries += 1;
     if (!scene) return { phase: "none", turns: 0, canClose: false, humanProtection: null };
@@ -189,7 +204,7 @@ export class SceneCoordinator {
   fatiguedScene(now = Date.now()) {
     const scenes = typeof this.room?.openScenes === "function" ? this.room.openScenes(now) : [];
     const scene = [...(scenes || [])]
-      .filter((item) => Number(item?.turns || 0) >= V41_FATIGUE_WARN_TURNS)
+      .filter((item) => fatiguePhase(item?.turns) !== "fresh")
       .sort((a, b) => Number(b?.turns || 0) - Number(a?.turns || 0))[0] || null;
     if (scene) this.fatigueForScene(scene, now);
     return scene;
@@ -264,8 +279,6 @@ export class SceneCoordinator {
         };
         continue;
       }
-      // closeScene owns the actual mutation; discount the query increment above so
-      // one examined eligible scene remains one closure query in diagnostics.
       this.stats.closureQueries -= 1;
       const record = this.closeScene(scene, { source, reason, now });
       if (record) closedRows.push(record);
@@ -335,7 +348,9 @@ export class SceneCoordinator {
         fatigueWarnTurns: V41_FATIGUE_WARN_TURNS,
         fatigueStrongTurns: V41_FATIGUE_STRONG_TURNS,
         fatigueCloseTurns: V41_FATIGUE_CLOSE_TURNS,
-        v17AgeAndStorageLifecycleRemainBaseOwnedIn1A: true,
+        duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true,
+        legacyFallbacksRemainWhenCoordinatorAbsent: true,
+        v17AgeAndStorageLifecycleRemainBaseOwned: true,
         noProviderCalls: true
       }
     };
