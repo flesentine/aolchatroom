@@ -6,7 +6,7 @@ import {
   V41_FATIGUE_STRONG_TURNS,
   V41_FATIGUE_WARN_TURNS
 } from "../src/scene_coordinator_v41.js";
-import { inferSceneMomentum, inferSceneMomentumCandidate } from "../src/scene_continuity_v40.js";
+import { inferSceneMomentum, inferSceneMomentumCandidate, selectSceneCarryIndices } from "../src/scene_continuity_v40.js";
 
 const NOW = Date.parse("2026-08-31T20:54:00-07:00");
 
@@ -50,6 +50,18 @@ const botRoom = fakeRoom({ history: botScene });
 const botCoordinator = new SceneCoordinator(botRoom);
 assert.equal(botCoordinator.ambientMomentum(NOW)?.sceneId, "s-live");
 assert.equal(botCoordinator.stats.momentumEligible, 1);
+
+const carryLines = [
+  { speaker: "SegaMan", target: "CyberDude", intent: "reply", topic: "gaming", text: "saturn ports are still better" },
+  { speaker: "MetallicaFan", target: "room", intent: "ambient", topic: "music", text: "metallica anyone" },
+  { speaker: "CyberDude", target: "SegaMan", intent: "disagree", topic: "gaming", text: "tekken still wins" }
+];
+assert.deepEqual(
+  botCoordinator.selectCarryIndices(carryLines, candidate),
+  selectSceneCarryIndices(carryLines, candidate),
+  "SceneCoordinator must own production carry selection without changing the v40 algorithm"
+);
+assert.equal(botCoordinator.stats.carrySelectionQueries, 1);
 
 const mismatchedHumanHistory = [
   { kind: "human", from: "Crateman", target: "BostonRob", text: "who is president", topic: "general", sceneId: "s-human", at: NOW - 8000 },
@@ -126,14 +138,35 @@ openScene.closedAt = NOW;
 assert.equal(openCoordinator.continuationDecision(openScene, {}, NOW).allow, false);
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
-assert.ok(wrapper.includes('from "./index_v40_scene_continuity.js"'), "v41 1A must remain additive above the exact v40 baseline");
+const v26 = fs.readFileSync(new URL("../src/index_v26.js", import.meta.url), "utf8");
+const humanDirector = fs.readFileSync(new URL("../src/index_v37_human_director.js", import.meta.url), "utf8");
+const lively = fs.readFileSync(new URL("../src/index_v37_lively_ambient.js", import.meta.url), "utf8");
+const v38 = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
+const v40 = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
+
+assert.ok(wrapper.includes('from "./index_v40_scene_continuity.js"'), "v41 1B must remain additive above the exact v40 baseline");
 assert.ok(wrapper.includes("this.sceneCoordinator = new SceneCoordinator(this)"));
-assert.ok(wrapper.includes("currentAmbientMomentum(now = Date.now())"));
-assert.ok(wrapper.includes("closeExhaustedAmbientScenes(now = Date.now())"));
-assert.ok(wrapper.includes("applyRoomTopicFatigue(now = Date.now())"));
-assert.ok(wrapper.includes("closeLegacySceneForPivot(human, move)"));
-assert.ok(wrapper.includes("finishPlan(plan, status, reason = \"\")"));
-assert.ok(wrapper.includes("v17AgeAndStorageLifecycleRemainBaseOwnedIn1A: true"));
+assert.ok(wrapper.includes("sceneLifecycleAuthority()"), "v41 1B must expose one delegation hook");
+assert.ok(wrapper.includes('phase: "1B"'));
+assert.ok(wrapper.includes("duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true"));
+assert.ok(!wrapper.includes("currentAmbientMomentum(now = Date.now())"), "1B must retire the 1A top-level momentum interception");
+assert.ok(!wrapper.includes("closeExhaustedAmbientScenes(now = Date.now())"), "1B must retire the 1A top-level ambient-close interception");
+assert.ok(!wrapper.includes("applyRoomTopicFatigue(now = Date.now())"), "1B must retire the 1A top-level topic-close interception");
+assert.ok(!wrapper.includes("closeLegacySceneForPivot(human, move)"), "1B must retire the 1A top-level pivot interception");
+assert.ok(!wrapper.includes("finishPlan(plan, status, reason = \"\")"), "1B must retire the 1A top-level v26 finish interception");
 assert.ok(!wrapper.includes("callProvider("), "SceneCoordinator wrapper must not introduce provider calls");
 
-console.log("v41 SceneCoordinator 1A regression checks passed");
+for (const [name, source] of [
+  ["v26", v26],
+  ["v37 human director", humanDirector],
+  ["v37 lively", lively],
+  ["v38", v38],
+  ["v40", v40]
+]) {
+  assert.ok(source.includes("this.sceneLifecycleAuthority?.()"), `${name} must delegate to the v41 scene authority when present`);
+}
+assert.ok(v40.includes("authority.selectCarryIndices(planItems, momentum)"), "v40 carry selection must delegate to SceneCoordinator in production");
+assert.ok(v26.includes("authority.fatigueForScene(scene, now)"), "v26 prompt fatigue phase must delegate to SceneCoordinator in production");
+assert.ok(lively.includes("authority.continuationDecision(scene, message, now)"), "closed-scene continuation must delegate at the inherited v37 layer");
+
+console.log("v41 SceneCoordinator 1B delegation/retirement regression checks passed");

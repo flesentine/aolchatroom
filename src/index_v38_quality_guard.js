@@ -105,9 +105,28 @@ export class ChatRoom extends V37LivelyChatRoom {
       }
     }
 
-    const cooling = new Set(this.activeV38TopicCooling(now).map((row) => row.topic));
-    if (!cooling.size || typeof this.openScenes !== "function") return fatigue;
+    const coolingRows = this.activeV38TopicCooling(now);
+    if (!coolingRows.length) return fatigue;
 
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.closeTopicFatigueScenes) {
+      const closed = authority.closeTopicFatigueScenes(coolingRows, now);
+      for (const row of closed) {
+        this.v38QualityStats.topicFatigueSceneCloses += 1;
+        this.broadcast?.({
+          type: "scene_plan",
+          action: "v38-room-topic-fatigue-close",
+          sceneId: row.sceneId,
+          topic: row.topic,
+          turns: row.turns,
+          at: now
+        });
+      }
+      return fatigue;
+    }
+
+    const cooling = new Set(coolingRows.map((row) => row.topic));
+    if (typeof this.openScenes !== "function") return fatigue;
     const humans = new Set(this.humanNames?.() || []);
     for (const scene of this.openScenes(now) || []) {
       if (this.sceneIsClosed?.(scene)) continue;

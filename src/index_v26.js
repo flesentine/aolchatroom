@@ -162,6 +162,8 @@ export class ChatRoom extends FinalPolishChatRoom {
   }
 
   fatiguedScene(now = Date.now()) {
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.fatiguedScene) return authority.fatiguedScene(now);
     const scenes = typeof this.openScenes === "function" ? this.openScenes(now) : [];
     return scenes
       .filter((scene) => Number(scene?.turns || 0) >= FATIGUE_WARN_TURNS)
@@ -189,7 +191,11 @@ export class ChatRoom extends FinalPolishChatRoom {
 
     if (scene) {
       const turns = Number(scene.turns || 0);
-      if (turns >= FATIGUE_STRONG_TURNS) {
+      const authority = this.sceneLifecycleAuthority?.() || null;
+      const fatigue = authority?.fatigueForScene
+        ? authority.fatigueForScene(scene, now)
+        : { phase: turns >= FATIGUE_STRONG_TURNS ? "strong" : "aging" };
+      if (fatigue.phase === "strong" || fatigue.phase === "exhausted") {
         this.v26Stats.fatigueWarnings += 1;
         rules.push(`- CURRENT FATIGUED SCENE: ${scene.id}, topic=${scene.topic}, turns=${turns}. This exchange has already had enough airtime. ${human ? "Answer the human naturally if needed, then" : "Now"} resolve it, let somebody disengage, or move through a related tangent into another ordinary subject. Do not simply repeat the argument.`);
       } else {
@@ -281,6 +287,36 @@ export class ChatRoom extends FinalPolishChatRoom {
     if (status !== "completed" || planReason !== "background") return result;
 
     const now = Date.now();
+    const authority = this.sceneLifecycleAuthority?.() || null;
+    if (authority?.closeExhaustedScenes) {
+      const closedRows = authority.closeExhaustedScenes({
+        source: "v26-finish-plan",
+        reason: "conversation fatigue",
+        now,
+        minTurns: FATIGUE_CLOSE_TURNS
+      });
+      for (const row of closedRows) {
+        const until = now + FATIGUE_TOPIC_COOLDOWN_MS;
+        if (row.topic && row.topic !== "general") {
+          const oldUntil = Number(this.topicFatigueUntil.get(row.topic) || 0);
+          if (until > oldUntil) {
+            this.topicFatigueUntil.set(row.topic, until);
+            this.v26Stats.topicCooldownsStarted += 1;
+          }
+        }
+        this.v26Stats.fatiguedScenesClosed += 1;
+        this.broadcast({
+          type: "scene_plan",
+          action: "fatigue-close",
+          sceneId: row.sceneId,
+          topic: row.topic || "general",
+          turns: row.turns,
+          at: now
+        });
+      }
+      return result;
+    }
+
     for (const scene of typeof this.openScenes === "function" ? this.openScenes(now) : []) {
       if (Number(scene?.turns || 0) < FATIGUE_CLOSE_TURNS) continue;
       if (scene.openQuestion?.target && this.humanNames?.().includes(scene.openQuestion.target)) continue;

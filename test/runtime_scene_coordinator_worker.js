@@ -67,7 +67,7 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     const now = Date.now();
     this.resetContractState({ history: this.liveBotScene(now), bots: ["SegaMan", "CyberDude"] });
     this.hydrateContractScenes();
-    equal(this.currentAmbientMomentum(now)?.sceneId, "s-live", "v41 coordinator should expose the same healthy bot momentum");
+    equal(this.currentAmbientMomentum(now)?.sceneId, "s-live", "v40 production method should delegate healthy momentum to v41 coordinator");
     ensure(this.sceneCoordinator.stats.momentumEligible >= 1, "coordinator should own the eligible momentum decision");
 
     this.resetContractState({
@@ -81,6 +81,38 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
     equal(this.currentAmbientMomentum(now), null, "v41 coordinator must block ambient carry into recent human identity");
     ensure(this.sceneCoordinator.stats.ambientHumanOwnershipBlocks >= 1, "human ownership block should be recorded by coordinator");
     return { eligible: true, humanOwnershipBlocked: true };
+  }
+
+  contractCoordinatorFatigueDelegation() {
+    const now = Date.now();
+    const history = Array.from({ length: 12 }, (_, index) =>
+      bot(index % 2 ? "CyberDude" : "SegaMan", index % 2 ? "SegaMan" : "CyberDude", `aging line ${index}`, now - 12000 + index * 800)
+    );
+    this.resetContractState({ history, bots: ["SegaMan", "CyberDude"] });
+    this.hydrateContractScenes();
+    const before = this.sceneCoordinator.stats.fatigueQueries;
+    const scene = this.fatiguedScene(now);
+    equal(scene?.id, "s-live", "v26 fatiguedScene should still find the 12-turn scene");
+    ensure(this.sceneCoordinator.stats.fatigueQueries > before, "v26 fatigue lookup must delegate to SceneCoordinator in production");
+    equal(this.sceneCoordinator.fatigueForScene(scene, now, { record: false }).phase, "strong", "coordinator owns the strong-fatigue threshold");
+    return { sceneId: scene.id, phase: "strong", delegated: true };
+  }
+
+  contractCoordinatorCarryDelegation() {
+    const now = Date.now();
+    this.resetContractState({ history: this.liveBotScene(now), bots: ["SegaMan", "CyberDude"] });
+    this.hydrateContractScenes();
+    const before = this.sceneCoordinator.stats.carrySelectionQueries;
+    const queued = this.queueScenePlan([
+      { speaker: "SegaMan", target: "CyberDude", intent: "reply", topic: "gaming", text: "saturn ports still win", source: "gemini" },
+      { speaker: "CyberDude", target: "SegaMan", intent: "disagree", topic: "gaming", text: "tekken says otherwise", source: "gemini" }
+    ], "background", null, false);
+    equal(queued, 2, "two healthy continuation lines should survive lower queue filters");
+    equal(this.sceneCoordinator.stats.carrySelectionQueries, before + 1, "v40 carry selection must delegate exactly once to SceneCoordinator");
+    const planId = this.currentScenePlan?.id || "";
+    const items = this.aiQueue.filter((item) => item?._scenePlanId === planId);
+    ensure(items.length === 2 && items.every((item) => item._continuitySceneId === "s-live"), "delegated carry must preserve existing v40 scene-id annotation behavior");
+    return { queued, carried: 2, delegated: true };
   }
 
   contractCoordinatorAmbientClose() {
@@ -176,15 +208,20 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
   contractCoordinatorStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.deployVersion, 41, "v41 status should identify deploy version 41");
-    equal(snapshot.phase, "1A", "v41 status should identify Phase 1A");
-    equal(snapshot.policy.v17SceneIdentityAndHydrationPreserved, true, "1A must preserve v17 identity/hydration");
+    equal(snapshot.phase, "1B", "v41 status should identify Phase 1B");
+    equal(snapshot.policy.v17SceneIdentityAndHydrationPreserved, true, "1B must preserve v17 identity/hydration");
+    equal(snapshot.policy.legacySceneLayersDelegateThroughAuthorityHook, true, "legacy scene layers must delegate instead of competing");
+    equal(snapshot.policy.duplicateLifecycleDecisionPolicyRetiredFromProductionPath, true, "duplicate lifecycle decisions must be retired from production");
     equal(snapshot.policy.closedSceneContinuationRoutedThroughCoordinator, true, "closed-scene continuation must be coordinator-owned");
     equal(snapshot.policy.noAdditionalProviderCall, true, "SceneCoordinator must remain provider-free");
+    equal(this.sceneLifecycleAuthority(), this.sceneCoordinator, "v41 must expose exactly its SceneCoordinator through the authority hook");
     return { deployVersion: snapshot.deployVersion, phase: snapshot.phase };
   }
 
   async runContract(name) {
     if (name === "coordinator-momentum") return this.contractCoordinatorMomentum();
+    if (name === "coordinator-fatigue-delegation") return this.contractCoordinatorFatigueDelegation();
+    if (name === "coordinator-carry-delegation") return this.contractCoordinatorCarryDelegation();
     if (name === "coordinator-ambient-close") return this.contractCoordinatorAmbientClose();
     if (name === "coordinator-topic-close") return this.contractCoordinatorTopicClose();
     if (name === "coordinator-human-pivot") return this.contractCoordinatorHumanPivot();
@@ -214,7 +251,7 @@ export class RuntimeSceneCoordinatorRoom extends ProductionChatRoom {
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
-    if (url.pathname === "/health") return Response.json({ ok: true, runtime: "workerd", phase: "1A" });
+    if (url.pathname === "/health") return Response.json({ ok: true, runtime: "workerd", phase: "1B" });
     if (!url.pathname.startsWith("/contract/")) return new Response("v41 SceneCoordinator contract only", { status: 404 });
     const name = decodeURIComponent(url.pathname.slice("/contract/".length));
     const id = env.CONTRACT_ROOMS.idFromName(`v41-scene-${name}`);
