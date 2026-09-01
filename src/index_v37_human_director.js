@@ -179,10 +179,27 @@ export class ChatRoom extends FreeProviderChatRoom {
     if (move?.sceneAction !== "replace") return;
     const row = this.humanHistoryRow?.(human) || null;
     const sceneId = row?.sceneId || "";
-    if (!sceneId || typeof this.openScenes !== "function") return;
-    const scene = (this.openScenes(Date.now()) || []).find((item) => item?.id === sceneId);
-    if (!scene || scene.status === "closed") return;
+    if (!sceneId) return;
     const now = Date.now();
+    const authority = this.sceneLifecycleAuthority?.() || null;
+
+    if (authority?.closeHumanPivotScene) {
+      const closed = authority.closeHumanPivotScene(sceneId, now);
+      if (!closed) return;
+      this.v37HumanDirectorStats.pivotScenesClosed += 1;
+      this.broadcast?.({
+        type: "scene_plan",
+        action: "v37-human-pivot-close",
+        sceneId: closed.sceneId,
+        turns: closed.turns,
+        at: closed.at
+      });
+      return;
+    }
+
+    if (typeof this.openScenes !== "function") return;
+    const scene = (this.openScenes(now) || []).find((item) => item?.id === sceneId);
+    if (!scene || scene.status === "closed") return;
     scene.status = "closed";
     scene.closedAt = now;
     scene.closeReason = "v37 human pivot";
