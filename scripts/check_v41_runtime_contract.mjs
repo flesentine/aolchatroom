@@ -23,6 +23,9 @@ function sleep(ms) {
 // The historical CI workflows intentionally run npm scripts without npm install.
 // Bootstrap a pinned Wrangler only for this contract process so Phase 0 executes
 // inside a workerd build new enough for production's 2026-08-19 compatibility date.
+// On POSIX, detach the process group so cleanup can terminate Wrangler, esbuild,
+// and workerd together instead of leaving grandchildren alive after the tests pass.
+const groupKillSupported = process.platform !== "win32";
 const child = spawn(
   "npx",
   [
@@ -37,7 +40,8 @@ const child = spawn(
   {
     cwd: process.cwd(),
     env: { ...process.env, NO_COLOR: "1" },
-    stdio: ["ignore", "pipe", "pipe"]
+    stdio: ["ignore", "pipe", "pipe"],
+    detached: groupKillSupported
   }
 );
 
@@ -51,11 +55,21 @@ child.on("error", (error) => {
   pushLog("spawn! ", error?.stack || error?.message || String(error));
 });
 
+function signalWorker(signal) {
+  try {
+    if (groupKillSupported && child.pid) process.kill(-child.pid, signal);
+    else child.kill(signal);
+  } catch {}
+}
+
 async function stopWorker() {
   if (exited) return;
-  child.kill("SIGTERM");
-  for (let i = 0; i < 20 && !exited; i += 1) await sleep(50);
-  if (!exited) child.kill("SIGKILL");
+  signalWorker("SIGTERM");
+  for (let i = 0; i < 30 && !exited; i += 1) await sleep(50);
+  if (!exited) {
+    signalWorker("SIGKILL");
+    for (let i = 0; i < 10 && !exited; i += 1) await sleep(25);
+  }
 }
 
 async function waitForWorker() {
