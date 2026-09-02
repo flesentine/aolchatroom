@@ -17,6 +17,16 @@ const PAYMENT = /\b(?:pay|paid)\b/i;
 const SUBJECT_AUX = /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i;
 const GROUPED_COUNT_PATTERN = /\b\d{1,3}(?:,\d{3})+\s+(?:copies|units|systems|(?:game\s+)?consoles|games|ones)\b/gi;
 const COUNT_APPROX = "(?:(?:about|around|roughly|nearly|almost|over|under|like)\\s+)?";
+const HARD_QUANTITY_QUESTION = /\b(?:how many|number of|quantity|count of)\b/i;
+const HARD_PRICE_QUESTION = /\bwhat(?:'s| is| was| are| were)?\s+(?:the\s+)?(?:price|cost)\b|\bwhat\s+(?:does|did|do|is|was|are|were)\b.{0,45}\b(?:cost|go(?:es)? for)\b|\bwhat(?:'d| did)\s+(?:you|u|he|she|they|we|it)\s+pay\b|\bhow much\b.{0,65}\b(?:costs?|cost|worth|paid|pay|go(?:es)? for|went for|price)\b|\bwhat(?:'s| is| are| was| were)?\b.{0,60}\bworth\b/i;
+const PURCHASE_WORTH_OPINION = /\bworth\s+(?:buying|get(?:ting)?|owning|playing|trying|having|it)\b/i;
+const MONEY_EVIDENCE = /(?:[$£€¥]\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?|usd)\b/i;
+const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
+const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much)\b/i;
+const PRICE_AMOUNT_WORD = /\b(?:hundred|thousand|grand)\b/i;
+const APPROX_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?(\d+(?:\.\d{1,2})?)\b/i;
+const COUNT_WORD = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
+const COUNT_NOUN = /\b(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const CHOICE_SELECTION_FILLER = new Set([
   "it's", "its", "one", "want", "wants", "wanted", "choose", "chooses", "chose", "chosen", "pick", "picks", "picked",
   "take", "takes", "took", "taking", "prefer", "prefers", "preferred", "rather", "please", "favorite", "fave", "think",
@@ -88,7 +98,7 @@ function normalizeInputs({ plan = null, human = null, lines = [] } = {}) {
 
 function splitResponseSegments(value) {
   const text = clean(value);
-  const separator = /[,;!?]+|\b(?:and|but|though|tho|or)\b/gi;
+  const separator = /[,;!?/]+|\b(?:and|but|though|tho|or|plus)\b/gi;
   const segments = [];
   let start = 0;
   let connector = null;
@@ -106,6 +116,13 @@ function splitResponseSegments(value) {
 
 function splitResponseClauses(value) {
   return splitResponseSegments(value).map((segment) => segment.text);
+}
+
+function splitQuestionClauses(value) {
+  return clean(value)
+    .split(/(?:[,;!?]+|\b(?:and|but|though|tho)\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
 }
 
 function contentTokens(value) {
@@ -272,6 +289,99 @@ function repairChoiceAlternative(evaluation, question, rawText) {
   return repairCoverage(evaluation, "polarity", { explicitChoiceAlternative: true });
 }
 
+function repeatedHumanHardObligations(question) {
+  const clauses = splitQuestionClauses(question);
+  const quantity = clauses.filter((clause) => HARD_QUANTITY_QUESTION.test(clause));
+  const price = clauses.filter((clause) => !PURCHASE_WORTH_OPINION.test(clause) && HARD_PRICE_QUESTION.test(clause));
+  return {
+    ...(quantity.length > 1 ? { quantity } : {}),
+    ...(price.length > 1 ? { price } : {})
+  };
+}
+
+function numericValues(value) {
+  return [...clean(value).matchAll(/\b\d+(?:\.\d+)?\b/g)]
+    .map((match) => Number(match[0]))
+    .filter(Number.isFinite);
+}
+
+function isYear(value) {
+  return Number.isInteger(value) && value >= 1800 && value <= 2199;
+}
+
+function priceEvidenceSegment(segment) {
+  const text = clean(segment);
+  if (!text) return false;
+  if (MONEY_EVIDENCE.test(text) || PRICE_QUALITATIVE.test(text)) return true;
+  if (PRICE_AMOUNT_WORD.test(text) && PRICE_CONTEXT.test(text)) return true;
+  if (PRICE_CONTEXT.test(text) && numericValues(text).some((value) => !isYear(value))) return true;
+  const approx = text.match(APPROX_NUMBER);
+  return Boolean(approx && !isYear(Number(approx[1])));
+}
+
+function quantityEvidenceSegment(segment) {
+  const text = clean(segment);
+  if (!text || MONEY_EVIDENCE.test(text)) return false;
+  if (/\b\d+\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i.test(text)) return true;
+  if (/\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+\d+\b/i.test(text)) {
+    return numericValues(text).some((value) => Number.isInteger(value) && !isYear(value));
+  }
+  if (COUNT_WORD.test(text) && (COUNT_NOUN.test(text) || /^\s*(?:a\s+)?(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i.test(text))) return true;
+  const numbers = numericValues(text);
+  return /^\s*\d{1,3}\b/.test(text) && numbers.some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
+}
+
+function validateRepeatedHardCoverage(evaluation, question, normalizedSurface) {
+  if (!evaluation?.ok) return evaluation;
+  const repeated = repeatedHumanHardObligations(question);
+  const kinds = Object.keys(repeated);
+  if (!kinds.length) return evaluation;
+
+  const segments = splitResponseClauses(normalizedSurface);
+  let coverage = [...(evaluation.coverage || [])];
+  const evidence = { ...(evaluation.evidence || {}), repeatedHardCoverage: {} };
+  let missingKind = null;
+
+  for (const kind of kinds) {
+    const clauses = repeated[kind];
+    const matchingSegments = segments.filter((segment) => kind === "quantity"
+      ? quantityEvidenceSegment(segment)
+      : priceEvidenceSegment(segment));
+    evidence.repeatedHardCoverage[kind] = {
+      required: clauses.length,
+      satisfied: Math.min(matchingSegments.length, clauses.length),
+      segments: matchingSegments
+    };
+    coverage = coverage.filter((row) => row.kind !== kind);
+    clauses.forEach((clause, index) => {
+      coverage.push({
+        id: `${kind}:clause:${index}`,
+        kind,
+        hard: true,
+        satisfied: index < matchingSegments.length,
+        clause
+      });
+    });
+    if (matchingSegments.length < clauses.length && !missingKind) missingKind = kind;
+  }
+
+  const contract = {
+    ...(evaluation.contract || {}),
+    repeatedHardObligations: repeated
+  };
+  if (missingKind) {
+    return {
+      ...evaluation,
+      ok: false,
+      reason: `missing-${missingKind}`,
+      contract,
+      coverage,
+      evidence
+    };
+  }
+  return { ...evaluation, contract, coverage, evidence };
+}
+
 export function buildPrimaryHumanVoiceContract(args = {}) {
   const normalized = normalizeInputs({ plan: args.plan, human: args.human, lines: [] });
   return buildBaseContract({ ...args, plan: normalized.plan, human: normalized.human });
@@ -291,10 +401,13 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   evaluation = repairChoiceAlternative(evaluation, args?.human?.text || "", rawText);
   if (!evaluation?.ok) return evaluation;
 
+  const surface = normalized.lines?.[0]?.text || "";
+  evaluation = validateRepeatedHardCoverage(evaluation, normalized.human?.text || "", surface);
+  if (!evaluation?.ok) return evaluation;
+
   const obligations = evaluation?.contract?.polarityObligations || [];
   if (obligations.length <= 1) return evaluation;
 
-  const surface = normalized.lines?.[0]?.text || "";
   const ordered = orderedPolarityCoverage(obligations, surface);
   if (ordered.size === obligations.length) return evaluation;
 
