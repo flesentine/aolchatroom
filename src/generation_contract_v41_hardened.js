@@ -12,6 +12,7 @@ const STANDALONE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|na
 const LEADING_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably)\b/i;
 const OPINION = /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
 const OWNERSHIP = /\b(?:own|owns|owned)\b|\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)\s+(?:got\s+)?|got\s+)(?:(?:a|an|the|one|it|any|some|no|this|that|these|those)\b|\d+\b)/i;
+const NON_POSSESSION_HAVE = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)\s+(?:got\s+)?|got\s+)(?:a|an|the|one)\s+(?:question|reason|chance|idea|problem|point|way|minute|moment|thought|request|plan|story|thing)\b/i;
 const ABILITY = /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i;
 const PAYMENT = /\b(?:pay|paid)\b/i;
 const SUBJECT_AUX = /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i;
@@ -145,7 +146,7 @@ function overlapsObligation(clause, obligation) {
 
 function scopedClauseMatches(clause, obligation) {
   const scope = obligation?.scope || "generic";
-  if (scope === "ownership") return OWNERSHIP.test(clause);
+  if (scope === "ownership") return !NON_POSSESSION_HAVE.test(clause) && OWNERSHIP.test(clause);
   if (scope === "opinion") return OPINION.test(clause);
   if (scope === "ability") return ABILITY.test(clause);
   if (scope === "payment") return PAYMENT.test(clause);
