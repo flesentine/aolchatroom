@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import {
   buildPrimaryHumanVoiceContract,
   evaluatePrimaryHumanVoice
-} from "../src/generation_contract_v41.js";
+} from "../src/generation_contract_v41_hardened.js";
 
 function directPlan({ meaning = "answer both parts", goal = meaning } = {}) {
   return {
@@ -50,6 +50,10 @@ assert.equal(result.reason, "missing-polarity");
 assert.equal(result.coverage.filter((row) => row.kind === "polarity" && row.satisfied).length, 1);
 assert.equal(evaluate(doublePolarityQuestion, "i own one, yeah i like it").ok, true);
 assert.equal(evaluate(doublePolarityQuestion, "yes, no").ok, true, "two standalone answers may satisfy two yes/no clauses in order");
+assert.equal(evaluate(doublePolarityQuestion, "yes, i own one").ok, false,
+  "a leading standalone answer must stay assigned to the first question instead of being donated to a later clause");
+assert.equal(evaluate(doublePolarityQuestion, "i like it, but i don't own one").ok, true,
+  "explicit scoped answers may arrive in a different order when each maps unambiguously");
 
 const ownershipPriceQuestion = "do you own one and how much did it cost?";
 const ownershipPriceMeaning = "say whether he owns one and how much it cost";
@@ -66,7 +70,7 @@ assert.equal(evaluate(ownershipPriceQuestion, "yeah 600 bucks", ownershipPriceMe
 
 const countPriceQuestion = "how many systems do you have and how much did they cost?";
 const countPriceMeaning = "say how many systems he has and how much they cost";
-for (const surface of ["I have 600 bucks into them", "I have 60.0 bucks into them"]) {
+for (const surface of ["I have 600 bucks into them", "I have 60.0 bucks into them", "I have 1,000 bucks into them"]) {
   result = evaluate(countPriceQuestion, surface, countPriceMeaning);
   assert.equal(result.ok, false, `${surface} must not reuse currency as the system count`);
   assert.equal(result.reason, "missing-quantity");
@@ -80,30 +84,38 @@ assert.deepEqual(result.contract.requirements, ["polarity"]);
 assert.equal(result.contract.polarityObligations.length, 1);
 assert.equal(result.contract.polarityObligations[0].scope, "opinion");
 
+const orAlternative = "how much do you play it or do you think it costs too much?";
+result = evaluate(orAlternative, "every day; no");
+assert.equal(result.ok, true, "or-separated alternatives must not leak monetary context into a non-price how-much clause");
+assert.deepEqual(result.contract.requirements, ["polarity"]);
+
 const reverseMultipart = "how much did it cost, and do you own one?";
 result = evaluate(reverseMultipart, "600 bucks");
 assert.equal(result.ok, false);
 assert.equal(result.reason, "missing-polarity");
 assert.equal(evaluate(reverseMultipart, "600 bucks, yep").ok, true);
 
-const genericDouble = "is it red and is it big?";
-const genericContract = buildPrimaryHumanVoiceContract({ plan: directPlan(), human: human(genericDouble) });
-assert.deepEqual(genericContract.polarityObligations.map((row) => row.scope), ["generic", "generic"]);
-assert.equal(evaluate(genericDouble, "yes it is red, no it is not big").ok, true,
-  "generic yes/no clauses must match their own clause context");
-assert.equal(evaluate(genericDouble, "yes it is red").ok, false,
-  "one generic clause answer must not satisfy two generic yes/no obligations");
+const perfectTense = "have you played it and have you finished it?";
+assert.equal(evaluate(perfectTense, "i haven't played it, and i haven't finished it").ok, true,
+  "contracted negative perfect-tense answers must satisfy their own clauses");
+assert.equal(evaluate(perfectTense, "i've played it, and i haven't finished it").ok, true,
+  "contracted positive and negative perfect-tense answers must both be recognized");
 
-const playedAndLiked = "have you played it and do you like it?";
-const playedContract = buildPrimaryHumanVoiceContract({ plan: directPlan(), human: human(playedAndLiked) });
-assert.deepEqual(playedContract.polarityObligations.map((row) => row.scope), ["generic", "opinion"],
-  "auxiliary 'have' in a perfect-tense question must not be mistaken for ownership");
-assert.equal(evaluate(playedAndLiked, "yeah played it, love it").ok, true);
-assert.equal(evaluate(playedAndLiked, "played it, love it").ok, false,
-  "the first yes/no clause still needs an explicit answer rather than topical overlap alone");
+const existential = "are there any games and do you like them?";
+assert.equal(evaluate(existential, "there are, yes i like them").ok, true,
+  "ordinary existential auxiliary answers must satisfy generic polarity obligations");
+
+const genericDouble = "is it red and is it big?";
+assert.equal(evaluate(genericDouble, "yes it's red, no it's not big").ok, true);
+assert.equal(evaluate(genericDouble, "yes it's red").ok, false,
+  "generic clause evidence must not cover two separate yes/no obligations");
+
+const perfectThenOpinion = "have you played it and do you like it?";
+assert.equal(evaluate(perfectThenOpinion, "i have played it, yeah i like it").ok, true,
+  "perfect-tense have must remain generic rather than being mistaken for ownership");
 
 assert.equal(evaluate("how much do you like the Neo Geo?", "i love it", "say how much he likes the Neo Geo").ok, true);
 assert.equal(evaluate("how much do you play it?", "every day", "say how much he plays it").ok, true);
 assert.equal(evaluate("what is a neo geo worth?", "around 600 bucks", "answer what it is worth").ok, true);
 
-console.log("v41 Phase 2A clause-level semantic regression checks passed");
+console.log("v41 Phase 2A hardened clause-order and normalization regression checks passed");
