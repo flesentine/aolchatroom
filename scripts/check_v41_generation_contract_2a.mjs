@@ -19,8 +19,6 @@ function line(text, { speaker = "MetallicaFan", target = "Crateman" } = {}) {
   return [{ speaker, target, intent: "answer", topic: "general", text, source: "gemini" }];
 }
 
-// Phase 0 characterized this exact deficiency: one contextless polarity word was
-// allowed to surface despite two semantic obligations (ownership + price).
 const neoPlan = directPlan({
   goal: "Answer both parts of the human question",
   meaning: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost"
@@ -49,8 +47,6 @@ const priceOnlyNeo = evaluatePrimaryHumanVoice({
 assert.equal(priceOnlyNeo.ok, false, "topic overlap plus a price must not silently satisfy the separate yes/no obligation");
 assert.equal(priceOnlyNeo.reason, "missing-polarity");
 
-// Third-pass clause-scoping regressions: hedges and generic intensifiers must not
-// satisfy a different multipart obligation just because they appear in the same line.
 const maybePriceOnly = evaluatePrimaryHumanVoice({
   plan: neoPlan,
   human: neoHuman,
@@ -58,6 +54,12 @@ const maybePriceOnly = evaluatePrimaryHumanVoice({
 });
 assert.equal(maybePriceOnly.ok, false, "price uncertainty must not double as the ownership answer");
 assert.equal(maybePriceOnly.reason, "missing-polarity");
+
+for (const surface of ["not sure what it costs", "no idea what it goes for", "i don't know what it costs"]) {
+  const priceUncertaintyOnly = evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, lines: line(surface) });
+  assert.equal(priceUncertaintyOnly.ok, false, `${surface} must not leak uncertainty words into the ownership clause`);
+  assert.equal(priceUncertaintyOnly.reason, "missing-polarity");
+}
 
 const genericALot = evaluatePrimaryHumanVoice({
   plan: neoPlan,
@@ -73,9 +75,6 @@ assert.equal(evaluatePrimaryHumanVoice({
   lines: line("maybe i own one, around 600 bucks")
 }).ok, true, "ownership-scoped uncertainty plus a price should remain valid");
 
-// Codex P1 regression: evidence must be scoped to the obligation it actually
-// answers. Generic uncertainty about ownership is not uncertainty about price,
-// and a calendar year is not price evidence just because it is numeric.
 const ownershipUncertainOnly = evaluatePrimaryHumanVoice({
   plan: neoPlan,
   human: neoHuman,
@@ -118,9 +117,12 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: neoHuman,
   lines: line("yeah i own one but no idea what they go for")
 }).ok, true, "another price-scoped uncertainty form should be accepted");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("not sure what it costs but yes")
+}).ok, true, "an explicit polarity answer outside the uncertainty phrase should remain usable");
 
-// Quantity evidence must also stay in its own clause. A price amount must not be
-// re-used as the answer to a separate "how many" obligation.
 const countPricePlan = directPlan({
   meaning: "say how many Neo Geo systems he owns and how much they cost"
 });
@@ -142,8 +144,6 @@ assert.equal(evaluatePrimaryHumanVoice({
   lines: line("i have 2, they go for about 600 bucks")
 }).ok, true);
 
-// Do not overfit ordinary AOL brevity. A single yes/no or opinion question can
-// still be answered naturally without parroting topic keywords.
 const zeldaPlan = directPlan({
   speaker: "SegaMan",
   intent: "answer",
@@ -162,9 +162,6 @@ assert.equal(evaluatePrimaryHumanVoice({
   lines: line("maybe", { speaker: "SegaMan" })
 }).ok, true, "a short maybe remains valid for a single yes/no question");
 
-// Price is a high-confidence obligation even when it is the only question. In
-// that single-obligation shape, a bare non-year amount or generic uncertainty can
-// still be a natural compact answer because there is no competing clause.
 const pricePlan = directPlan({ meaning: "answer what the Neo Geo costs" });
 const priceHuman = { from: "Crateman", target: "MetallicaFan", text: "what does a neo geo cost?" };
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("lol") }).ok, false);
@@ -174,8 +171,6 @@ assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lin
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("idk") }).ok, true);
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("1995") }).ok, false, "a bare year must not be accepted as a price");
 
-// Clarification/repair turns must remain tied to the referenced exchange rather
-// than becoming a random room tangent.
 const clarificationPlan = directPlan({
   speaker: "JennJenn",
   intent: "clarify",
@@ -211,8 +206,6 @@ assert.equal(evaluatePrimaryHumanVoice({
   lines: line("i meant the hotel night shift was nuts", { speaker: "JennJenn" })
 }).ok, true);
 
-// Intentional pivots are supposed to change subject and must not be rejected for
-// low lexical overlap with the old conversation.
 const pivotPlan = directPlan({
   speaker: "JennJenn",
   intent: "pivot",
@@ -226,7 +219,6 @@ const pivot = evaluatePrimaryHumanVoice({
 assert.equal(pivot.ok, true);
 assert.equal(pivot.reason, "pivot-semantic-shift-allowed");
 
-// Background Voice remains outside the Phase 2A direct-human contract.
 const background = evaluatePrimaryHumanVoice({
   plan: { ...neoPlan, reason: "background" },
   human: null,
@@ -235,11 +227,11 @@ const background = evaluatePrimaryHumanVoice({
 assert.equal(background.enforced, false);
 assert.equal(background.ok, true);
 
-// Production wiring: Phase 2A remains the semantic sub-contract inside the 2B
-// wrapper, and a semantic reject still returns [] into v37's established fallback.
 const wrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 assert.ok(wrapper.includes('from "./index_v41_scene_coordinator.js"'));
+assert.ok(wrapper.includes('from "./index_v14.js"'));
 assert.ok(wrapper.includes("evaluatePrimaryHumanVoice"));
+assert.ok(wrapper.includes("ContinuityFallbackChatRoom.prototype.builtInHumanReply.call"), "Phase 2B must bypass provider-aware built-in suppression");
 assert.ok(wrapper.includes("return [];"));
 assert.ok(wrapper.includes('phase: "2B"'));
 assert.ok(!wrapper.includes("callProvider("), "Phase 2 must not add a provider/judge call");
