@@ -4,7 +4,7 @@ import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
-} from "./generation_contract_v41_final_guard.js";
+} from "./generation_contract_v41_identity_choice_guard.js";
 
 export default worker;
 
