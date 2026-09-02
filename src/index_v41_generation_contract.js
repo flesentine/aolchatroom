@@ -1,4 +1,5 @@
 import v41Worker, { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
+import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
@@ -54,6 +55,7 @@ export default {
         semanticOmissionFailsClosedToExistingHumanFallback: true,
         requiredHumanReplanResponseMustBeFirst: true,
         missingRequiredHumanReplanResponseDropsSideChatter: true,
+        providerIndependentHumanFallback: true,
         noAdditionalProviderCall: true,
         providerRoutingUnchanged: true,
         phase1DOwnershipPreserved: true,
@@ -169,8 +171,16 @@ export class ChatRoom extends V41SceneChatRoom {
     });
 
     // v37's authoritative human Director already treats [] as Voice failure and
-    // routes to the existing built-in human reply. Do not add another model call.
+    // routes to its established provider-independent built-in fallback.
     return [];
+  }
+
+  v41DeterministicHumanFallback(human) {
+    // Do not dynamically dispatch through later provider-aware builtInHumanReply
+    // overrides: v19.2 intentionally suppresses built-ins whenever a provider is
+    // configured. Use the same provider-independent continuity fallback that v37
+    // invokes when its authoritative Voice path fails.
+    return ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
   }
 
   async generateHumanReplan(human) {
@@ -187,9 +197,9 @@ export class ChatRoom extends V41SceneChatRoom {
 
     // A direct/reply-anchored human turn owns the first response slot. If the
     // inherited human-replan path produced only tail chatter (or put it first),
-    // discard the whole batch before queueing. Reuse the established deterministic
-    // built-in reply rather than asking another provider or semantic judge.
-    const builtIn = this.builtInHumanReply?.(human);
+    // discard the whole batch before queueing and use only the established
+    // provider-independent deterministic fallback.
+    const builtIn = this.v41DeterministicHumanFallback(human);
     const fallback = Array.isArray(builtIn) ? builtIn.slice(0, 1) : [];
     const fallbackEvaluation = evaluateHumanReplanPrimaryResponse({
       lines: fallback,
@@ -237,6 +247,7 @@ export class ChatRoom extends V41SceneChatRoom {
         requiredHumanReplanPrimaryResponseMustBeFirst: true,
         requiredHumanReplanResponderFromDirectTargetOrReplyAnchor: true,
         missingRequiredHumanReplanResponseDropsEntireTail: true,
+        failedHumanReplanUsesProviderIndependentV14Fallback: true,
         failedHumanReplanUsesOnlyValidatedBuiltInFallback: true,
         noAdditionalProviderCall: true,
         providerRoutingUnchanged: true,
