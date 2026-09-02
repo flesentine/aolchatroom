@@ -27,6 +27,8 @@ const REPEATED_SUBJECT_STOP = new Set([
   "how", "many", "much", "price", "cost", "costs", "costed", "worth", "pay", "paid", "number", "quantity", "count",
   "about", "around", "roughly", "approximately", "approx", "between"
 ]);
+const HARD_QUANTITY_QUESTION = /\b(?:how many|number of|quantity|count of)\b/i;
+const HARD_PRICE_QUESTION = /\b(?:how much|price|cost|worth|pay|paid)\b/i;
 const ALT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -173,12 +175,20 @@ function surfaceMentionsFamilyVersion(surface, family, version) {
   return false;
 }
 
-function validateRepeatedModelSubjects(evaluation, surface) {
+function rawRepeatedClauses(question, kind) {
+  const matcher = kind === "quantity" ? HARD_QUANTITY_QUESTION : HARD_PRICE_QUESTION;
+  return responseClauses(question).filter((clause) => matcher.test(clause));
+}
+
+function validateRepeatedModelSubjects(evaluation, question, surface) {
   if (!evaluation?.enforced || !evaluation?.ok) return evaluation;
   const repeated = evaluation?.contract?.repeatedHardObligations || {};
   for (const kind of ["quantity", "price"]) {
-    const clauses = repeated[kind];
-    if (!Array.isArray(clauses) || clauses.length < 2) continue;
+    const contractClauses = repeated[kind];
+    const clauses = Array.isArray(contractClauses) && contractClauses.length >= 2
+      ? contractClauses
+      : rawRepeatedClauses(question, kind);
+    if (clauses.length < 2) continue;
     const signatures = clauses.map(repeatedModelSignature);
     const versioned = signatures.filter((row) => row.versions.size);
     if (versioned.length < 2) continue;
@@ -285,7 +295,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   const surface = args?.lines?.[0]?.text || "";
   const question = args?.human?.text || "";
   evaluation = validateModelIdentity(evaluation, surface);
-  evaluation = validateRepeatedModelSubjects(evaluation, surface);
+  evaluation = validateRepeatedModelSubjects(evaluation, question, surface);
   evaluation = validateStrictChoice(evaluation, question, surface);
   return evaluation;
 }
