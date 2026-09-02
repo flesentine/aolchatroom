@@ -1,7 +1,7 @@
 {
   "$schema": "./node_modules/wrangler/config-schema.json",
   "name": "aolchatroom-generation-contract",
-  "main": "test/runtime_generation_contract_worker.js",
+  "main": "test/runtime_generation_contract_worker_hardened.js",
   "compatibility_date": "2026-08-19",
   "durable_objects": {
     "bindings": [
