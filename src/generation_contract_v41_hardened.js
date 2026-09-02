@@ -6,14 +6,15 @@ import {
 } from "./generation_contract_v41.js";
 
 const POLARITY_AUX = "(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)";
-const QUESTION_OR_BOUNDARY = new RegExp(`\\s+or\\s+(?=${POLARITY_AUX}\\b)`, "gi");
+const CROSS_TYPE_HOW_MUCH_OR = new RegExp(`(\\bhow much\\b[^?]{0,180}?)\\s+or\\s+(?=${POLARITY_AUX}\\b)`, "gi");
 const STANDALONE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i am|i'm|i was|i wasn't|i wasnt|i will|i won't|i wont)\s*$/i;
 const LEADING_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably)\b/i;
 const OPINION = /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
-const OWNERSHIP = /\b(?:own|owns|owned|have|has|had|got)\b/i;
+const OWNERSHIP = /\b(?:own|owns|owned|got)\b|\b(?:i|we|he|she|they)\s+(?:have|has|had)\s+(?:(?:a|an|the|one|it|any|some|no|this|that|these|those)\b|\d+\b)/i;
 const ABILITY = /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i;
 const PAYMENT = /\b(?:pay|paid)\b/i;
 const SUBJECT_AUX = /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i;
+const EXPLICIT_GROUPED_COUNT = /\b\d{1,3}(?:,\d{3})+\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const CONTENT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -36,7 +37,7 @@ function normalizeGroupedNumbers(value) {
 }
 
 function normalizeQuestion(value) {
-  return clean(value).replace(QUESTION_OR_BOUNDARY, "; ");
+  return clean(value).replace(CROSS_TYPE_HOW_MUCH_OR, "$1; ");
 }
 
 function normalizeResponse(value) {
@@ -49,7 +50,8 @@ function normalizeResponse(value) {
     .replace(/\baren't\b/gi, "are not")
     .replace(/\bisn't\b/gi, "is not")
     .replace(/\bwasn't\b/gi, "was not")
-    .replace(/\bweren't\b/gi, "were not");
+    .replace(/\bweren't\b/gi, "were not")
+    .replace(/\bthere's\s+(?=(?:a|an|one|some|any|no|none|nothing|something|plenty|few|several|many|\d)\b)/gi, "there is ");
 
   // Existential replies are ordinary yes/no evidence, but the base generic
   // subject list intentionally does not treat "there" as a pronoun. Add an
@@ -119,8 +121,7 @@ function clauseCarriesPolarity(clause, obligation) {
   if (!scopedClauseMatches(clause, obligation)) return false;
   const scope = obligation?.scope || "generic";
   if (LEADING_POLARITY.test(clause)) return true;
-  if (scope === "ownership") return /\b(?:i|we|he|she|they)\s+(?:(?:do|did)\s+not\s+|(?:do(?:n't)?|did(?:n't)?)\s+)?(?:own|have|got)\b/i.test(clause)
-    || /\b(?:i|we|he|she|they)\s+(?:own|have|got)\b/i.test(clause);
+  if (scope === "ownership") return OWNERSHIP.test(clause);
   if (scope === "opinion") return OPINION.test(clause);
   if (scope === "ability") return ABILITY.test(clause);
   if (scope === "payment") return PAYMENT.test(clause);
@@ -145,6 +146,25 @@ function orderedPolarityCoverage(obligations, normalizedText) {
   return satisfied;
 }
 
+function repairExplicitGroupedQuantity(evaluation, rawText) {
+  if (evaluation?.ok || !EXPLICIT_GROUPED_COUNT.test(clean(rawText))) return evaluation;
+  const coverage = (evaluation?.coverage || []).map((row) => row.kind === "quantity"
+    ? { ...row, satisfied: true }
+    : row);
+  const missing = [...new Set(coverage.filter((row) => row.hard && !row.satisfied).map((row) => row.kind))];
+  if (missing.length) return { ...evaluation, coverage, reason: `missing-${missing.join("+")}` };
+  return {
+    ...evaluation,
+    ok: true,
+    reason: "recognized-obligations-covered",
+    coverage,
+    evidence: {
+      ...(evaluation?.evidence || {}),
+      explicitGroupedQuantity: true
+    }
+  };
+}
+
 export function buildPrimaryHumanVoiceContract(args = {}) {
   const normalized = normalizeInputs({ plan: args.plan, human: args.human, lines: [] });
   return buildBaseContract({ ...args, plan: normalized.plan, human: normalized.human });
@@ -152,15 +172,18 @@ export function buildPrimaryHumanVoiceContract(args = {}) {
 
 export function evaluatePrimaryHumanVoice(args = {}) {
   const normalized = normalizeInputs(args);
-  const evaluation = evaluateBaseVoice({
+  let evaluation = evaluateBaseVoice({
     ...args,
     plan: normalized.plan,
     human: normalized.human,
     lines: normalized.lines
   });
 
+  evaluation = repairExplicitGroupedQuantity(evaluation, args?.lines?.[0]?.text || "");
+  if (!evaluation?.ok) return evaluation;
+
   const obligations = evaluation?.contract?.polarityObligations || [];
-  if (!evaluation?.ok || obligations.length <= 1) return evaluation;
+  if (obligations.length <= 1) return evaluation;
 
   const surface = normalized.lines?.[0]?.text || "";
   const ordered = orderedPolarityCoverage(obligations, surface);
