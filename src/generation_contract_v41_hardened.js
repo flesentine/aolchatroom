@@ -37,7 +37,8 @@ const CONTENT_STOP = new Set([
 ]);
 const HARD_SUBJECT_STOP = new Set([
   "what", "how", "much", "many", "price", "cost", "costs", "costed", "worth", "pay", "paid", "number", "quantity", "count",
-  "own", "owns", "owned", "go", "goes", "went", "about", "around", "roughly", "approximately", "approx", "maybe", "probably", "between"
+  "own", "owns", "owned", "go", "goes", "went", "about", "around", "roughly", "approximately", "approx", "maybe", "probably", "between",
+  "buck", "bucks", "dollar", "dollars", "usd", "hundred", "thousand", "grand"
 ]);
 
 function clean(value, max = 900) {
