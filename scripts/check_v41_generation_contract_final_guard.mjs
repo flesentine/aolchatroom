@@ -53,10 +53,22 @@ const modelOwnership = "do you own a PlayStation 5 and have you played it?";
 let result = evaluate(modelOwnership, "I own a PlayStation 4, and I have played it");
 assert.equal(result.ok, false, "a shared product-family token must not erase a conflicting model identifier");
 assert.equal(result.reason, "missing-polarity");
+for (const wrongVariant of [
+  "I own a PlayStation 5 Pro, and I have played it",
+  "I own a PlayStation 5 Slim, and I have played it"
+]) {
+  result = evaluate(modelOwnership, wrongVariant);
+  assert.equal(result.ok, false, `${wrongVariant} must not satisfy plain PlayStation 5 ownership`);
+  assert.equal(result.reason, "missing-polarity");
+}
 assert.equal(evaluate(modelOwnership, "I own a PlayStation 5, and I have played it").ok, true,
   "the requested model must remain valid");
 assert.equal(evaluate(modelOwnership, "I own a Sony PlayStation 5 console, and I have played it").ok, true,
   "extra manufacturer/generic descriptor wording must not false-reject the requested model");
+assert.equal(evaluate(
+  "do you own a Sony PlayStation 5 console and have you played it?",
+  "I own a PlayStation 5, and I have played it"
+).ok, true, "question-side manufacturer/generic descriptors must not become required model identity");
 
 const choice = "do you want tea or do you want coffee?";
 result = evaluate(choice, "I don't want coffee");
@@ -79,7 +91,9 @@ for (const valid of [
   "I want coffee",
   "I would have coffee",
   "Coffee is my choice",
-  "Coffee would be nice"
+  "Coffee would be nice",
+  "I don't want tea; coffee is what I want",
+  "coffee is the one I want"
 ]) {
   assert.equal(evaluate(choice, valid).ok, true, `${valid} must be recognized as a genuine declarative selection`);
 }
@@ -119,6 +133,36 @@ result = evaluate(
 );
 assert.equal(result.ok, false, "a second console price must not be donated to the game price obligation");
 assert.equal(result.reason, "missing-price");
+
+const versionedPriceQuestion = "how much did the PlayStation 4 cost and how much did the PlayStation 5 cost?";
+const versionedPriceMeaning = "give the PlayStation 4 price and the PlayStation 5 price";
+result = evaluate(
+  versionedPriceQuestion,
+  "The PlayStation 4 was $400 and the PlayStation 4 was $300",
+  { meaning: versionedPriceMeaning }
+);
+assert.equal(result.ok, false, "two PlayStation 4 prices must not satisfy PlayStation 4 plus PlayStation 5");
+assert.equal(result.reason, "missing-price");
+assert.equal(evaluate(
+  versionedPriceQuestion,
+  "The PlayStation 4 was $400 and the PlayStation 5 was $300",
+  { meaning: versionedPriceMeaning }
+).ok, true, "distinct versioned price evidence must remain valid");
+
+const versionedQuantityQuestion = "how many PlayStation 4 systems do you own and how many PlayStation 5 systems do you own?";
+const versionedQuantityMeaning = "give the PlayStation 4 count and the PlayStation 5 count";
+result = evaluate(
+  versionedQuantityQuestion,
+  "I own 2 PlayStation 4 systems and 3 PlayStation 4 systems",
+  { meaning: versionedQuantityMeaning }
+);
+assert.equal(result.ok, false, "two PlayStation 4 counts must not satisfy PlayStation 4 plus PlayStation 5");
+assert.equal(result.reason, "missing-quantity");
+assert.equal(evaluate(
+  versionedQuantityQuestion,
+  "I own 2 PlayStation 4 systems and 3 PlayStation 5 systems",
+  { meaning: versionedQuantityMeaning }
+).ok, true, "distinct versioned count evidence must remain valid");
 
 const conditionalExistential = "would there be a fee and do you like the plan?";
 assert.equal(evaluate(
