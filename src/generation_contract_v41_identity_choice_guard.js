@@ -191,6 +191,7 @@ function modelSpans(value, family, discriminators) {
   const required = new Set([...family, ...discriminators]);
   const spans = [];
   for (let start = 0; start < tokens.length; start += 1) {
+    if (!family.has(tokens[start].token)) continue;
     const seen = new Set();
     for (let end = start; end < Math.min(tokens.length, start + 8); end += 1) {
       if (required.has(tokens[end].token)) seen.add(tokens[end].token);
