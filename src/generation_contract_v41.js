@@ -10,10 +10,13 @@ const STOP_WORDS = new Set([
 const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
-const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|worth|paid|paying|pay for|dollars?|bucks?)\b/i;
-const PRICE_RESPONSE = /(?:\$\s*\d)|\b(?:bucks?|dollars?|grand|hundred|thousand|cheap|cheaper|expensive|pricey|costs?|cost|paid|pay|worth|too much|a lot)\b|\b\d+(?:\.\d{1,2})?\b/i;
+const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|worth|paid|paying|pay for|dollars?|bucks?|how much|go(?:es)? for)\b/i;
+const PRICE_LANGUAGE = /\b(?:bucks?|dollars?|grand|hundred|thousand|cheap|cheaper|expensive|pricey|price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
+const PRICE_CURRENCY_NUMBER = /(?:\$\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?)\b/i;
+const APPROX_PRICE_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?\d+(?:\.\d{1,2})?\b/i;
 const QUANTITY_REQUIREMENT = /\b(?:how many|number of|quantity|count of)\b/i;
-const QUANTITY_RESPONSE = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b|\b\d+\b/i;
+const QUANTITY_RESPONSE = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
+const QUANTITY_LANGUAGE = /\b(?:how many|number|quantity|count|copies|units|systems?|consoles?|games?|ones?)\b/i;
 const TIME_REQUIREMENT = /\b(?:when|what time|what year|what date|how long)\b/i;
 const TIME_RESPONSE = /\b(?:today|tomorrow|tonight|yesterday|morning|afternoon|evening|night|week|month|year|hour|minute|soon|later|ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,4}(?::\d{2})?(?:\s*[ap]m)?\b/i;
 const UNCERTAINTY_RESPONSE = /\b(?:idk|i dont know|i don't know|dunno|not sure|no idea|couldnt tell ya|couldn't tell ya)\b/i;
@@ -21,6 +24,13 @@ const REPAIR_CUE = /\b(?:i mean|i meant|what i meant|meant that|was talking abou
 const CLARIFY_INTENT = /^(?:clarify|clarification|challenge|correct|repair)$/i;
 const CLARIFY_HUMAN = /\b(?:what do you mean|what are you talking about|doesn'?t make sense|makes? no sense|why (?:are|r) (?:you|u) saying|who me|had what|what'?s that have to do with)\b/i;
 const MULTIPART_CUE = /\bboth\b|\band\s+(?:how|what|where|when|why|who|do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
+
+const UNCERTAINTY_SCOPE = {
+  price: /\b(?:price|costs?|cost|worth|paid|pay|how much|go(?:es)? for|went for)\b/i,
+  quantity: /\b(?:how many|number|quantity|count|copies|units|ones?)\b/i,
+  time: /\b(?:when|time|year|date|how long)\b/i,
+  polarity: /\b(?:if|whether|own|owns|owned|have|has|had|got|like|love|want|can|could|did|does|do|is|are|was|were)\b/i
+};
 
 function clean(value, max = 520) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -64,6 +74,22 @@ function rowById(history = [], id = "") {
   return [...(history || [])].reverse().find((row) => String(row?.messageId || row?.id || "") === String(id)) || null;
 }
 
+function numericValues(text) {
+  return [...clean(text).matchAll(/\b\d+(?:\.\d+)?\b/g)].map((match) => Number(match[0])).filter(Number.isFinite);
+}
+
+function looksLikeYear(value) {
+  return Number.isInteger(value) && value >= 1800 && value <= 2199;
+}
+
+function hasNonYearNumber(text) {
+  return numericValues(text).some((value) => !looksLikeYear(value));
+}
+
+function hasQuantityNumber(text) {
+  return numericValues(text).some((value) => Number.isInteger(value) && !looksLikeYear(value) && value >= 0 && value <= 999);
+}
+
 function requirementKinds(humanText, meaning, goal) {
   const source = `${humanText} ${meaning} ${goal}`;
   const required = [];
@@ -76,10 +102,31 @@ function requirementKinds(humanText, meaning, goal) {
   return required;
 }
 
-function requirementSatisfied(kind, text, contextOverlap = 0, hard = false) {
-  if (UNCERTAINTY_RESPONSE.test(text)) return true;
-  if (kind === "price") return PRICE_RESPONSE.test(text);
-  if (kind === "quantity") return QUANTITY_RESPONSE.test(text);
+function scopedUncertaintySatisfied(kind, text, multiPart) {
+  if (!UNCERTAINTY_RESPONSE.test(text)) return false;
+  if (!multiPart) return true;
+  return Boolean(UNCERTAINTY_SCOPE[kind]?.test(text));
+}
+
+function priceSatisfied(text, multiPart) {
+  if (PRICE_CURRENCY_NUMBER.test(text) || PRICE_LANGUAGE.test(text)) return true;
+  if (APPROX_PRICE_NUMBER.test(text)) {
+    const values = numericValues(text);
+    return values.some((value) => !looksLikeYear(value));
+  }
+  return !multiPart && hasNonYearNumber(text);
+}
+
+function quantitySatisfied(text, multiPart) {
+  if (QUANTITY_RESPONSE.test(text)) return true;
+  if (!hasQuantityNumber(text)) return false;
+  return !multiPart || QUANTITY_LANGUAGE.test(text) || numericValues(text).some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
+}
+
+function requirementSatisfied(kind, text, contextOverlap = 0, hard = false, multiPart = false) {
+  if (scopedUncertaintySatisfied(kind, text, multiPart)) return true;
+  if (kind === "price") return priceSatisfied(text, multiPart);
+  if (kind === "quantity") return quantitySatisfied(text, multiPart);
   if (kind === "time") return TIME_RESPONSE.test(text);
   if (kind === "polarity") {
     if (POLARITY_RESPONSE.test(text)) return true;
@@ -235,7 +282,7 @@ export function evaluatePrimaryHumanVoice({ plan = null, lines = [], human = nul
 
   const coverage = (contract.requirements || []).map((kind) => {
     const hard = kind === "price" || kind === "quantity" || (kind === "polarity" && contract.multiPart);
-    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap, hard) };
+    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap, hard, contract.multiPart) };
   });
   const missing = coverage.filter((row) => row.hard && !row.satisfied).map((row) => row.kind);
   if (missing.length) {
