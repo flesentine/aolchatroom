@@ -55,7 +55,9 @@ assert.equal(result.ok, false, "a shared product-family token must not erase a c
 assert.equal(result.reason, "missing-polarity");
 for (const wrongVariant of [
   "I own a PlayStation 5 Pro, and I have played it",
-  "I own a PlayStation 5 Slim, and I have played it"
+  "I own a PlayStation 5 Slim, and I have played it",
+  "Yes, I own a PlayStation 4 and I have played it",
+  "Yeah, I own a PlayStation 5 Pro and I have played it"
 ]) {
   result = evaluate(modelOwnership, wrongVariant);
   assert.equal(result.ok, false, `${wrongVariant} must not satisfy plain PlayStation 5 ownership`);
@@ -63,6 +65,10 @@ for (const wrongVariant of [
 }
 assert.equal(evaluate(modelOwnership, "I own a PlayStation 5, and I have played it").ok, true,
   "the requested model must remain valid");
+assert.equal(evaluate(modelOwnership, "I own a PS5, and I have played it").ok, true,
+  "standard PS5 abbreviation must canonicalize to PlayStation 5");
+assert.equal(evaluate("do you own a PS5 and have you played it?", "I own a PlayStation 5, and I have played it").ok, true,
+  "PlayStation 5 must satisfy a PS5 ownership question");
 assert.equal(evaluate(modelOwnership, "I own a Sony PlayStation 5 console, and I have played it").ok, true,
   "extra manufacturer/generic descriptor wording must not false-reject the requested model");
 assert.equal(evaluate(
@@ -76,10 +82,11 @@ assert.equal(result.ok, false, "negating one alternative must not masquerade as 
 assert.equal(result.reason, "missing-choice-selection");
 for (const invalid of [
   "please don't give me coffee",
-  "not coffee, please"
+  "not coffee, please",
+  "coffee is what I want to avoid"
 ]) {
   result = evaluate(choice, invalid);
-  assert.equal(result.ok, false, `${invalid} must remain a negated alternative, not a positive selection`);
+  assert.equal(result.ok, false, `${invalid} must remain a rejection/avoidance, not a positive selection`);
   assert.equal(result.reason, "missing-choice-selection");
 }
 result = evaluate(choice, "I don't want tea, coffee please");
@@ -150,6 +157,13 @@ result = evaluate(
 );
 assert.equal(result.ok, false, "an incidental PlayStation 5 mention without its own price must not satisfy the second price obligation");
 assert.equal(result.reason, "missing-price");
+result = evaluate(
+  versionedPriceQuestion,
+  "The PlayStation 4 was $400 and games on the PlayStation 5 cost $300",
+  { meaning: versionedPriceMeaning }
+);
+assert.equal(result.ok, false, "a game price merely mentioning PlayStation 5 must not satisfy the PlayStation 5 hardware price");
+assert.equal(result.reason, "missing-price");
 assert.equal(evaluate(
   versionedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 was $300",
@@ -172,11 +186,48 @@ result = evaluate(
 );
 assert.equal(result.ok, false, "an incidental PlayStation 5 mention without its own count must not satisfy the second quantity obligation");
 assert.equal(result.reason, "missing-quantity");
+result = evaluate(
+  versionedQuantityQuestion,
+  "I own 2 PlayStation 4 systems and I own 5 games for my PlayStation 5",
+  { meaning: versionedQuantityMeaning }
+);
+assert.equal(result.ok, false, "games owned for PlayStation 5 must not satisfy a PlayStation 5 hardware count");
+assert.equal(result.reason, "missing-quantity");
 assert.equal(evaluate(
   versionedQuantityQuestion,
   "I own 2 PlayStation 4 systems and 3 PlayStation 5 systems",
   { meaning: versionedQuantityMeaning }
 ).ok, true, "distinct versioned count evidence must remain valid");
+
+const variantPriceQuestion = "how much did the PlayStation 5 Pro cost and how much did the PlayStation 5 Slim cost?";
+const variantPriceMeaning = "give the PlayStation 5 Pro price and the PlayStation 5 Slim price";
+result = evaluate(
+  variantPriceQuestion,
+  "The PlayStation 5 Pro was $500 and the PlayStation 5 Pro was $400",
+  { meaning: variantPriceMeaning }
+);
+assert.equal(result.ok, false, "two Pro prices must not satisfy Pro plus Slim");
+assert.equal(result.reason, "missing-price");
+assert.equal(evaluate(
+  variantPriceQuestion,
+  "The PlayStation 5 Pro was $500 and the PlayStation 5 Slim was $400",
+  { meaning: variantPriceMeaning }
+).ok, true, "variant-specific Pro and Slim prices must pass");
+
+const variantQuantityQuestion = "how many PlayStation 5 Pro systems do you own and how many PlayStation 5 Slim systems do you own?";
+const variantQuantityMeaning = "give the PlayStation 5 Pro count and the PlayStation 5 Slim count";
+result = evaluate(
+  variantQuantityQuestion,
+  "I own 2 PlayStation 5 Pro systems and 3 PlayStation 5 Pro systems",
+  { meaning: variantQuantityMeaning }
+);
+assert.equal(result.ok, false, "two Pro counts must not satisfy Pro plus Slim");
+assert.equal(result.reason, "missing-quantity");
+assert.equal(evaluate(
+  variantQuantityQuestion,
+  "I own 2 PlayStation 5 Pro systems and 3 PlayStation 5 Slim systems",
+  { meaning: variantQuantityMeaning }
+).ok, true, "variant-specific Pro and Slim counts must pass");
 
 const conditionalExistential = "would there be a fee and do you like the plan?";
 assert.equal(evaluate(
