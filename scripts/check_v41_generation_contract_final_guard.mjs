@@ -143,6 +143,13 @@ result = evaluate(
 );
 assert.equal(result.ok, false, "two PlayStation 4 prices must not satisfy PlayStation 4 plus PlayStation 5");
 assert.equal(result.reason, "missing-price");
+result = evaluate(
+  versionedPriceQuestion,
+  "The PlayStation 4 was $400 and the PlayStation 4 was $300; PlayStation 5 is cool",
+  { meaning: versionedPriceMeaning }
+);
+assert.equal(result.ok, false, "an incidental PlayStation 5 mention without its own price must not satisfy the second price obligation");
+assert.equal(result.reason, "missing-price");
 assert.equal(evaluate(
   versionedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 was $300",
@@ -157,6 +164,13 @@ result = evaluate(
   { meaning: versionedQuantityMeaning }
 );
 assert.equal(result.ok, false, "two PlayStation 4 counts must not satisfy PlayStation 4 plus PlayStation 5");
+assert.equal(result.reason, "missing-quantity");
+result = evaluate(
+  versionedQuantityQuestion,
+  "I own 2 PlayStation 4 systems and 3 PlayStation 4 systems; PlayStation 5 is cool",
+  { meaning: versionedQuantityMeaning }
+);
+assert.equal(result.ok, false, "an incidental PlayStation 5 mention without its own count must not satisfy the second quantity obligation");
 assert.equal(result.reason, "missing-quantity");
 assert.equal(evaluate(
   versionedQuantityQuestion,
