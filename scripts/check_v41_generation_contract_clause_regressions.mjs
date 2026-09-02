@@ -79,6 +79,24 @@ assert.equal(evaluate(countPriceQuestion, "I have 2 and they cost 600 bucks", co
 assert.equal(evaluate(countPriceQuestion, "I own 1,000 systems, around 600 bucks each", countPriceMeaning).ok, true,
   "possession-shaped grouped count must repair quantity without weakening price separation");
 
+const repeatedQuantityQuestion = "how many systems do you have and how many games do you own?";
+const repeatedQuantityMeaning = "give the system count and the game count";
+result = evaluate(repeatedQuantityQuestion, "I have 2 systems", repeatedQuantityMeaning);
+assert.equal(result.ok, false, "two independent quantity clauses must not collapse into one hard quantity requirement");
+assert.equal(result.reason, "missing-quantity");
+assert.equal(result.contract.repeatedHardObligations.quantity.length, 2);
+assert.equal(evaluate(repeatedQuantityQuestion, "I have 2 systems, 5 games", repeatedQuantityMeaning).ok, true);
+assert.equal(evaluate(repeatedQuantityQuestion, "2 and 5", repeatedQuantityMeaning).ok, true,
+  "compact ordered counts may satisfy repeated quantity clauses");
+
+const repeatedPriceQuestion = "how much did the Neo Geo cost and how much did the game cost?";
+const repeatedPriceMeaning = "give the console price and the game price";
+result = evaluate(repeatedPriceQuestion, "600 bucks", repeatedPriceMeaning);
+assert.equal(result.ok, false, "two independent price clauses must not collapse into one hard price requirement");
+assert.equal(result.reason, "missing-price");
+assert.equal(result.contract.repeatedHardObligations.price.length, 2);
+assert.equal(evaluate(repeatedPriceQuestion, "600 bucks, 50 bucks", repeatedPriceMeaning).ok, true);
+
 const groupedCountQuestion = "how many systems do you have and do you like them?";
 assert.equal(evaluate(groupedCountQuestion, "I have 1,000 systems, and yes I like them").ok, true,
   "an explicit grouped count above 999 must remain valid when a count noun follows it");
@@ -124,6 +142,9 @@ assert.equal(result.ok, false, "perfect auxiliary have must not masquerade as ow
 assert.equal(result.reason, "missing-polarity");
 result = evaluate(ownershipThenPerfect, "I've got to play it, yeah");
 assert.equal(result.ok, false, "non-possessive got-to must not masquerade as ownership evidence");
+assert.equal(result.reason, "missing-polarity");
+result = evaluate(ownershipThenPerfect, "I have one question, I've played it");
+assert.equal(result.ok, false, "non-possession have-one phrases must not masquerade as ownership evidence");
 assert.equal(result.reason, "missing-polarity");
 assert.equal(evaluate(ownershipThenPerfect, "I own it, and I've played it").ok, true);
 assert.equal(evaluate(ownershipThenPerfect, "I've got one, and I've played it").ok, true,
