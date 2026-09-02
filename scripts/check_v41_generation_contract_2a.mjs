@@ -60,13 +60,11 @@ const ownershipUncertainOnly = evaluatePrimaryHumanVoice({
 assert.equal(ownershipUncertainOnly.ok, false);
 assert.equal(ownershipUncertainOnly.reason, "missing-price");
 
-const purchaseYearOnly = evaluatePrimaryHumanVoice({
-  plan: neoPlan,
-  human: neoHuman,
-  lines: line("yeah i bought it in 1995")
-});
-assert.equal(purchaseYearOnly.ok, false);
-assert.equal(purchaseYearOnly.reason, "missing-price");
+for (const surface of ["yeah i bought it in 1995", "yeah i paid for it in 1995"]) {
+  const yearOnly = evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, lines: line(surface) });
+  assert.equal(yearOnly.ok, false, `${surface} must not masquerade as a price answer`);
+  assert.equal(yearOnly.reason, "missing-price");
+}
 
 const completeNeo = evaluatePrimaryHumanVoice({
   plan: neoPlan,
@@ -96,6 +94,29 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: neoHuman,
   lines: line("yeah i own one but no idea what they go for")
 }).ok, true, "another price-scoped uncertainty form should be accepted");
+
+// Quantity evidence must also stay in its own clause. A price amount must not be
+// re-used as the answer to a separate "how many" obligation.
+const countPricePlan = directPlan({
+  meaning: "say how many Neo Geo systems he owns and how much they cost"
+});
+const countPriceHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  text: "how many neo geo systems do you own and how much do they cost?"
+};
+const priceWithoutCount = evaluatePrimaryHumanVoice({
+  plan: countPricePlan,
+  human: countPriceHuman,
+  lines: line("they go for about 600 bucks")
+});
+assert.equal(priceWithoutCount.ok, false);
+assert.equal(priceWithoutCount.reason, "missing-quantity");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: countPricePlan,
+  human: countPriceHuman,
+  lines: line("i have 2, they go for about 600 bucks")
+}).ok, true);
 
 // Do not overfit ordinary AOL brevity. A single yes/no or opinion question can
 // still be answered naturally without parroting topic keywords.
