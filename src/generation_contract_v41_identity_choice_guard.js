@@ -17,6 +17,16 @@ const IDENTITY_STOP = new Set([
   "this", "to", "u", "was", "we", "were", "will", "would", "yes", "yeah", "you", "your", "what", "which",
   "console", "consoles", "system", "systems", "unit", "units", "copy", "copies", "game", "games", "device", "devices", "machine", "machines"
 ]);
+const IDENTITY_HARMLESS = new Set([
+  "sony", "sega", "nintendo", "microsoft", "atari", "snk", "nec", "panasonic", "philips"
+]);
+const IDENTITY_VARIANT = new Set([
+  "pro", "slim", "lite", "mini", "max", "plus", "oled", "digital", "disc", "elite", "classic", "xl", "ll", "x", "s"
+]);
+const REPEATED_SUBJECT_STOP = new Set([
+  "how", "many", "much", "price", "cost", "costs", "costed", "worth", "pay", "paid", "number", "quantity", "count",
+  "about", "around", "roughly", "approximately", "approx", "between"
+]);
 const ALT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -45,6 +55,10 @@ function identityTokens(value) {
       .filter((token) => token && !IDENTITY_STOP.has(token))
       .map(canonicalToken)
   );
+}
+
+function comparableIdentity(tokens) {
+  return new Set([...tokens].filter((token) => !IDENTITY_HARMLESS.has(token)));
 }
 
 function altTokens(value) {
@@ -90,6 +104,17 @@ function containsAll(expected, actual) {
   return true;
 }
 
+function identityMatches(expectedTokens, actualTokens) {
+  const expected = comparableIdentity(expectedTokens);
+  const actual = comparableIdentity(actualTokens);
+  if (!containsAll(expected, actual)) return false;
+  for (const token of actual) {
+    if (expected.has(token)) continue;
+    if (/^\d+$/.test(token) || IDENTITY_VARIANT.has(token)) return false;
+  }
+  return true;
+}
+
 function validateModelIdentity(evaluation, surface) {
   if (!evaluation?.enforced || !evaluation?.ok) return evaluation;
   const allPolarity = evaluation?.contract?.polarityObligations || [];
@@ -110,7 +135,7 @@ function validateModelIdentity(evaluation, surface) {
   for (const index of ownershipIndexes) {
     const expected = requestedOwnershipIdentity(allPolarity[index]?.clause || "");
     if (!expected.size) continue;
-    if (objects.some((row) => containsAll(expected, row.tokens))) continue;
+    if (objects.some((row) => identityMatches(expected, row.tokens))) continue;
     return {
       ...evaluation,
       ok: false,
@@ -118,6 +143,63 @@ function validateModelIdentity(evaluation, surface) {
       evidence: {
         ...(evaluation.evidence || {}),
         identityChoiceGuardOwnershipMismatch: objects.map((row) => row.raw)
+      }
+    };
+  }
+  return evaluation;
+}
+
+function repeatedModelSignature(clause) {
+  const tokens = new Set([...comparableIdentity(identityTokens(clause))].filter((token) => !REPEATED_SUBJECT_STOP.has(token)));
+  const versions = new Set([...tokens].filter((token) => /^\d+$/.test(token)));
+  const family = new Set([...tokens].filter((token) => !/^\d+$/.test(token) && !IDENTITY_VARIANT.has(token)));
+  return { tokens, versions, family };
+}
+
+function sharedFamily(signatures) {
+  if (!signatures.length) return new Set();
+  const [first, ...rest] = signatures;
+  return new Set([...first.family].filter((token) => rest.every((row) => row.family.has(token))));
+}
+
+function surfaceMentionsFamilyVersion(surface, family, version) {
+  const text = clean(surface);
+  for (const familyToken of family) {
+    const familyRx = escapeRegex(familyToken);
+    const versionRx = escapeRegex(version);
+    if (new RegExp(`\\b${familyRx}\\b[^,;.!?]{0,32}\\b${versionRx}\\b`, "i").test(text)) return true;
+    if (new RegExp(`\\b${versionRx}\\b[^,;.!?]{0,32}\\b${familyRx}\\b`, "i").test(text)) return true;
+  }
+  return false;
+}
+
+function validateRepeatedModelSubjects(evaluation, surface) {
+  if (!evaluation?.enforced || !evaluation?.ok) return evaluation;
+  const repeated = evaluation?.contract?.repeatedHardObligations || {};
+  for (const kind of ["quantity", "price"]) {
+    const clauses = repeated[kind];
+    if (!Array.isArray(clauses) || clauses.length < 2) continue;
+    const signatures = clauses.map(repeatedModelSignature);
+    const versioned = signatures.filter((row) => row.versions.size);
+    if (versioned.length < 2) continue;
+    const distinctVersions = new Set(versioned.flatMap((row) => [...row.versions]));
+    if (distinctVersions.size < 2) continue;
+    const family = sharedFamily(versioned);
+    if (!family.size) continue;
+    const missing = [];
+    for (const signature of versioned) {
+      for (const version of signature.versions) {
+        if (!surfaceMentionsFamilyVersion(surface, family, version)) missing.push(version);
+      }
+    }
+    if (!missing.length) continue;
+    return {
+      ...evaluation,
+      ok: false,
+      reason: `missing-${kind}`,
+      evidence: {
+        ...(evaluation.evidence || {}),
+        identityChoiceGuardRepeatedModelMismatch: { kind, missingVersions: [...new Set(missing)] }
       }
     };
   }
@@ -159,7 +241,8 @@ function clauseSelectsToken(clause, tokenValue) {
     new RegExp(`\\b(?:i|we|he|she|they)\\s+(?:want|choose|pick|take|prefer)\\b[^,;.!?]{0,45}\\b${token}\\b`, "i"),
     new RegExp(`\\b(?:i(?:'d| would)\\s+(?:like|prefer|have|take|choose|pick)|i(?:'ll| will)\\s+(?:take|have|choose|pick)|give\\s+me|go\\s+with|let(?:'s|s)\\s+(?:do|go\\s+with))\\b[^,;.!?]{0,45}\\b${token}\\b`, "i"),
     new RegExp(`\\b(?:it(?:'s| is)|that(?:'s| is))\\s+${token}\\b`, "i"),
-    new RegExp(`\\b${token}\\b\\s+(?:please|sounds?\\s+(?:good|great|better)|works?(?:\\s+for\\s+me)?|is\\s+(?:fine|good|better)|is\\s+my\\s+choice|would\\s+be\\s+(?:nice|good|great|fine|better)|for\\s+me|looks?\\s+better)\\b`, "i")
+    new RegExp(`\\b${token}\\b\\s+(?:please|sounds?\\s+(?:good|great|better)|works?(?:\\s+for\\s+me)?|is\\s+(?:fine|good|better)|is\\s+my\\s+choice|would\\s+be\\s+(?:nice|good|great|fine|better)|for\\s+me|looks?\\s+better)\\b`, "i"),
+    new RegExp(`\\b${token}\\b\\s+(?:is|was|would\\s+be)\\s+(?:what|the\\s+one|the\\s+thing)\\s+(?:i|we)\\s+(?:want|prefer|choose|pick|would\\s+like|'d\\s+like)\\b`, "i")
   ];
   return patterns.some((pattern) => pattern.test(clause));
 }
@@ -202,6 +285,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   const surface = args?.lines?.[0]?.text || "";
   const question = args?.human?.text || "";
   evaluation = validateModelIdentity(evaluation, surface);
+  evaluation = validateRepeatedModelSubjects(evaluation, surface);
   evaluation = validateStrictChoice(evaluation, question, surface);
   return evaluation;
 }
