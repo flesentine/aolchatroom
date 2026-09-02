@@ -11,9 +11,11 @@ const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|sh
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const HARD_POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|i do|i don't|i dont|i did|i didn't|i didnt|i own|i don't own|i dont own|i don't have|i dont have|i haven't got|i havent got|got one|have one|own one|i (?:own|have|got) (?:one|it|a|an|the))\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
-const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|paid|paying|pay for|dollars?|bucks?|how much|go(?:es)? for)\b/i;
+const PRICE_DIRECT_QUESTION = /\bhow much\b|\bwhat(?:'s| is| was| are| were)?\s+(?:the\s+)?(?:price|cost)\b|\bwhat\s+(?:does|did|do|is|was|are|were)\b.{0,45}\b(?:cost|go(?:es)? for)\b|\bwhat(?:'d| did)\s+(?:you|u|he|she|they|we|it)\s+pay\b/i;
+const PRICE_FRAGMENT_QUESTION = /^\s*(?:price|cost|how much)\s*\??\s*$/i;
 const PRICE_VALUATION_REQUIREMENT = /\b(?:how much\b.{0,80}\bworth|what(?:'s| is| are| was| were)?\b.{0,60}\bworth)\b/i;
 const PURCHASE_WORTH_OPINION = /\bworth\s+(?:buying|get(?:ting)?|owning|playing|trying|having|it)\b/i;
+const PRICE_SEMANTIC_DIRECTIVE = /\bhow much\b|\b(?:give|state|provide|include)\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\banswer\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\b(?:say|tell)\s+(?:me\s+)?what\b.{0,35}\b(?:costs?|price|worth|paid)\b/i;
 const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
 const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much)\b/i;
 const PRICE_LOOSE_QUALITATIVE = /\ba lot\b/i;
@@ -22,8 +24,8 @@ const PRICE_CURRENCY_NUMBER = /(?:\$\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*
 const APPROX_PRICE_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?\d+(?:\.\d{1,2})?\b/i;
 const QUANTITY_REQUIREMENT = /\b(?:how many|number of|quantity|count of)\b/i;
 const QUANTITY_RESPONSE = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
-const QUANTITY_WORD_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a\s+dozen|dozen|a\s+couple|couple|a\s+few|few|several|many|tons?)\b|\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
-const QUANTITY_WORD_AT_START = /^\s*(?:a\s+)?(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
+const QUANTITY_WORD_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a\s+dozen|dozen|a\s+couple|couple|a\s+few|few|several|many|tons?)\b(?!\s+(?:hundred|thousand|grand|bucks?|dollars?))|\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
+const QUANTITY_WORD_AT_START = /^\s*(?:a\s+)?(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b(?!\s+(?:hundred|thousand|grand|bucks?|dollars?))/i;
 const QUANTITY_NUMERIC_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+\d{1,3}\b|\b\d{1,3}\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const TIME_REQUIREMENT = /\b(?:when|what time|what year|what date|how long)\b/i;
 const TIME_RESPONSE = /\b(?:today|tomorrow|tonight|yesterday|morning|afternoon|evening|night|week|month|year|hour|minute|soon|later|ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,4}(?::\d{2})?(?:\s*[ap]m)?\b/i;
@@ -94,15 +96,19 @@ function hasQuantityNumber(text) {
   return numericValues(text).some((value) => Number.isInteger(value) && !looksLikeYear(value) && value >= 0 && value <= 999);
 }
 
-function hasPriceRequirement(source) {
-  if (PRICE_REQUIREMENT.test(source)) return true;
-  return PRICE_VALUATION_REQUIREMENT.test(source) && !PURCHASE_WORTH_OPINION.test(source);
+function hasPriceRequirement(humanText, meaning, goal) {
+  const human = clean(humanText, 420);
+  const semantic = clean(`${meaning} ${goal}`, 900);
+  if (PRICE_FRAGMENT_QUESTION.test(human) || PRICE_DIRECT_QUESTION.test(human)) return true;
+  if (PRICE_VALUATION_REQUIREMENT.test(human) && !PURCHASE_WORTH_OPINION.test(human)) return true;
+  if (PRICE_SEMANTIC_DIRECTIVE.test(semantic) && !PURCHASE_WORTH_OPINION.test(semantic)) return true;
+  return PRICE_VALUATION_REQUIREMENT.test(semantic) && !PURCHASE_WORTH_OPINION.test(semantic);
 }
 
 function requirementKinds(humanText, meaning, goal) {
   const source = `${humanText} ${meaning} ${goal}`;
   const required = [];
-  if (hasPriceRequirement(source)) addUnique(required, "price");
+  if (hasPriceRequirement(humanText, meaning, goal)) addUnique(required, "price");
   if (QUANTITY_REQUIREMENT.test(source)) addUnique(required, "quantity");
   if (TIME_REQUIREMENT.test(source)) addUnique(required, "time");
   if (POLARITY_QUESTION.test(humanText) || /\bwhether\b/i.test(source) || /\b(?:confirm|deny)\b/i.test(meaning)) {
@@ -160,7 +166,8 @@ function quantitySatisfied(text, multiPart) {
   if (!hasQuantityNumber(text)) return false;
   if (!multiPart) return true;
   if (QUANTITY_NUMERIC_CONTEXT.test(text)) return true;
-  return /^\s*\d{1,3}\b/.test(text) && numericValues(text).some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
+  return /^\s*\d{1,3}\b(?!\s*(?:bucks?|dollars?))/.test(text)
+    && numericValues(text).some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
 }
 
 function requirementSatisfied(kind, text, contextOverlap = 0, hard = false, multiPart = false, contract = null) {
