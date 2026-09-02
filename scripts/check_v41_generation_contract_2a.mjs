@@ -151,13 +151,13 @@ const background = evaluatePrimaryHumanVoice({
 assert.equal(background.enforced, false);
 assert.equal(background.ok, true);
 
-// Production wiring: Phase 2A is a wrapper above frozen 1D, and a contract reject
-// returns [] so v37's existing authoritative-human path takes its built-in fallback.
+// Production wiring: Phase 2A remains the semantic sub-contract inside the 2B
+// wrapper, and a semantic reject still returns [] into v37's established fallback.
 const wrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 assert.ok(wrapper.includes('from "./index_v41_scene_coordinator.js"'));
 assert.ok(wrapper.includes("evaluatePrimaryHumanVoice"));
 assert.ok(wrapper.includes("return [];"));
-assert.ok(wrapper.includes('phase: "2A"'));
-assert.ok(!wrapper.includes("callProvider("), "Phase 2A must not add a provider/judge call");
+assert.ok(wrapper.includes('phase: "2B"'));
+assert.ok(!wrapper.includes("callProvider("), "Phase 2 must not add a provider/judge call");
 
-console.log("v41 Phase 2A primary Voice generation-contract checks passed");
+console.log("v41 Phase 2A primary Voice semantic-contract checks passed beneath Phase 2B");
