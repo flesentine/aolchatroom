@@ -29,6 +29,8 @@ const REPEATED_SUBJECT_STOP = new Set([
 ]);
 const HARD_QUANTITY_QUESTION = /\b(?:how many|number of|quantity|count of)\b/i;
 const HARD_PRICE_QUESTION = /\b(?:how much|price|cost|worth|pay|paid)\b/i;
+const MONEY_EVIDENCE = /(?:[$£€¥]\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?|usd)\b/i;
+const COUNT_VALUE = "(?:\\d+(?:\\.\\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many)";
 const ALT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -164,15 +166,31 @@ function sharedFamily(signatures) {
   return new Set([...first.family].filter((token) => rest.every((row) => row.family.has(token))));
 }
 
-function surfaceMentionsFamilyVersion(surface, family, version) {
-  const text = clean(surface);
+function clauseMentionsFamilyVersion(clause, family, version) {
   for (const familyToken of family) {
     const familyRx = escapeRegex(familyToken);
     const versionRx = escapeRegex(version);
-    if (new RegExp(`\\b${familyRx}\\b[^,;.!?]{0,32}\\b${versionRx}\\b`, "i").test(text)) return true;
-    if (new RegExp(`\\b${versionRx}\\b[^,;.!?]{0,32}\\b${familyRx}\\b`, "i").test(text)) return true;
+    if (new RegExp(`\\b${familyRx}\\b[^,;.!?]{0,32}\\b${versionRx}\\b`, "i").test(clause)) return true;
+    if (new RegExp(`\\b${versionRx}\\b[^,;.!?]{0,32}\\b${familyRx}\\b`, "i").test(clause)) return true;
   }
   return false;
+}
+
+function clauseCarriesVersionedEvidence(clause, family, version, kind) {
+  if (!clauseMentionsFamilyVersion(clause, family, version)) return false;
+  if (kind === "price") return MONEY_EVIDENCE.test(clause);
+  for (const familyToken of family) {
+    const familyRx = escapeRegex(familyToken);
+    const versionRx = escapeRegex(version);
+    const beforeFamily = new RegExp(`\\b${COUNT_VALUE}\\b[^,;.!?]{0,36}\\b${familyRx}\\b[^,;.!?]{0,24}\\b${versionRx}\\b`, "i");
+    const possessionCount = new RegExp(`\\b(?:own|owns|owned|have|has|had|got|there\\s+(?:is|are|was|were))\\b[^,;.!?]{0,30}\\b${COUNT_VALUE}\\b[^,;.!?]{0,36}\\b${familyRx}\\b[^,;.!?]{0,24}\\b${versionRx}\\b`, "i");
+    if (beforeFamily.test(clause) || possessionCount.test(clause)) return true;
+  }
+  return false;
+}
+
+function surfaceCarriesFamilyVersionEvidence(surface, family, version, kind) {
+  return responseClauses(surface).some((clause) => clauseCarriesVersionedEvidence(clause, family, version, kind));
 }
 
 function rawRepeatedClauses(question, kind) {
@@ -199,7 +217,7 @@ function validateRepeatedModelSubjects(evaluation, question, surface) {
     const missing = [];
     for (const signature of versioned) {
       for (const version of signature.versions) {
-        if (!surfaceMentionsFamilyVersion(surface, family, version)) missing.push(version);
+        if (!surfaceCarriesFamilyVersionEvidence(surface, family, version, kind)) missing.push(version);
       }
     }
     if (!missing.length) continue;
