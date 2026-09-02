@@ -7,15 +7,20 @@ const STOP_WORDS = new Set([
   "directly", "human", "question", "respond", "response", "reply", "explain", "acknowledge", "using", "exact"
 ]);
 
-const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
+const POLARITY_AUX = "(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)";
+const POLARITY_QUESTION = new RegExp(`^\\s*${POLARITY_AUX}\\b`, "i");
+const POLARITY_CLAUSE_QUESTION = new RegExp(`(?:^|[?,;]|\\b(?:and|but)\\b)\\s*${POLARITY_AUX}\\b`, "i");
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const HARD_POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|i do|i don't|i dont|i did|i didn't|i didnt|i own|i don't own|i dont own|i don't have|i dont have|i haven't got|i havent got|got one|have one|own one|i (?:own|have|got) (?:one|it|a|an|the))\b/i;
+const STRONG_POLARITY_LEADING_MARKER = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|never)\b/i;
+const SOFT_POLARITY_LEADING_MARKER = /^\s*(?:not really|maybe|probably)\b/i;
+const PRICE_NEGATIVE_MODIFIER = /^\s*(?:no\s+(?:more|less|higher|lower|over|under|than)|not\s+really\s+(?:expensive|cheap|cheaper|pricey|costly)|not\s+(?:expensive|cheap|cheaper|pricey|costly))\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
-const PRICE_DIRECT_QUESTION = /\bhow much\b|\bwhat(?:'s| is| was| are| were)?\s+(?:the\s+)?(?:price|cost)\b|\bwhat\s+(?:does|did|do|is|was|are|were)\b.{0,45}\b(?:cost|go(?:es)? for)\b|\bwhat(?:'d| did)\s+(?:you|u|he|she|they|we|it)\s+pay\b/i;
-const PRICE_FRAGMENT_QUESTION = /^\s*(?:price|cost|how much)\s*\??\s*$/i;
+const PRICE_DIRECT_QUESTION = /\bwhat(?:'s| is| was| are| were)?\s+(?:the\s+)?(?:price|cost)\b|\bwhat\s+(?:does|did|do|is|was|are|were)\b.{0,45}\b(?:cost|go(?:es)? for)\b|\bwhat(?:'d| did)\s+(?:you|u|he|she|they|we|it)\s+pay\b|\bhow much\b.{0,65}\b(?:costs?|cost|worth|paid|pay|go(?:es)? for|went for|price)\b/i;
+const PRICE_FRAGMENT_QUESTION = /^\s*(?:price|cost)\s*\??\s*$/i;
 const PRICE_VALUATION_REQUIREMENT = /\b(?:how much\b.{0,80}\bworth|what(?:'s| is| are| was| were)?\b.{0,60}\bworth)\b/i;
 const PURCHASE_WORTH_OPINION = /\bworth\s+(?:buying|get(?:ting)?|owning|playing|trying|having|it)\b/i;
-const PRICE_SEMANTIC_DIRECTIVE = /\bhow much\b|\b(?:give|state|provide|include)\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\banswer\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\b(?:say|tell)\s+(?:me\s+)?what\b.{0,35}\b(?:costs?|price|worth|paid)\b/i;
+const PRICE_SEMANTIC_DIRECTIVE = /\b(?:give|state|provide|include)\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\banswer\s+(?:the\s+)?(?:price|cost|amount(?: paid)?)\b|\b(?:say|tell)\s+(?:me\s+)?what\b.{0,35}\b(?:costs?|price|worth|paid)\b|\bhow much\b.{0,65}\b(?:costs?|cost|worth|paid|pay|go(?:es)? for|went for|price)\b/i;
 const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
 const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much)\b/i;
 const PRICE_LOOSE_QUALITATIVE = /\ba lot\b/i;
@@ -26,7 +31,7 @@ const QUANTITY_REQUIREMENT = /\b(?:how many|number of|quantity|count of)\b/i;
 const QUANTITY_RESPONSE = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
 const QUANTITY_WORD_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|a\s+dozen|dozen|a\s+couple|couple|a\s+few|few|several|many|tons?)\b(?!\s+(?:hundred|thousand|grand|bucks?|dollars?))|\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const QUANTITY_WORD_AT_START = /^\s*(?:a\s+)?(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b(?!\s+(?:hundred|thousand|grand|bucks?|dollars?))/i;
-const QUANTITY_NUMERIC_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+\d{1,3}\b|\b\d{1,3}\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
+const QUANTITY_NUMERIC_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+\d{1,3}\b(?!\s*(?:bucks?|dollars?|hundred|thousand|grand))|\b\d{1,3}\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const TIME_REQUIREMENT = /\b(?:when|what time|what year|what date|how long)\b/i;
 const TIME_RESPONSE = /\b(?:today|tomorrow|tonight|yesterday|morning|afternoon|evening|night|week|month|year|hour|minute|soon|later|ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,4}(?::\d{2})?(?:\s*[ap]m)?\b/i;
 const UNCERTAINTY_RESPONSE = /\b(?:idk|i dont know|i don't know|dunno|not sure|no idea|couldnt tell ya|couldn't tell ya)\b/i;
@@ -96,6 +101,34 @@ function hasQuantityNumber(text) {
   return numericValues(text).some((value) => Number.isInteger(value) && !looksLikeYear(value) && value >= 0 && value <= 999);
 }
 
+function splitClauses(value) {
+  return clean(value, 900)
+    .split(/(?:[,;!?]+|\b(?:and|but|though|tho)\b)/i)
+    .map((part) => part.trim())
+    .filter(Boolean);
+}
+
+function humanPolarityClauses(text) {
+  return splitClauses(text).filter((clause) => POLARITY_QUESTION.test(clause));
+}
+
+function polarityScopeType(contract) {
+  const clauses = humanPolarityClauses(contract?.human?.text || "");
+  const source = clauses.join(" ") || `${contract?.human?.text || ""} ${contract?.move?.meaning || ""} ${contract?.goal || ""}`;
+  if (/\b(?:own|owns|owned|ownership|have|has|had|got)\b/i.test(source)) return "ownership";
+  if (/\b(?:like|love|hate|prefer|favorite|fave|worth buying|worth getting)\b/i.test(source)) return "opinion";
+  if (/\b(?:can|could|able|ability)\b/i.test(source)) return "ability";
+  return "generic";
+}
+
+function clauseHasPolarityContext(clause, contract) {
+  const type = polarityScopeType(contract);
+  if (type === "ownership") return /\b(?:own|owns|owned|have|has|had|got)\b/i.test(clause);
+  if (type === "opinion") return /\b(?:like|love|hate|prefer|favorite|fave|worth|good|bad|rules?|rocks?|sucks?)\b/i.test(clause);
+  if (type === "ability") return /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i.test(clause);
+  return /\b(?:i\s+(?:do|dont|don't|did|didnt|didn't|am|was|will)|yes|yeah|nah|nope)\b/i.test(clause);
+}
+
 function hasPriceRequirement(humanText, meaning, goal) {
   const human = clean(humanText, 420);
   const semantic = clean(`${meaning} ${goal}`, 900);
@@ -111,17 +144,17 @@ function requirementKinds(humanText, meaning, goal) {
   if (hasPriceRequirement(humanText, meaning, goal)) addUnique(required, "price");
   if (QUANTITY_REQUIREMENT.test(source)) addUnique(required, "quantity");
   if (TIME_REQUIREMENT.test(source)) addUnique(required, "time");
-  if (POLARITY_QUESTION.test(humanText) || /\bwhether\b/i.test(source) || /\b(?:confirm|deny)\b/i.test(meaning)) {
+  if (POLARITY_CLAUSE_QUESTION.test(humanText) || /\bwhether\b/i.test(source) || /\b(?:confirm|deny)\b/i.test(meaning)) {
     addUnique(required, "polarity");
   }
   return required;
 }
 
 function polarityUncertaintyScope(contract, text) {
-  const source = `${contract?.human?.text || ""} ${contract?.move?.meaning || ""} ${contract?.goal || ""}`;
-  if (/\b(?:own|ownership|have|has|got)\b/i.test(source)) return /\b(?:own|owns|owned|have|has|had|got)\b/i.test(text);
-  if (/\b(?:like|love|hate|prefer|favorite|fave)\b/i.test(source)) return /\b(?:like|love|hate|prefer|favorite|fave)\b/i.test(text);
-  if (/\b(?:can|could|able|ability)\b/i.test(source)) return /\b(?:can|could|able)\b/i.test(text);
+  const type = polarityScopeType(contract);
+  if (type === "ownership") return /\b(?:own|owns|owned|have|has|had|got)\b/i.test(text);
+  if (type === "opinion") return /\b(?:like|love|hate|prefer|favorite|fave|worth)\b/i.test(text);
+  if (type === "ability") return /\b(?:can|could|able)\b/i.test(text);
   return /\b(?:if|whether)\b/i.test(text);
 }
 
@@ -141,8 +174,17 @@ function withoutUncertaintyPhrases(text) {
 
 function hardPolaritySatisfied(text, contract) {
   const explicit = withoutUncertaintyPhrases(text);
-  if (HARD_POLARITY_RESPONSE.test(explicit)) return true;
-  if (/\b(?:maybe|probably)\b/i.test(explicit) && polarityUncertaintyScope(contract, explicit)) return true;
+  for (const clause of splitClauses(explicit)) {
+    if (clauseHasPolarityContext(clause, contract) && HARD_POLARITY_RESPONSE.test(clause)) return true;
+    if (PRICE_NEGATIVE_MODIFIER.test(clause)) continue;
+    if (STRONG_POLARITY_LEADING_MARKER.test(clause)) return true;
+    if (SOFT_POLARITY_LEADING_MARKER.test(clause)) {
+      const otherHardEvidence = PRICE_CURRENCY_NUMBER.test(clause) || PRICE_CONTEXT.test(clause) || PRICE_QUALITATIVE.test(clause)
+        || QUANTITY_NUMERIC_CONTEXT.test(clause) || QUANTITY_WORD_CONTEXT.test(clause);
+      if (clauseHasPolarityContext(clause, contract) || !otherHardEvidence) return true;
+    }
+    if (/^\s*(?:maybe|probably)\b/i.test(clause) && polarityUncertaintyScope(contract, clause)) return true;
+  }
   return false;
 }
 
