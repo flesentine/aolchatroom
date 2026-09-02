@@ -121,8 +121,9 @@ function scopedUncertaintySatisfied(kind, text, multiPart, contract) {
 }
 
 function hardPolaritySatisfied(text, contract) {
-  if (HARD_POLARITY_RESPONSE.test(text)) return true;
-  if (/\b(?:maybe|probably)\b/i.test(text) && polarityUncertaintyScope(contract, text)) return true;
+  const explicit = clean(text).replace(UNCERTAINTY_RESPONSE, " ");
+  if (HARD_POLARITY_RESPONSE.test(explicit)) return true;
+  if (/\b(?:maybe|probably)\b/i.test(explicit) && polarityUncertaintyScope(contract, explicit)) return true;
   return false;
 }
 
