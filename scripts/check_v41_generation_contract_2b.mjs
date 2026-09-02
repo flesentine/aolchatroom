@@ -105,8 +105,12 @@ assert.equal(roomEvaluation.ok, true);
 const wrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 assert.ok(wrapper.includes("async generateHumanReplan(human)"));
 assert.ok(wrapper.includes("evaluateHumanReplanPrimaryResponse"));
-assert.ok(wrapper.includes("this.builtInHumanReply?.(human)"));
+assert.ok(wrapper.includes('from "./index_v14.js"'));
+assert.ok(wrapper.includes("v41DeterministicHumanFallback(human)"));
+assert.ok(wrapper.includes("ContinuityFallbackChatRoom.prototype.builtInHumanReply.call"));
+assert.ok(!wrapper.includes("this.builtInHumanReply?.(human)"), "Phase 2B must not dispatch through provider-aware built-in suppression");
 assert.ok(wrapper.includes("missingRequiredHumanReplanResponseDropsEntireTail: true"));
+assert.ok(wrapper.includes("failedHumanReplanUsesProviderIndependentV14Fallback: true"));
 assert.ok(wrapper.includes("failedHumanReplanUsesOnlyValidatedBuiltInFallback: true"));
 assert.ok(!wrapper.includes("callProvider("), "Phase 2B fail-closed recovery must not add a provider call");
 
