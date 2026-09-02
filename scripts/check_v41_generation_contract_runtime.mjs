@@ -89,6 +89,7 @@ async function runContract(name) {
 const contracts = [
   "semantic-reject",
   "semantic-scoped-reject",
+  "semantic-polarity-scope-reject",
   "semantic-pass",
   "human-fallback",
   "human-tail-fail-closed",
