@@ -49,6 +49,30 @@ const priceOnlyNeo = evaluatePrimaryHumanVoice({
 assert.equal(priceOnlyNeo.ok, false, "topic overlap plus a price must not silently satisfy the separate yes/no obligation");
 assert.equal(priceOnlyNeo.reason, "missing-polarity");
 
+// Third-pass clause-scoping regressions: hedges and generic intensifiers must not
+// satisfy a different multipart obligation just because they appear in the same line.
+const maybePriceOnly = evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("maybe 600 bucks")
+});
+assert.equal(maybePriceOnly.ok, false, "price uncertainty must not double as the ownership answer");
+assert.equal(maybePriceOnly.reason, "missing-polarity");
+
+const genericALot = evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("yeah i like it a lot")
+});
+assert.equal(genericALot.ok, false, "generic 'a lot' must not masquerade as a price answer in multipart output");
+assert.equal(genericALot.reason, "missing-price");
+
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("maybe i own one, around 600 bucks")
+}).ok, true, "ownership-scoped uncertainty plus a price should remain valid");
+
 // Codex P1 regression: evidence must be scoped to the obligation it actually
 // answers. Generic uncertainty about ownership is not uncertainty about price,
 // and a calendar year is not price evidence just because it is numeric.
@@ -132,6 +156,11 @@ const zelda = evaluatePrimaryHumanVoice({
 });
 assert.equal(zelda.ok, true);
 assert.equal(zelda.coverage.find((row) => row.kind === "polarity")?.hard, false, "single polarity questions remain conservative/advisory");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: zeldaPlan,
+  human: { from: "Crateman", target: "SegaMan", text: "do you like zelda?" },
+  lines: line("maybe", { speaker: "SegaMan" })
+}).ok, true, "a short maybe remains valid for a single yes/no question");
 
 // Price is a high-confidence obligation even when it is the only question. In
 // that single-obligation shape, a bare non-year amount or generic uncertainty can
@@ -141,6 +170,7 @@ const priceHuman = { from: "Crateman", target: "MetallicaFan", text: "what does 
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("lol") }).ok, false);
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("600") }).ok, true);
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("like 600 bucks") }).ok, true);
+assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("a lot") }).ok, true, "a lot remains a valid compact answer when price is the only obligation");
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("idk") }).ok, true);
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("1995") }).ok, false, "a bare year must not be accepted as a price");
 
