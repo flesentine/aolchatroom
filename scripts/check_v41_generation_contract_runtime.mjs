@@ -13,7 +13,7 @@ function pushLog(prefix, chunk) {
     if (!line.trim()) continue;
     logs.push(`${prefix}${line}`);
   }
-  while (logs.length > 140) logs.shift();
+  while (logs.length > 180) logs.shift();
 }
 
 function sleep(ms) {
@@ -62,7 +62,7 @@ async function waitForWorker() {
       const response = await fetch(`${origin}/health`);
       if (response.ok) {
         const data = await response.json();
-        if (data?.ok && data?.runtime === "workerd" && data?.phase === "2A") return;
+        if (data?.ok && data?.runtime === "workerd" && data?.phase === "2B") return;
       }
     } catch (error) {
       lastError = error?.message || String(error);
@@ -70,7 +70,7 @@ async function waitForWorker() {
     await sleep(100);
   }
   throw new Error([
-    `v41 Phase 2A Worker did not become ready${lastError ? `: ${lastError}` : ""}`,
+    `v41 Phase 2B Worker did not become ready${lastError ? `: ${lastError}` : ""}`,
     `wrangler exit code: ${exitCode}`,
     ...logs.slice(-35)
   ].join("\n"));
@@ -88,8 +88,12 @@ async function runContract(name) {
 
 const contracts = [
   "semantic-reject",
+  "semantic-scoped-reject",
   "semantic-pass",
   "human-fallback",
+  "human-tail-fail-closed",
+  "human-answer-first-pass",
+  "human-bad-fallback-reject",
   "clarification-reject",
   "background-untouched",
   "status"
@@ -98,10 +102,10 @@ const contracts = [
 try {
   await waitForWorker();
   for (const name of contracts) await runContract(name);
-  console.log(`v41 Phase 2A real-Worker generation contracts: ${contracts.length}/${contracts.length} passed`);
+  console.log(`v41 Phase 2 real-Worker generation contracts: ${contracts.length}/${contracts.length} passed`);
 } catch (error) {
   console.error(error?.stack || error);
-  if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-45).join("\n"));
+  if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-55).join("\n"));
   process.exitCode = 1;
 } finally {
   await stopWorker();
