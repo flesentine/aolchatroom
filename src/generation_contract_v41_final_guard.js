@@ -13,7 +13,7 @@ const DIRECT_OBJECT = /^(?:it|one|this|that|these|those|\d+)$/i;
 const MONEY = /(?:[$£€¥]\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?|usd)\b/gi;
 const RANGE = /\bbetween\b[^,;!?]{0,120}?\band\b[^,;!?]{0,120}?(?=\s*(?:[,;!?]|$|\b(?:but|plus|versus|vs\.?)\b))/gi;
 const COUNT_TOKEN = "(?:\\d+(?:\\.\\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many)";
-const QUALIFIED_QUANTITY = new RegExp(`\\b${COUNT_TOKEN}\\b\\s+((?:[a-z0-9'-]+\\s+){0,3})(copies|units|systems?|consoles?|games?|ones?)\\b`, "gi");
+const QUALIFIED_QUANTITY = new RegExp(`\\b${COUNT_TOKEN}\\b\\s+((?:[a-z0-9'-]+\\s+){0,3}?)(copies|units|systems?|consoles?|games?|ones?)\\b`, "gi");
 const CONTENT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -196,8 +196,7 @@ function containingRange(spans, index) {
 }
 
 function hasQuantityExpression(value) {
-  const matcher = new RegExp(QUALIFIED_QUANTITY.source, "i");
-  return matcher.test(clean(value));
+  return new RegExp(QUALIFIED_QUANTITY.source, "i").test(clean(value));
 }
 
 function quantityEvidenceUnits(surface) {
@@ -240,8 +239,7 @@ function priceEvidenceUnits(surface) {
   const units = [];
   for (const piece of evidencePieces(surface)) {
     const ranges = rangeSpans(piece);
-    const moneyMatcher = new RegExp(MONEY.source, "gi");
-    const moneyMatches = [...piece.matchAll(moneyMatcher)];
+    const moneyMatches = [...piece.matchAll(new RegExp(MONEY.source, "gi"))];
     if (!moneyMatches.length) continue;
     if (ranges.length) {
       units.push({ text: piece, subject: subjectTokens(piece) });
@@ -269,17 +267,14 @@ function assignStrictRepeated(clauses, units) {
     }
   }
 
-  const remainingClauses = () => assignments.map((value, index) => value ? -1 : index).filter((index) => index >= 0);
-  const remainingUnits = () => units.map((_, index) => used.has(index) ? -1 : index).filter((index) => index >= 0);
-
-  const clauseIndexes = remainingClauses();
-  const unitIndexes = remainingUnits();
-  if (clauseIndexes.length === 1 && unitIndexes.length === 1) {
-    const unit = units[unitIndexes[0]];
+  const remainingClauses = assignments.map((value, index) => value ? -1 : index).filter((index) => index >= 0);
+  const remainingUnits = units.map((_, index) => used.has(index) ? -1 : index).filter((index) => index >= 0);
+  if (remainingClauses.length === 1 && remainingUnits.length === 1) {
+    const unit = units[remainingUnits[0]];
     const explicitGenericAlreadyRequested = [...unit.subject].some((token) => clauseSubjects.some((subject) => subject.has(token)));
     if (isGenericSubject(unit.subject) && !explicitGenericAlreadyRequested) {
-      assignments[clauseIndexes[0]] = unit.text;
-      used.add(unitIndexes[0]);
+      assignments[remainingClauses[0]] = unit.text;
+      used.add(remainingUnits[0]);
     }
   }
 
@@ -295,18 +290,16 @@ function assignStrictRepeated(clauses, units) {
 }
 
 function repeatedCoverage(evaluation, kind, clauses, assignments) {
-  const coverage = (evaluation.coverage || []).map((row) => row.kind === kind
-    ? { ...row, satisfied: Boolean(assignments.find((_, index) => row.id === `${kind}:clause:${index}`) || assignments[(evaluation.coverage || []).filter((item) => item.kind === kind).indexOf(row)]) }
-    : row);
-  // The hardened/final layers use stable clause ids. Rebuild only repeated rows
-  // when the old coverage shape cannot be mapped cleanly.
-  const existingKindRows = coverage.filter((row) => row.kind === kind);
+  const current = evaluation.coverage || [];
+  const existingKindRows = current.filter((row) => row.kind === kind);
   if (existingKindRows.length === clauses.length) {
     let cursor = 0;
-    return coverage.map((row) => row.kind === kind ? { ...row, satisfied: Boolean(assignments[cursor++]) } : row);
+    return current.map((row) => row.kind === kind
+      ? { ...row, satisfied: Boolean(assignments[cursor++]) }
+      : row);
   }
   return [
-    ...coverage.filter((row) => row.kind !== kind),
+    ...current.filter((row) => row.kind !== kind),
     ...clauses.map((clause, index) => ({
       id: `${kind}:clause:${index}`,
       kind,
