@@ -11,8 +11,9 @@ const CHOICE_OR_QUESTION = new RegExp(`^\\s*${POLARITY_AUX}\\b[^?]{0,180}\\s+or\
 const STANDALONE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i am|i'm|i was|i wasn't|i wasnt|i will|i won't|i wont)\s*$/i;
 const LEADING_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably)\b/i;
 const OPINION = /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
-const OWNERSHIP = /\b(?:own|owns|owned)\b|\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)\s+(?:got\s+)?|got\s+)(?:(?:a|an|the|one|it|any|some|no|this|that|these|those)\b|\d+\b)/i;
-const NON_POSSESSION_HAVE = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)\s+(?:got\s+)?|got\s+)(?:a|an|the|one)\s+(?:question|reason|chance|idea|problem|point|way|minute|moment|thought|request|plan|story|thing)\b/i;
+const EXPLICIT_OWNERSHIP = /\b(?:own|owns|owned)\b/i;
+const DIRECT_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:it|one|this|that|these|those|\d+)\b/i;
+const NAMED_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:a|an|the|some|any|no)\s+([a-z0-9'-]+(?:\s+[a-z0-9'-]+){0,2})/i;
 const ABILITY = /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i;
 const PAYMENT = /\b(?:pay|paid)\b/i;
 const SUBJECT_AUX = /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i;
@@ -28,11 +29,6 @@ const PRICE_AMOUNT_WORD = /\b(?:hundred|thousand|grand)\b/i;
 const APPROX_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?(\d+(?:\.\d{1,2})?)\b/i;
 const COUNT_WORD = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
 const COUNT_NOUN = /\b(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
-const CHOICE_SELECTION_FILLER = new Set([
-  "it's", "its", "one", "want", "wants", "wanted", "choose", "chooses", "chose", "chosen", "pick", "picks", "picked",
-  "take", "takes", "took", "taking", "prefer", "prefers", "preferred", "rather", "please", "favorite", "fave", "think",
-  "probably", "definitely", "maybe", "guess", "go", "with", "mine", "i'll", "i'd"
-]);
 const CONTENT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -69,6 +65,7 @@ function normalizeResponse(value) {
     .replace(/\bisn't\b/gi, "is not")
     .replace(/\bwasn't\b/gi, "was not")
     .replace(/\bweren't\b/gi, "were not")
+    .replace(/\bthere're\b/gi, "there are")
     .replace(/\bthere's\s+(?=(?:not|a|an|one|some|any|no|none|nothing|something|plenty|few|several|many|\d)\b)/gi, "there is ");
 
   text = text.replace(
@@ -144,9 +141,20 @@ function overlapsObligation(clause, obligation) {
   return false;
 }
 
+function ownershipClauseMatches(clause, obligation) {
+  const text = clean(clause);
+  if (EXPLICIT_OWNERSHIP.test(text) || DIRECT_POSSESSION.test(text)) return true;
+  const named = text.match(NAMED_POSSESSION);
+  if (!named) return false;
+  const objectTokens = contentTokens(named[1]);
+  const expected = contentTokens(obligation?.clause || "");
+  for (const token of objectTokens) if (expected.has(token)) return true;
+  return false;
+}
+
 function scopedClauseMatches(clause, obligation) {
   const scope = obligation?.scope || "generic";
-  if (scope === "ownership") return !NON_POSSESSION_HAVE.test(clause) && OWNERSHIP.test(clause);
+  if (scope === "ownership") return ownershipClauseMatches(clause, obligation);
   if (scope === "opinion") return OPINION.test(clause);
   if (scope === "ability") return ABILITY.test(clause);
   if (scope === "payment") return PAYMENT.test(clause);
@@ -158,7 +166,7 @@ function clauseCarriesPolarity(clause, obligation) {
   if (!scopedClauseMatches(clause, obligation)) return false;
   const scope = obligation?.scope || "generic";
   if (LEADING_POLARITY.test(clause)) return true;
-  if (scope === "ownership") return OWNERSHIP.test(clause);
+  if (scope === "ownership") return ownershipClauseMatches(clause, obligation);
   if (scope === "opinion") return OPINION.test(clause);
   if (scope === "ability") return ABILITY.test(clause);
   if (scope === "payment") return PAYMENT.test(clause);
@@ -235,6 +243,14 @@ function repairCoverage(evaluation, kind, evidence = {}) {
   };
 }
 
+function canRepairMissingKind(evaluation, kind) {
+  return Boolean(
+    !evaluation?.ok
+    && /^missing-/.test(evaluation?.reason || "")
+    && (evaluation?.coverage || []).some((row) => row.kind === kind && row.hard && !row.satisfied)
+  );
+}
+
 function hasExplicitGroupedQuantity(rawText) {
   const text = clean(rawText);
   const matcher = new RegExp(GROUPED_COUNT_PATTERN.source, "gi");
@@ -251,7 +267,7 @@ function hasExplicitGroupedQuantity(rawText) {
 }
 
 function repairExplicitGroupedQuantity(evaluation, rawText) {
-  if (evaluation?.ok || !hasExplicitGroupedQuantity(rawText)) return evaluation;
+  if (!canRepairMissingKind(evaluation, "quantity") || !hasExplicitGroupedQuantity(rawText)) return evaluation;
   return repairCoverage(evaluation, "quantity", { explicitGroupedQuantity: true });
 }
 
@@ -268,24 +284,37 @@ function choiceAlternativeTokens(question) {
   return { leftUnique, rightUnique };
 }
 
-function selectedChoiceAlternative(question, surface) {
-  const alternatives = choiceAlternativeTokens(question);
-  if (!alternatives) return false;
-  const output = contentTokens(surface);
-  const leftHit = [...alternatives.leftUnique].some((token) => output.has(token));
-  const rightHit = [...alternatives.rightUnique].some((token) => output.has(token));
-  if (leftHit === rightHit) return false;
+function escapeRegex(value) {
+  return String(value || "").replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
 
-  const selected = leftHit ? alternatives.leftUnique : alternatives.rightUnique;
-  for (const token of output) {
-    if (selected.has(token) || CHOICE_SELECTION_FILLER.has(token)) continue;
-    return false;
-  }
-  return true;
+function selectedChoiceToken(question, surface) {
+  const alternatives = choiceAlternativeTokens(question);
+  if (!alternatives) return null;
+  const output = contentTokens(surface);
+  const leftHits = [...alternatives.leftUnique].filter((token) => output.has(token));
+  const rightHits = [...alternatives.rightUnique].filter((token) => output.has(token));
+  if (Boolean(leftHits.length) === Boolean(rightHits.length)) return null;
+  return (leftHits.length ? leftHits : rightHits)[0] || null;
+}
+
+function selectedChoiceAlternative(question, surface) {
+  const selected = selectedChoiceToken(question, surface);
+  if (!selected) return false;
+  const token = escapeRegex(selected);
+  const text = clean(surface).toLowerCase();
+  const patterns = [
+    new RegExp(`^\\s*(?:probably\\s+|definitely\\s+|maybe\\s+)?${token}(?:\\s+please)?[.!]?\\s*$`, "i"),
+    new RegExp(`\\b(?:want|wants|wanted|choose|chooses|chose|pick|picks|picked|take|takes|took|prefer|prefers|preferred)\\b[^,;.!?]{0,45}\\b${token}\\b`, "i"),
+    new RegExp(`\\b(?:i(?:'d| would)\\s+(?:like|prefer)|i(?:'ll| will)\\s+(?:take|have|choose|pick)|give\\s+me|go\\s+with)\\b[^,;.!?]{0,45}\\b${token}\\b`, "i"),
+    new RegExp(`\\b(?:it(?:'s| is)|that(?:'s| is))\\s+${token}\\b`, "i"),
+    new RegExp(`\\b${token}\\b\\s+(?:please|sounds?\\s+(?:good|great|better)|works?(?:\\s+for\\s+me)?|is\\s+(?:fine|good|better)|for\\s+me|looks?\\s+better)\\b`, "i")
+  ];
+  return patterns.some((pattern) => pattern.test(text));
 }
 
 function repairChoiceAlternative(evaluation, question, rawText) {
-  if (evaluation?.ok || !/^missing-.*polarity/.test(evaluation?.reason || "")) return evaluation;
+  if (!canRepairMissingKind(evaluation, "polarity")) return evaluation;
   if (!selectedChoiceAlternative(question, rawText)) return evaluation;
   return repairCoverage(evaluation, "polarity", { explicitChoiceAlternative: true });
 }
