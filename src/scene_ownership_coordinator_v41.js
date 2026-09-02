@@ -129,20 +129,24 @@ export class SceneOwnershipCoordinator extends SceneCoordinator {
     });
   }
 
+  ambientMomentum(now = Date.now(), { record = true } = {}) {
+    const before = Number(this.stats.ambientHumanOwnershipBlocks || 0);
+    const result = super.ambientMomentum(now, { record });
+    if (record) {
+      const after = Number(this.stats.ambientHumanOwnershipBlocks || 0);
+      if (after > before) this.stats.ambientRecentHumanOwnershipBlocks += after - before;
+    }
+    return result;
+  }
+
   ambientHumanOwnership(momentum, now = Date.now()) {
     if (!momentum?.sceneId) return { owned: false, reason: "no-scene", human: "" };
     const rows = this.rowsForScene(momentum.sceneId, now, V40_MOMENTUM_WINDOW_MS);
     const humans = this.recentHumanNames(now);
     const exactHuman = [...rows].reverse().find((row) => row?.kind === "human") || null;
-    if (exactHuman) {
-      this.stats.ambientRecentHumanOwnershipBlocks += 1;
-      return { owned: true, reason: "recent-human-in-scene", human: exactHuman.from || "" };
-    }
+    if (exactHuman) return { owned: true, reason: "recent-human-in-scene", human: exactHuman.from || "" };
     const participantHuman = participantNames(rows).find((name) => humans.has(name)) || "";
-    if (participantHuman) {
-      this.stats.ambientRecentHumanOwnershipBlocks += 1;
-      return { owned: true, reason: "active-or-recent-human-in-momentum-window", human: participantHuman };
-    }
+    if (participantHuman) return { owned: true, reason: "active-or-recent-human-in-momentum-window", human: participantHuman };
     return { owned: false, reason: "recent-bot-only", human: "" };
   }
 
@@ -244,7 +248,8 @@ export class SceneOwnershipCoordinator extends SceneCoordinator {
         generalAndGreetingTopicsFallBackToTextEvidence: true,
         legacyHumanReplanBlanketCarryRetired: true,
         detachedHumanReplanSideLinesCannotEvictAtSceneCap: true,
-        ambientHumanOwnershipUsesMomentumWindowParticipantsOnly: true
+        ambientHumanOwnershipUsesMomentumWindowParticipantsOnly: true,
+        snapshotReadsDoNotIncrementOwnershipStats: true
       }
     };
   }
