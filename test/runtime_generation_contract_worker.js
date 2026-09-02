@@ -50,8 +50,15 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
   builtInHumanReply(human) {
-    if (Array.isArray(this.contractBuiltIn)) return this.contractBuiltIn.map((row) => ({ ...row }));
+    // Simulate the provider-aware v19.2 suppression path. Phase 2B must not rely
+    // on this dynamic method when it needs its deterministic emergency fallback.
+    if (Array.isArray(this.contractBuiltIn)) return [];
     return super.builtInHumanReply(human);
+  }
+
+  v41DeterministicHumanFallback(human) {
+    if (Array.isArray(this.contractBuiltIn)) return this.contractBuiltIn.map((row) => ({ ...row }));
+    return super.v41DeterministicHumanFallback(human);
   }
 
   async callProvider(provider, prompt, maxTokens) {
@@ -136,6 +143,27 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
     equal(voiced.length, 0, "a purchase year must not masquerade as price evidence");
     equal(this.v41LastGenerationContract?.reason, "missing-price", "year-only evidence should leave price unsatisfied");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractPolarityScopeReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much did it cost?",
+      messageId: "m-human-polarity-scope",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "not sure what it costs";
+    const plan = directPlan({
+      goal: "Answer ownership and price",
+      meaning: "say whether he owns a Neo Geo and how much it cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "price-only uncertainty must not satisfy the separate ownership clause");
+    equal(this.v41LastGenerationContract?.reason, "missing-polarity", "uncertainty cue must not leak into multipart polarity");
     return { rejected: true, reason: this.v41LastGenerationContract?.reason };
   }
 
@@ -243,8 +271,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.reset({ history: [human], bots: ["MetallicaFan", "SegaMan"] });
     this.configureLegacyHumanPlan(human, { answerFirst: false, validFallback: true });
 
+    equal(this.builtInHumanReply(human).length, 0, "test must simulate provider-aware dynamic built-in suppression");
     const result = await this.generateHumanReplan(human);
-    equal(result.length, 1, "side-first human replan must collapse to one validated fallback");
+    equal(result.length, 1, "side-first human replan must collapse to one provider-independent validated fallback");
     equal(result[0]?.speaker, "MetallicaFan", "fallback must restore the required responder");
     equal(result[0]?.target, "Crateman", "fallback must target the human");
     equal(result[0]?.text, "yeah maybe", "discarded side chatter must not survive");
@@ -252,8 +281,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(this.v41LastHumanReplanContract?.reason, "required-responder-not-first", "diagnostic should identify the first-slot ownership failure");
     equal(this.v41LastHumanReplanContract?.discardedLines, 2, "both generated tail lines must be discarded together");
     equal(this.v41GenerationStats.humanReplanSideLinesDiscarded, 2, "discard counter should include the entire failed batch");
-    equal(this.v41GenerationStats.humanReplanFallbacks, 1, "validated deterministic fallback should be counted");
-    return { failClosed: true, discarded: 2, text: result[0]?.text };
+    equal(this.v41GenerationStats.humanReplanFallbacks, 1, "provider-independent deterministic fallback should be counted");
+    return { failClosed: true, providerSuppressionBypassed: true, discarded: 2, text: result[0]?.text };
   }
 
   async contractHumanAnswerFirstPass() {
@@ -348,6 +377,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.primaryHumanVoiceSemanticContract, true, "status should expose Phase 2A semantic authority beneath 2B");
     equal(snapshot.policy.requiredHumanReplanPrimaryResponseMustBeFirst, true, "status should expose Phase 2B first-slot authority");
     equal(snapshot.policy.missingRequiredHumanReplanResponseDropsEntireTail, true, "status should expose whole-tail fail-closed behavior");
+    equal(snapshot.policy.failedHumanReplanUsesProviderIndependentV14Fallback, true, "status should expose provider-independent Phase 2B fallback");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
     equal(snapshot.policy.noAdditionalProviderCall, true, "Phase 2 must not add a judge-model call");
     return { phase: snapshot.phase, pass: snapshot.pass };
@@ -356,6 +386,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async runContract(name) {
     if (name === "semantic-reject") return this.contractSemanticReject();
     if (name === "semantic-scoped-reject") return this.contractScopedEvidenceReject();
+    if (name === "semantic-polarity-scope-reject") return this.contractPolarityScopeReject();
     if (name === "semantic-pass") return this.contractSemanticPass();
     if (name === "human-fallback") return this.contractFullHumanFallback();
     if (name === "human-tail-fail-closed") return this.contractHumanTailFailClosed();
