@@ -1,6 +1,10 @@
 import worker, { ChatRoom as Phase2ChatRoom } from "./index_v41_generation_contract_base.js";
 import { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
-import { evaluatePrimaryHumanVoice } from "./generation_contract_v41_hardened.js";
+import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
+import {
+  evaluateHumanReplanPrimaryResponse,
+  evaluatePrimaryHumanVoice
+} from "./generation_contract_v41_hardened.js";
 
 export default worker;
 
@@ -30,4 +34,48 @@ export class ChatRoom extends Phase2ChatRoom {
     });
     return [];
   }
+
+  v41DeterministicHumanFallback(human) {
+    // Keep the provider-independent Phase 2B emergency path explicit at the
+    // canonical production boundary. Never dynamically dispatch through later
+    // provider-aware builtInHumanReply overrides.
+    return ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
+  }
+
+  async generateHumanReplan(human) {
+    // Phase 2B implementation remains in the byte-preserved base class; this
+    // forward keeps the fail-closed boundary explicit in the canonical wrapper.
+    return super.generateHumanReplan(human);
+  }
+
+  async handlePendingHumanWithAi(now = Date.now()) {
+    return super.handlePendingHumanWithAi(now);
+  }
+
+  v41Snapshot(now = Date.now()) {
+    const snapshot = super.v41Snapshot(now);
+    const stats = snapshot.generationContract?.stats || {};
+    return {
+      ...snapshot,
+      phase: "2B",
+      generationContract: {
+        ...(snapshot.generationContract || {}),
+        stats: {
+          ...stats,
+          humanReplanFailClosedConsumes: Number(stats.humanReplanFailClosedConsumes || 0)
+        }
+      },
+      policy: {
+        ...(snapshot.policy || {}),
+        invalidValidatedFallbackConsumesLegacyRetry: true,
+        missingRequiredHumanReplanResponseDropsEntireTail: true,
+        failedHumanReplanUsesProviderIndependentV14Fallback: true,
+        failedHumanReplanUsesOnlyValidatedBuiltInFallback: true
+      }
+    };
+  }
 }
+
+// Imported through the hardened contract and intentionally kept visible here:
+// Phase 2B structural validation remains the inherited implementation's gate.
+void evaluateHumanReplanPrimaryResponse;
