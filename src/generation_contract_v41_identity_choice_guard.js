@@ -31,7 +31,7 @@ function clean(value, max = 900) {
 function canonicalToken(token) {
   const value = String(token || "").toLowerCase();
   if (value.endsWith("ies") && value.length > 4) return `${value.slice(0, -3)}y`;
-  if (value.endsWith("s") && value.length > 4 && !value.endsWith("ss")) return value.slice(0, -1);
+  if (value.endsWith("s") && value.length > 3 && !value.endsWith("ss")) return value.slice(0, -1);
   return value;
 }
 
@@ -73,7 +73,7 @@ function responseClauses(value) {
 function requestedOwnershipIdentity(clause) {
   const match = clean(clause).match(/\b(?:own|owns|owned)\s+(.+)$/i);
   if (!match) return new Set();
-  let raw = clean(match[1], 120).replace(/^(?:a|an|the|some|any)\s+/i, "");
+  const raw = clean(match[1], 120).replace(/^(?:a|an|the|some|any)\s+/i, "");
   if (DIRECT_OBJECT.test(raw)) return new Set();
   return identityTokens(raw);
 }
