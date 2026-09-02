@@ -7,6 +7,7 @@ import {
 
 const POLARITY_AUX = "(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)";
 const CROSS_TYPE_HOW_MUCH_OR = new RegExp(`(\\bhow much\\b[^?]{0,180}?)\\s+or\\s+(?=${POLARITY_AUX}\\b)`, "gi");
+const CHOICE_OR_QUESTION = new RegExp(`^\\s*${POLARITY_AUX}\\b[^?]{0,180}\\s+or\\s+${POLARITY_AUX}\\b`, "i");
 const STANDALONE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i am|i'm|i was|i wasn't|i wasnt|i will|i won't|i wont)\s*$/i;
 const LEADING_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably)\b/i;
 const OPINION = /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
@@ -53,9 +54,6 @@ function normalizeResponse(value) {
     .replace(/\bweren't\b/gi, "were not")
     .replace(/\bthere's\s+(?=(?:a|an|one|some|any|no|none|nothing|something|plenty|few|several|many|\d)\b)/gi, "there is ");
 
-  // Existential replies are ordinary yes/no evidence, but the base generic
-  // subject list intentionally does not treat "there" as a pronoun. Add an
-  // explicit marker at a clause boundary without changing the surfaced text.
   text = text.replace(
     /(^|[,;!?]\s*|\b(?:and|but|or)\s+)there\s+(is|are|was|were)\s+not\b/gi,
     (_, boundary, aux) => `${boundary}no there ${aux} not`
@@ -146,9 +144,8 @@ function orderedPolarityCoverage(obligations, normalizedText) {
   return satisfied;
 }
 
-function repairExplicitGroupedQuantity(evaluation, rawText) {
-  if (evaluation?.ok || !EXPLICIT_GROUPED_COUNT.test(clean(rawText))) return evaluation;
-  const coverage = (evaluation?.coverage || []).map((row) => row.kind === "quantity"
+function repairCoverage(evaluation, kind, evidence = {}) {
+  const coverage = (evaluation?.coverage || []).map((row) => row.kind === kind
     ? { ...row, satisfied: true }
     : row);
   const missing = [...new Set(coverage.filter((row) => row.hard && !row.satisfied).map((row) => row.kind))];
@@ -158,11 +155,33 @@ function repairExplicitGroupedQuantity(evaluation, rawText) {
     ok: true,
     reason: "recognized-obligations-covered",
     coverage,
-    evidence: {
-      ...(evaluation?.evidence || {}),
-      explicitGroupedQuantity: true
-    }
+    evidence: { ...(evaluation?.evidence || {}), ...evidence }
   };
+}
+
+function repairExplicitGroupedQuantity(evaluation, rawText) {
+  if (evaluation?.ok || !EXPLICIT_GROUPED_COUNT.test(clean(rawText))) return evaluation;
+  return repairCoverage(evaluation, "quantity", { explicitGroupedQuantity: true });
+}
+
+function selectedChoiceAlternative(question, surface) {
+  const source = clean(question);
+  if (!CHOICE_OR_QUESTION.test(source)) return false;
+  const parts = source.split(/\s+or\s+/i);
+  if (parts.length !== 2) return false;
+  const left = contentTokens(parts[0]);
+  const right = contentTokens(parts[1]);
+  const unique = new Set([...left, ...right].filter((token) => !(left.has(token) && right.has(token))));
+  if (!unique.size) return false;
+  const output = contentTokens(surface);
+  for (const token of output) if (unique.has(token)) return true;
+  return false;
+}
+
+function repairChoiceAlternative(evaluation, question, rawText) {
+  if (evaluation?.ok || !/^missing-.*polarity/.test(evaluation?.reason || "")) return evaluation;
+  if (!selectedChoiceAlternative(question, rawText)) return evaluation;
+  return repairCoverage(evaluation, "polarity", { explicitChoiceAlternative: true });
 }
 
 export function buildPrimaryHumanVoiceContract(args = {}) {
@@ -179,7 +198,9 @@ export function evaluatePrimaryHumanVoice(args = {}) {
     lines: normalized.lines
   });
 
-  evaluation = repairExplicitGroupedQuantity(evaluation, args?.lines?.[0]?.text || "");
+  const rawText = args?.lines?.[0]?.text || "";
+  evaluation = repairExplicitGroupedQuantity(evaluation, rawText);
+  evaluation = repairChoiceAlternative(evaluation, args?.human?.text || "", rawText);
   if (!evaluation?.ok) return evaluation;
 
   const obligations = evaluation?.contract?.polarityObligations || [];
