@@ -89,6 +89,7 @@ async function runContract(name) {
 const contracts = [
   "semantic-reject",
   "semantic-pass",
+  "human-fallback",
   "clarification-reject",
   "background-untouched",
   "status"
