@@ -131,15 +131,35 @@ function orderedPolarityCoverage(obligations, normalizedText) {
   const satisfied = new Set();
   if (rows.length <= 1) return satisfied;
 
+  let standaloneFloor = 0;
   for (const clause of splitResponseClauses(normalizedText)) {
     if (STANDALONE.test(clause)) {
-      const next = rows.find((row) => !satisfied.has(row.id));
-      if (next) satisfied.add(next.id);
+      let nextIndex = -1;
+      for (let index = standaloneFloor; index < rows.length; index += 1) {
+        if (!satisfied.has(rows[index].id)) {
+          nextIndex = index;
+          break;
+        }
+      }
+      if (nextIndex >= 0) {
+        satisfied.add(rows[nextIndex].id);
+        standaloneFloor = nextIndex + 1;
+      }
       continue;
     }
 
-    const match = rows.find((row) => !satisfied.has(row.id) && clauseCarriesPolarity(clause, row));
-    if (match) satisfied.add(match.id);
+    let matchIndex = -1;
+    for (let index = 0; index < rows.length; index += 1) {
+      const row = rows[index];
+      if (!satisfied.has(row.id) && clauseCarriesPolarity(clause, row)) {
+        matchIndex = index;
+        break;
+      }
+    }
+    if (matchIndex >= 0) {
+      satisfied.add(rows[matchIndex].id);
+      standaloneFloor = Math.max(standaloneFloor, matchIndex + 1);
+    }
   }
   return satisfied;
 }
