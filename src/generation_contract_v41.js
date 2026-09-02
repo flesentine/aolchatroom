@@ -8,7 +8,7 @@ const STOP_WORDS = new Set([
 ]);
 
 const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
-const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably)\b/i;
+const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
 const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|worth|paid|paying|pay for|dollars?|bucks?)\b/i;
 const PRICE_RESPONSE = /(?:\$\s*\d)|\b(?:bucks?|dollars?|grand|hundred|thousand|cheap|cheaper|expensive|pricey|costs?|cost|paid|pay|worth|too much|a lot)\b|\b\d+(?:\.\d{1,2})?\b/i;
@@ -76,12 +76,16 @@ function requirementKinds(humanText, meaning, goal) {
   return required;
 }
 
-function requirementSatisfied(kind, text, contextOverlap = 0) {
+function requirementSatisfied(kind, text, contextOverlap = 0, hard = false) {
   if (UNCERTAINTY_RESPONSE.test(text)) return true;
   if (kind === "price") return PRICE_RESPONSE.test(text);
   if (kind === "quantity") return QUANTITY_RESPONSE.test(text);
   if (kind === "time") return TIME_RESPONSE.test(text);
-  if (kind === "polarity") return POLARITY_RESPONSE.test(text) || OPINION_RESPONSE.test(text) || contextOverlap > 0;
+  if (kind === "polarity") {
+    if (POLARITY_RESPONSE.test(text)) return true;
+    if (hard) return false;
+    return OPINION_RESPONSE.test(text) || contextOverlap > 0;
+  }
   return true;
 }
 
@@ -174,7 +178,7 @@ export function evaluatePrimaryHumanVoice({ plan = null, lines = [], human = nul
 
   const coverage = (contract.requirements || []).map((kind) => {
     const hard = kind === "price" || kind === "quantity" || (kind === "polarity" && contract.multiPart);
-    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap) };
+    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap, hard) };
   });
   const missing = coverage.filter((row) => row.hard && !row.satisfied).map((row) => row.kind);
   if (missing.length) {
