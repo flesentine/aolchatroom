@@ -41,12 +41,25 @@ const thinNeo = evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, line
 assert.equal(thinNeo.ok, false, "a polarity-only surface must not satisfy ownership + price");
 assert.equal(thinNeo.reason, "missing-price");
 
+const priceOnlyNeo = evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("they go for like 600 bucks")
+});
+assert.equal(priceOnlyNeo.ok, false, "topic overlap plus a price must not silently satisfy the separate yes/no obligation");
+assert.equal(priceOnlyNeo.reason, "missing-polarity");
+
 const completeNeo = evaluatePrimaryHumanVoice({
   plan: neoPlan,
   human: neoHuman,
   lines: line("nah i dont own one, they go for like 600 bucks tho")
 });
 assert.equal(completeNeo.ok, true, "one short line may satisfy both obligations when both are present");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("i own one, they go for like 600 bucks")
+}).ok, true, "an explicit ownership statement plus price must satisfy hard multipart polarity coverage");
 
 const uncertainPrice = evaluatePrimaryHumanVoice({
   plan: neoPlan,
