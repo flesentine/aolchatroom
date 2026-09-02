@@ -9,7 +9,7 @@ const CHOICE_AUX = "(?:do|does|did|is|are|was|were|can|could|would|should|have|h
 const CHOICE_OR_QUESTION = new RegExp(`\\s*${CHOICE_AUX}\\b[^?]{0,180}\\s+or\\s+${CHOICE_AUX}\\b`, "i");
 const EXPLICIT_OWNERSHIP_OBJECT = /\b(?:i|we|he|she|they)\s+(?:own|owns|owned)\s+([^,;.!?]+?)(?=\s*(?:[,;.!?]|$|\b(?:and|but|though|tho|or|plus)\b))/gi;
 const DIRECT_OBJECT = /^(?:it|one|this|that|these|those|\d+)$/i;
-const STANDALONE_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i am|i'm|i was|i wasn't|i wasnt|i will|i won't|i wont)\s*$/i;
+const LEADING_OWNERSHIP_DENIAL = /^\s*(?:no|nah|nope|not really|never)\s*$/i;
 const IDENTITY_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -31,6 +31,7 @@ const HARD_QUANTITY_QUESTION = /\b(?:how many|number of|quantity|count of)\b/i;
 const HARD_PRICE_QUESTION = /\b(?:how much|price|cost|worth|pay|paid)\b/i;
 const MONEY_EVIDENCE = /(?:[$£€¥]\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?|usd)\b/i;
 const COUNT_VALUE = "(?:\\d+(?:\\.\\d+)?|zero|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many)";
+const COMPETING_ITEM = /\b(?:games?|controllers?|accessories?|titles?|discs?|cartridges?|copies?)\b/i;
 const ALT_STOP = new Set([
   "a", "an", "and", "any", "are", "as", "at", "be", "been", "but", "by", "can", "could", "did", "do", "does",
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
@@ -42,6 +43,12 @@ function clean(value, max = 900) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function canonicalIdentityText(value) {
+  return clean(value)
+    .replace(/\bps\s*([0-9]+)\b/gi, "playstation $1")
+    .replace(/\bplaystation\s*([0-9]+)\b/gi, "playstation $1");
+}
+
 function canonicalToken(token) {
   const value = String(token || "").toLowerCase();
   if (value.endsWith("ies") && value.length > 4) return `${value.slice(0, -3)}y`;
@@ -51,7 +58,7 @@ function canonicalToken(token) {
 
 function identityTokens(value) {
   return new Set(
-    clean(value)
+    canonicalIdentityText(value)
       .toLowerCase()
       .replace(/[^a-z0-9' ]+/g, " ")
       .split(/\s+/)
@@ -128,13 +135,13 @@ function validateModelIdentity(evaluation, surface) {
   if (!ownershipIndexes.length) return evaluation;
 
   const clauses = responseClauses(surface);
-  if (ownershipIndexes[0] === 0 && STANDALONE_POLARITY.test(clauses[0] || "")) return evaluation;
+  const leadingOwnershipDenial = ownershipIndexes[0] === 0 && LEADING_OWNERSHIP_DENIAL.test(clauses[0] || "");
 
   const objects = [];
   const matcher = new RegExp(EXPLICIT_OWNERSHIP_OBJECT.source, "gi");
   let match;
   while ((match = matcher.exec(clean(surface)))) objects.push(ownedObjectIdentity(match[1]));
-  if (!objects.length || objects.some((row) => row.direct)) return evaluation;
+  if (!objects.length || objects.some((row) => row.direct) || leadingOwnershipDenial) return evaluation;
 
   for (const index of ownershipIndexes) {
     const expected = requestedOwnershipIdentity(allPolarity[index]?.clause || "");
@@ -155,9 +162,13 @@ function validateModelIdentity(evaluation, surface) {
 
 function repeatedModelSignature(clause) {
   const tokens = new Set([...comparableIdentity(identityTokens(clause))].filter((token) => !REPEATED_SUBJECT_STOP.has(token)));
-  const versions = new Set([...tokens].filter((token) => /^\d+$/.test(token)));
-  const family = new Set([...tokens].filter((token) => !/^\d+$/.test(token) && !IDENTITY_VARIANT.has(token)));
-  return { tokens, versions, family };
+  const discriminators = new Set([...tokens].filter((token) => /^\d+$/.test(token) || IDENTITY_VARIANT.has(token)));
+  const family = new Set([...tokens].filter((token) => !discriminators.has(token)));
+  return { tokens, discriminators, family };
+}
+
+function discriminatorKey(signature) {
+  return [...signature.discriminators].sort().join("|");
 }
 
 function sharedFamily(signatures) {
@@ -166,31 +177,81 @@ function sharedFamily(signatures) {
   return new Set([...first.family].filter((token) => rest.every((row) => row.family.has(token))));
 }
 
-function clauseMentionsFamilyVersion(clause, family, version) {
-  for (const familyToken of family) {
-    const familyRx = escapeRegex(familyToken);
-    const versionRx = escapeRegex(version);
-    if (new RegExp(`\\b${familyRx}\\b[^,;.!?]{0,32}\\b${versionRx}\\b`, "i").test(clause)) return true;
-    if (new RegExp(`\\b${versionRx}\\b[^,;.!?]{0,32}\\b${familyRx}\\b`, "i").test(clause)) return true;
+function tokenSpans(value) {
+  const text = canonicalIdentityText(value).toLowerCase();
+  const tokens = [];
+  for (const match of text.matchAll(/\b[a-z0-9']+\b/g)) {
+    tokens.push({ token: canonicalToken(match[0]), start: match.index, end: match.index + match[0].length });
+  }
+  return { text, tokens };
+}
+
+function modelSpans(value, family, discriminators) {
+  const { text, tokens } = tokenSpans(value);
+  const required = new Set([...family, ...discriminators]);
+  const spans = [];
+  for (let start = 0; start < tokens.length; start += 1) {
+    const seen = new Set();
+    for (let end = start; end < Math.min(tokens.length, start + 8); end += 1) {
+      if (required.has(tokens[end].token)) seen.add(tokens[end].token);
+      if (seen.size === required.size) {
+        spans.push({ start: tokens[start].start, end: tokens[end].end });
+        break;
+      }
+    }
+  }
+  return { text, spans };
+}
+
+function modelActsAsModifier(text, start) {
+  const prefix = text.slice(0, start);
+  return /\b(?:games?|controllers?|accessories?|titles?|discs?|cartridges?|copies?)\s+(?:on|for|with|of)\s+(?:my|the|a|an)?\s*$/i.test(prefix);
+}
+
+function priceEvidenceBoundToModel(clause, family, discriminators) {
+  const { text, spans } = modelSpans(clause, family, discriminators);
+  const amounts = [...text.matchAll(new RegExp(MONEY_EVIDENCE.source, "gi"))]
+    .map((match) => ({ start: match.index, end: match.index + match[0].length }));
+  for (const span of spans) {
+    if (modelActsAsModifier(text, span.start)) continue;
+    for (const amount of amounts) {
+      if (span.end <= amount.start) {
+        const between = text.slice(span.end, amount.start);
+        if (between.length <= 52 && !COMPETING_ITEM.test(between)) return true;
+      } else if (amount.end <= span.start) {
+        const between = text.slice(amount.end, span.start);
+        if (between.length <= 48 && /\b(?:for|on|of|price|cost|paid|pay)\b/i.test(between) && !COMPETING_ITEM.test(between)) return true;
+      }
+    }
   }
   return false;
 }
 
-function clauseCarriesVersionedEvidence(clause, family, version, kind) {
-  if (!clauseMentionsFamilyVersion(clause, family, version)) return false;
-  if (kind === "price") return MONEY_EVIDENCE.test(clause);
-  for (const familyToken of family) {
-    const familyRx = escapeRegex(familyToken);
-    const versionRx = escapeRegex(version);
-    const beforeFamily = new RegExp(`\\b${COUNT_VALUE}\\b[^,;.!?]{0,36}\\b${familyRx}\\b[^,;.!?]{0,24}\\b${versionRx}\\b`, "i");
-    const possessionCount = new RegExp(`\\b(?:own|owns|owned|have|has|had|got|there\\s+(?:is|are|was|were))\\b[^,;.!?]{0,30}\\b${COUNT_VALUE}\\b[^,;.!?]{0,36}\\b${familyRx}\\b[^,;.!?]{0,24}\\b${versionRx}\\b`, "i");
-    if (beforeFamily.test(clause) || possessionCount.test(clause)) return true;
+function quantityEvidenceBoundToModel(clause, family, discriminators) {
+  const { text, spans } = modelSpans(clause, family, discriminators);
+  const counts = [...text.matchAll(new RegExp(`\\b${COUNT_VALUE}\\b`, "gi"))]
+    .map((match) => ({ start: match.index, end: match.index + match[0].length }));
+  const harmlessBetween = new RegExp(`^(?:\\s+|(?:about|around|roughly|approximately|approx|nearly|almost|over|under|exactly|only|just|my|the|a|an|some|any|sony|sega|nintendo|microsoft|atari|snk|nec|panasonic|philips)\\b)*$`, "i");
+  const trailingUnit = /^(?:\s+|systems?|consoles?|units?|copies?|count|number|is|are|was|were|:|-)*$/i;
+  for (const span of spans) {
+    if (modelActsAsModifier(text, span.start)) continue;
+    for (const count of counts) {
+      if (count.end <= span.start) {
+        const between = text.slice(count.end, span.start);
+        if (between.length <= 42 && harmlessBetween.test(between) && !COMPETING_ITEM.test(between)) return true;
+      } else if (span.end <= count.start) {
+        const between = text.slice(span.end, count.start);
+        if (between.length <= 32 && trailingUnit.test(between)) return true;
+      }
+    }
   }
   return false;
 }
 
-function surfaceCarriesFamilyVersionEvidence(surface, family, version, kind) {
-  return responseClauses(surface).some((clause) => clauseCarriesVersionedEvidence(clause, family, version, kind));
+function surfaceCarriesModelEvidence(surface, family, discriminators, kind) {
+  return responseClauses(surface).some((clause) => kind === "price"
+    ? priceEvidenceBoundToModel(clause, family, discriminators)
+    : quantityEvidenceBoundToModel(clause, family, discriminators));
 }
 
 function rawRepeatedClauses(question, kind) {
@@ -202,22 +263,22 @@ function validateRepeatedModelSubjects(evaluation, question, surface) {
   if (!evaluation?.enforced || !evaluation?.ok) return evaluation;
   const repeated = evaluation?.contract?.repeatedHardObligations || {};
   for (const kind of ["quantity", "price"]) {
+    const rawClauses = rawRepeatedClauses(question, kind);
     const contractClauses = repeated[kind];
-    const clauses = Array.isArray(contractClauses) && contractClauses.length >= 2
-      ? contractClauses
-      : rawRepeatedClauses(question, kind);
+    const clauses = rawClauses.length >= 2
+      ? rawClauses
+      : (Array.isArray(contractClauses) ? contractClauses : []);
     if (clauses.length < 2) continue;
-    const signatures = clauses.map(repeatedModelSignature);
-    const versioned = signatures.filter((row) => row.versions.size);
-    if (versioned.length < 2) continue;
-    const distinctVersions = new Set(versioned.flatMap((row) => [...row.versions]));
-    if (distinctVersions.size < 2) continue;
-    const family = sharedFamily(versioned);
+    const signatures = clauses.map(repeatedModelSignature).filter((row) => row.discriminators.size);
+    if (signatures.length < 2) continue;
+    const distinctModels = new Set(signatures.map(discriminatorKey));
+    if (distinctModels.size < 2) continue;
+    const family = sharedFamily(signatures);
     if (!family.size) continue;
     const missing = [];
-    for (const signature of versioned) {
-      for (const version of signature.versions) {
-        if (!surfaceCarriesFamilyVersionEvidence(surface, family, version, kind)) missing.push(version);
+    for (const signature of signatures) {
+      if (!surfaceCarriesModelEvidence(surface, family, signature.discriminators, kind)) {
+        missing.push(discriminatorKey(signature));
       }
     }
     if (!missing.length) continue;
@@ -227,7 +288,7 @@ function validateRepeatedModelSubjects(evaluation, question, surface) {
       reason: `missing-${kind}`,
       evidence: {
         ...(evaluation.evidence || {}),
-        identityChoiceGuardRepeatedModelMismatch: { kind, missingVersions: [...new Set(missing)] }
+        identityChoiceGuardRepeatedModelMismatch: { kind, missingModels: [...new Set(missing)] }
       }
     };
   }
@@ -256,8 +317,8 @@ function choiceClauses(value) {
 
 function clauseNegatesToken(clause, tokenValue) {
   const token = escapeRegex(tokenValue);
-  const before = new RegExp(`\\b(?:not|no|never|without|don't|dont|didn't|didnt|wouldn't|wouldnt|won't|wont|can't|cant|cannot)\\b[^,;.!?]{0,60}\\b${token}\\b`, "i");
-  const after = new RegExp(`\\b${token}\\b[^,;.!?]{0,30}\\b(?:not|no|never)\\b`, "i");
+  const before = new RegExp(`\\b(?:not|no|never|without|don't|dont|didn't|didnt|wouldn't|wouldnt|won't|wont|can't|cant|cannot|avoid|avoiding|skip|skipping|exclude|excluding|rule\\s+out|pass\\s+on|stay\\s+away\\s+from)\\b[^,;.!?]{0,60}\\b${token}\\b`, "i");
+  const after = new RegExp(`\\b${token}\\b[^,;.!?]{0,60}\\b(?:not|no|never|avoid|avoiding|skip|skipping|exclude|excluding|rule\\s+out|pass\\s+on|stay\\s+away\\s+from)\\b`, "i");
   return before.test(clause) || after.test(clause);
 }
 
