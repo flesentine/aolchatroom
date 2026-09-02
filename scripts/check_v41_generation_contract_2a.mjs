@@ -157,6 +157,11 @@ const pronounOne = evaluatePrimaryHumanVoice({
 });
 assert.equal(pronounOne.ok, false, "pronoun 'one' in an opinion clause must not satisfy the count obligation");
 assert.equal(pronounOne.reason, "missing-quantity");
+for (const surface of ["20 bucks, yeah i like this one", "one hundred bucks and yeah i like this one", "i have one hundred bucks and yeah i like this one"]) {
+  const moneyNotCount = evaluatePrimaryHumanVoice({ plan: countOpinionPlan, human: countOpinionHuman, lines: line(surface) });
+  assert.equal(moneyNotCount.ok, false, `${surface} must not reuse a money amount as the count answer`);
+  assert.equal(moneyNotCount.reason, "missing-quantity");
+}
 assert.equal(evaluatePrimaryHumanVoice({
   plan: countOpinionPlan,
   human: countOpinionHuman,
@@ -179,6 +184,27 @@ const valuationHuman = { from: "Crateman", target: "MetallicaFan", text: "what i
 assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: valuationPlan, human: valuationHuman }).requirements, ["price"]);
 assert.equal(evaluatePrimaryHumanVoice({ plan: valuationPlan, human: valuationHuman, lines: line("yeah absolutely") }).ok, false);
 assert.equal(evaluatePrimaryHumanVoice({ plan: valuationPlan, human: valuationHuman, lines: line("around 600 bucks") }).ok, true);
+
+const paidYesNoPlan = directPlan({ meaning: "say whether he paid for the Neo Geo" });
+const paidYesNoHuman = { from: "Crateman", target: "MetallicaFan", text: "did you pay for the neo geo?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: paidYesNoPlan, human: paidYesNoHuman }).requirements, ["polarity"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: paidYesNoPlan, human: paidYesNoHuman, lines: line("yeah") }).ok, true);
+
+const costOpinionPlan = directPlan({ meaning: "say whether he thinks the Neo Geo costs too much" });
+const costOpinionHuman = { from: "Crateman", target: "MetallicaFan", text: "does the neo geo cost too much?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: costOpinionPlan, human: costOpinionHuman }).requirements, ["polarity"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: costOpinionPlan, human: costOpinionHuman, lines: line("yeah") }).ok, true);
+
+const priceConfirmPlan = directPlan({ meaning: "confirm whether the price is 600 bucks" });
+const priceConfirmHuman = { from: "Crateman", target: "MetallicaFan", text: "is the price 600 bucks?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: priceConfirmPlan, human: priceConfirmHuman }).requirements, ["polarity"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: priceConfirmPlan, human: priceConfirmHuman, lines: line("yeah") }).ok, true);
+
+const amountPaidPlan = directPlan({ meaning: "say what he paid for the Neo Geo" });
+const amountPaidHuman = { from: "Crateman", target: "MetallicaFan", text: "what did you pay for the neo geo?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: amountPaidPlan, human: amountPaidHuman }).requirements, ["price"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: amountPaidPlan, human: amountPaidHuman, lines: line("yeah") }).ok, false);
+assert.equal(evaluatePrimaryHumanVoice({ plan: amountPaidPlan, human: amountPaidHuman, lines: line("600 bucks") }).ok, true);
 
 const zeldaPlan = directPlan({
   speaker: "SegaMan",
