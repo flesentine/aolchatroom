@@ -23,10 +23,16 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.contractVoiceText = "";
+    this.contractDirectorDecision = null;
   }
 
   orderedReadyProviders() {
     return ["gemini"];
+  }
+
+  async callAuthoritativeHumanDirector(packet) {
+    if (this.contractDirectorDecision) return this.contractDirectorDecision;
+    return super.callAuthoritativeHumanDirector(packet);
   }
 
   async callProvider(provider, prompt, maxTokens) {
@@ -54,6 +60,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.sceneHydrated = true;
     this.sceneBoard?.clear?.();
     this.contractVoiceText = "";
+    this.contractDirectorDecision = null;
   }
 
   active(name) {
@@ -106,6 +113,42 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(voiced[0]?.target, "Crateman", "legacy Voice must still preserve Director target");
     equal(this.v41GenerationStats.primaryVoiceContractsPassed, 1, "accepted surface should be recorded");
     return { accepted: true, text: voiced[0]?.text };
+  }
+
+  async contractFullHumanFallback() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much do they cost?",
+      messageId: "m-human-fallback",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "nah";
+    this.contractDirectorDecision = {
+      provider: "phase2-director",
+      move: {
+        complete: true,
+        speaker: "MetallicaFan",
+        target: "Crateman",
+        replyTo: "m-human-fallback",
+        subject: "Neo Geo ownership and price",
+        goal: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost",
+        moveType: "answer",
+        sceneAction: "continue",
+        contextEvidence: { source: "phase2-contract" }
+      }
+    };
+
+    const fallback = await this.generateHumanReplan(human);
+    ensure(Array.isArray(fallback) && fallback.length > 0, "semantic rejection must flow through the authoritative human path to a built-in fallback");
+    equal(fallback[0]?.source, "built-in", "rejected Voice must surface through the existing built-in fallback");
+    equal(fallback[0]?._v37DirectHuman, true, "fallback must remain marked as the direct-human response");
+    equal(this.v41GenerationStats.primaryVoiceContractsRejected, 1, "full human path must record the Voice rejection");
+    equal(this.v41LastGenerationContract?.reason, "missing-price", "full human path must preserve semantic rejection diagnostics");
+    ensure(Number(this.v37HumanDirectorStats?.voiceFallbacks || 0) >= 1, "v37 must record that its established Voice fallback path was used");
+    return { fallback: true, text: fallback[0]?.text, reason: this.v41LastGenerationContract?.reason };
   }
 
   async contractClarificationReject() {
@@ -165,6 +208,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async runContract(name) {
     if (name === "semantic-reject") return this.contractSemanticReject();
     if (name === "semantic-pass") return this.contractSemanticPass();
+    if (name === "human-fallback") return this.contractFullHumanFallback();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
     if (name === "status") return this.contractStatus();
