@@ -103,6 +103,11 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: neoHuman,
   lines: line("yeah i own one, it was like 600")
 }).ok, true, "an approximate non-year number can be price evidence when phrased as an amount");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("yeah 600 bucks")
+}).ok, true, "a strong leading yes/no answer may remain compact beside a price amount");
 
 const uncertainPrice = evaluatePrimaryHumanVoice({
   plan: neoPlan,
@@ -120,6 +125,32 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: neoHuman,
   lines: line("not sure what it costs but yes")
 }).ok, true, "an explicit polarity answer outside the uncertainty phrase should remain usable");
+
+// Reversed multipart ordering must still detect a later yes/no clause even when
+// the Director only says "answer both parts" rather than restating whether/confirm.
+const reversePlan = directPlan({ goal: "answer both parts", meaning: "answer both parts" });
+const reverseHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  text: "how much did it cost, and do you own one?"
+};
+assert.deepEqual(
+  buildPrimaryHumanVoiceContract({ plan: reversePlan, human: reverseHuman }).requirements,
+  ["price", "polarity"],
+  "a later yes/no clause must create the same hard polarity obligation as a leading one"
+);
+const reversePriceOnly = evaluatePrimaryHumanVoice({ plan: reversePlan, human: reverseHuman, lines: line("600 bucks") });
+assert.equal(reversePriceOnly.ok, false);
+assert.equal(reversePriceOnly.reason, "missing-polarity");
+assert.equal(evaluatePrimaryHumanVoice({ plan: reversePlan, human: reverseHuman, lines: line("600 bucks, nah") }).ok, true);
+
+// Price modifiers must not donate their no/not-really tokens to the ownership clause.
+for (const surface of ["no more than 600 bucks", "not really expensive, around 600 bucks"]) {
+  const modifierOnly = evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, lines: line(surface) });
+  assert.equal(modifierOnly.ok, false, `${surface} must not masquerade as an ownership answer`);
+  assert.equal(modifierOnly.reason, "missing-polarity");
+}
+assert.equal(evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, lines: line("nah, around 600 bucks") }).ok, true);
 
 const countPricePlan = directPlan({
   meaning: "say how many Neo Geo systems he owns and how much they cost"
@@ -141,6 +172,13 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: countPriceHuman,
   lines: line("i have 2, they go for about 600 bucks")
 }).ok, true);
+const moneyInHaveClause = evaluatePrimaryHumanVoice({
+  plan: countPricePlan,
+  human: countPriceHuman,
+  lines: line("i have 600 bucks into them")
+});
+assert.equal(moneyInHaveClause.ok, false, "have + currency amount must not be reused as the requested count");
+assert.equal(moneyInHaveClause.reason, "missing-quantity");
 
 const countOpinionPlan = directPlan({
   meaning: "say how many Neo Geo systems he owns and whether he likes this one"
@@ -205,6 +243,21 @@ const amountPaidHuman = { from: "Crateman", target: "MetallicaFan", text: "what 
 assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: amountPaidPlan, human: amountPaidHuman }).requirements, ["price"]);
 assert.equal(evaluatePrimaryHumanVoice({ plan: amountPaidPlan, human: amountPaidHuman, lines: line("yeah") }).ok, false);
 assert.equal(evaluatePrimaryHumanVoice({ plan: amountPaidPlan, human: amountPaidHuman, lines: line("600 bucks") }).ok, true);
+
+// "How much" is not inherently monetary. Degree/frequency questions must not
+// be converted into a hard price obligation without cost/value/pay context.
+const likeDegreePlan = directPlan({ meaning: "say how strongly he likes the Neo Geo" });
+const likeDegreeHuman = { from: "Crateman", target: "MetallicaFan", text: "how much do you like the neo geo?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: likeDegreePlan, human: likeDegreeHuman }).requirements, []);
+assert.equal(evaluatePrimaryHumanVoice({ plan: likeDegreePlan, human: likeDegreeHuman, lines: line("i love it") }).ok, true);
+const playFrequencyPlan = directPlan({ meaning: "say how often he plays the Neo Geo" });
+const playFrequencyHuman = { from: "Crateman", target: "MetallicaFan", text: "how much do you play it?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: playFrequencyPlan, human: playFrequencyHuman }).requirements, []);
+assert.equal(evaluatePrimaryHumanVoice({ plan: playFrequencyPlan, human: playFrequencyHuman, lines: line("every day") }).ok, true);
+const monetaryHowMuchPlan = directPlan({ meaning: "say how much the Neo Geo cost" });
+const monetaryHowMuchHuman = { from: "Crateman", target: "MetallicaFan", text: "how much did the neo geo cost?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: monetaryHowMuchPlan, human: monetaryHowMuchHuman }).requirements, ["price"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: monetaryHowMuchPlan, human: monetaryHowMuchHuman, lines: line("600 bucks") }).ok, true);
 
 const zeldaPlan = directPlan({
   speaker: "SegaMan",
