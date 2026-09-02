@@ -89,6 +89,63 @@ function requirementSatisfied(kind, text, contextOverlap = 0, hard = false) {
   return true;
 }
 
+export function humanReplanPrimaryObligation({ human = null, history = [] } = {}) {
+  const humanFrom = clean(human?.from, 32);
+  if (!humanFrom) return { enforced: false, reason: "no-human" };
+
+  const directTarget = clean(human?.target || "room", 32);
+  if (directTarget && directTarget !== "room") {
+    return {
+      enforced: true,
+      reason: "direct-human-target",
+      speaker: directTarget,
+      target: humanFrom,
+      replyTo: clean(human?.messageId, 80)
+    };
+  }
+
+  const parent = rowById(history, human?.replyTo || "");
+  if (parent?.kind === "bot") {
+    const speaker = clean(parent?.from || parent?.speaker, 32);
+    if (speaker) {
+      return {
+        enforced: true,
+        reason: "reply-to-bot-anchor",
+        speaker,
+        target: humanFrom,
+        replyTo: clean(human?.messageId, 80),
+        parentMessageId: clean(parent?.messageId || parent?.id, 80)
+      };
+    }
+  }
+
+  return { enforced: false, reason: "no-required-primary-response" };
+}
+
+export function evaluateHumanReplanPrimaryResponse({ lines = [], human = null, history = [] } = {}) {
+  const obligation = humanReplanPrimaryObligation({ human, history });
+  if (!obligation.enforced) return { ok: true, enforced: false, reason: obligation.reason, obligation };
+
+  const first = Array.isArray(lines) ? lines[0] : null;
+  if (!first || !clean(first?.text, 520)) {
+    return { ok: false, enforced: true, reason: "missing-required-primary-response", obligation };
+  }
+  if (clean(first?.speaker, 32) !== obligation.speaker) {
+    return { ok: false, enforced: true, reason: "required-responder-not-first", obligation };
+  }
+  if (clean(first?.target || "room", 32) !== obligation.target) {
+    return { ok: false, enforced: true, reason: "required-human-target-not-first", obligation };
+  }
+
+  return {
+    ok: true,
+    enforced: true,
+    reason: "required-primary-response-first",
+    obligation,
+    surface: clean(first.text, 180)
+  };
+}
+
 export function buildPrimaryHumanVoiceContract({ plan = null, human = null, history = [] } = {}) {
   const move = plan?.moves?.[0] || null;
   const humanText = clean(human?.text, 420);
