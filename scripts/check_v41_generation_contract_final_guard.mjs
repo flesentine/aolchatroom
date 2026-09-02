@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { evaluatePrimaryHumanVoice } from "../src/generation_contract_v41_final_guard.js";
+import { evaluatePrimaryHumanVoice } from "../src/generation_contract_v41_identity_choice_guard.js";
 
 function directPlan({ meaning = "Directly answer the human's latest message", goal = meaning } = {}) {
   return {
@@ -35,7 +35,8 @@ for (const wrong of [
   "I own 2 PlayStations, and I have played it",
   "I own one PlayStation, and I have played it",
   "I own this PlayStation, and I have played it",
-  "I own a PlayStation, and yes, I have played it"
+  "I own a PlayStation, and yes, I have played it",
+  "I own a PlayStation, but no"
 ]) {
   const result = evaluate(ownership, wrong);
   assert.equal(result.ok, false, `${wrong} must not bypass named-object ownership matching`);
@@ -48,12 +49,31 @@ assert.equal(evaluate(ownership, "I own one, and I have played it").ok, true,
 assert.equal(evaluate(ownership, "no, I own a PlayStation, but I have played it").ok, true,
   "a leading explicit negative ownership answer may be followed by ownership of another object");
 
+const modelOwnership = "do you own a PlayStation 5 and have you played it?";
+let result = evaluate(modelOwnership, "I own a PlayStation 4, and I have played it");
+assert.equal(result.ok, false, "a shared product-family token must not erase a conflicting model identifier");
+assert.equal(result.reason, "missing-polarity");
+assert.equal(evaluate(modelOwnership, "I own a PlayStation 5, and I have played it").ok, true,
+  "the requested model must remain valid");
+assert.equal(evaluate(modelOwnership, "I own a Sony PlayStation 5 console, and I have played it").ok, true,
+  "extra manufacturer/generic descriptor wording must not false-reject the requested model");
+
 const choice = "do you want tea or do you want coffee?";
-let result = evaluate(choice, "I don't want coffee");
+result = evaluate(choice, "I don't want coffee");
 assert.equal(result.ok, false, "negating one alternative must not masquerade as positively selecting it");
 assert.equal(result.reason, "missing-choice-selection");
+for (const invalid of [
+  "please don't give me coffee",
+  "not coffee, please"
+]) {
+  result = evaluate(choice, invalid);
+  assert.equal(result.ok, false, `${invalid} must remain a negated alternative, not a positive selection`);
+  assert.equal(result.reason, "missing-choice-selection");
+}
 result = evaluate(choice, "I don't want tea, coffee please");
 assert.equal(result.ok, true, "negative mention of one alternative plus explicit selection of the other must pass");
+assert.equal(evaluate(choice, "no coffee, tea please").ok, true,
+  "a negated alternative plus a positive other selection must pass");
 for (const valid of [
   "coffee, please",
   "I want coffee",
