@@ -4,7 +4,7 @@ import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
-} from "./generation_contract_v41_final.js";
+} from "./generation_contract_v41_final_guard.js";
 
 export default worker;
 
@@ -76,6 +76,6 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 }
 
-// Imported through the final contract and intentionally kept visible here:
+// Imported through the final guard contract and intentionally kept visible here:
 // Phase 2B structural validation remains the inherited implementation's gate.
 void evaluateHumanReplanPrimaryResponse;
