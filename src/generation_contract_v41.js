@@ -9,10 +9,12 @@ const STOP_WORDS = new Set([
 
 const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
+const HARD_POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|i do|i don't|i dont|i did|i didn't|i didnt|i own|i don't own|i dont own|i don't have|i dont have|i haven't got|i havent got|got one|have one|own one|i (?:own|have|got) (?:one|it|a|an|the))\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
 const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|worth|paid|paying|pay for|dollars?|bucks?|how much|go(?:es)? for)\b/i;
 const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
-const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much|a lot)\b/i;
+const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much)\b/i;
+const PRICE_LOOSE_QUALITATIVE = /\ba lot\b/i;
 const PRICE_AMOUNT_WORD = /\b(?:hundred|thousand|grand)\b/i;
 const PRICE_CURRENCY_NUMBER = /(?:\$\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?)\b/i;
 const APPROX_PRICE_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?\d+(?:\.\d{1,2})?\b/i;
@@ -118,8 +120,15 @@ function scopedUncertaintySatisfied(kind, text, multiPart, contract) {
   return false;
 }
 
+function hardPolaritySatisfied(text, contract) {
+  if (HARD_POLARITY_RESPONSE.test(text)) return true;
+  if (/\b(?:maybe|probably)\b/i.test(text) && polarityUncertaintyScope(contract, text)) return true;
+  return false;
+}
+
 function priceSatisfied(text, multiPart) {
   if (PRICE_CURRENCY_NUMBER.test(text) || PRICE_QUALITATIVE.test(text)) return true;
+  if (PRICE_LOOSE_QUALITATIVE.test(text) && (!multiPart || PRICE_CONTEXT.test(text))) return true;
   if (PRICE_AMOUNT_WORD.test(text) && (PRICE_CONTEXT.test(text) || !multiPart)) return true;
   if (PRICE_CONTEXT.test(text) && hasNonYearNumber(text)) return true;
   if (APPROX_PRICE_NUMBER.test(text)) {
@@ -143,8 +152,8 @@ function requirementSatisfied(kind, text, contextOverlap = 0, hard = false, mult
   if (kind === "quantity") return quantitySatisfied(text, multiPart);
   if (kind === "time") return TIME_RESPONSE.test(text);
   if (kind === "polarity") {
+    if (hard) return hardPolaritySatisfied(text, contract);
     if (POLARITY_RESPONSE.test(text)) return true;
-    if (hard) return false;
     return OPINION_RESPONSE.test(text) || contextOverlap > 0;
   }
   return true;
