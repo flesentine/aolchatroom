@@ -49,6 +49,21 @@ function canonicalIdentityText(value) {
     .replace(/\bplaystation\s*([0-9]+)\b/gi, "playstation $1");
 }
 
+function normalizeIdentityAliases(args = {}) {
+  const plan = args?.plan ? {
+    ...args.plan,
+    goal: canonicalIdentityText(args.plan.goal),
+    moves: Array.isArray(args.plan.moves)
+      ? args.plan.moves.map((move) => ({ ...move, meaning: canonicalIdentityText(move?.meaning) }))
+      : args.plan.moves
+  } : args?.plan;
+  const human = args?.human ? { ...args.human, text: canonicalIdentityText(args.human.text) } : args?.human;
+  const lines = Array.isArray(args?.lines)
+    ? args.lines.map((line) => ({ ...line, text: canonicalIdentityText(line?.text) }))
+    : args?.lines;
+  return { ...args, plan, human, lines };
+}
+
 function canonicalToken(token) {
   const value = String(token || "").toLowerCase();
   if (value.endsWith("ies") && value.length > 4) return `${value.slice(0, -3)}y`;
@@ -371,7 +386,7 @@ function validateStrictChoice(evaluation, question, surface) {
 }
 
 export function evaluatePrimaryHumanVoice(args = {}) {
-  let evaluation = evaluateFinalGuardVoice(args);
+  let evaluation = evaluateFinalGuardVoice(normalizeIdentityAliases(args));
   const surface = args?.lines?.[0]?.text || "";
   const question = args?.human?.text || "";
   evaluation = validateModelIdentity(evaluation, surface);
