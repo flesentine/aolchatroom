@@ -11,6 +11,14 @@ function clean(value, max = 260) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function sameHuman(a, b) {
+  if (!a || !b) return false;
+  const aId = clean(a.messageId, 80);
+  const bId = clean(b.messageId, 80);
+  if (aId && bId) return aId === bId;
+  return clean(a.from, 32) === clean(b.from, 32) && clean(a.text, 220) === clean(b.text, 220);
+}
+
 async function json(response) {
   try { return await response.json(); } catch { return null; }
 }
@@ -56,6 +64,7 @@ export default {
         requiredHumanReplanResponseMustBeFirst: true,
         missingRequiredHumanReplanResponseDropsSideChatter: true,
         providerIndependentHumanFallback: true,
+        invalidFallbackDoesNotRetryProviderReplan: true,
         noAdditionalProviderCall: true,
         providerRoutingUnchanged: true,
         phase1DOwnershipPreserved: true,
@@ -81,10 +90,12 @@ export class ChatRoom extends V41SceneChatRoom {
       humanReplanPrimaryRejected: 0,
       humanReplanFallbacks: 0,
       humanReplanSideLinesDiscarded: 0,
-      humanReplanFallbackRejects: 0
+      humanReplanFallbackRejects: 0,
+      humanReplanFailClosedConsumes: 0
     };
     this.v41LastGenerationContract = null;
     this.v41LastHumanReplanContract = null;
+    this.v41FailedClosedHuman = null;
   }
 
   noteGenerationContract(evaluation, plan, lines, human) {
@@ -184,6 +195,7 @@ export class ChatRoom extends V41SceneChatRoom {
   }
 
   async generateHumanReplan(human) {
+    this.v41FailedClosedHuman = null;
     const lines = await super.generateHumanReplan(human);
     const evaluation = evaluateHumanReplanPrimaryResponse({
       lines,
@@ -207,7 +219,14 @@ export class ChatRoom extends V41SceneChatRoom {
       history: this.history || []
     });
     const acceptedFallback = fallbackEvaluation.enforced && fallbackEvaluation.ok ? fallback : [];
-    if (!acceptedFallback.length) this.v41GenerationStats.humanReplanFallbackRejects += 1;
+    if (!acceptedFallback.length) {
+      this.v41GenerationStats.humanReplanFallbackRejects += 1;
+      this.v41FailedClosedHuman = {
+        messageId: clean(human?.messageId, 80),
+        from: clean(human?.from, 32),
+        text: clean(human?.text, 220)
+      };
+    }
     this.noteHumanReplanContract(evaluation, lines, human, acceptedFallback[0] || null);
 
     this.broadcast?.({
@@ -222,6 +241,27 @@ export class ChatRoom extends V41SceneChatRoom {
     });
 
     return acceptedFallback.map((line) => ({ ...line, _v41PrimaryFailClosed: true }));
+  }
+
+  async handlePendingHumanWithAi(now = Date.now()) {
+    const result = await super.handlePendingHumanWithAi(now);
+    const failedClosed = this.v41FailedClosedHuman;
+    if (result !== "failed" || !failedClosed) return result;
+
+    const index = (this.pendingHumans || []).findIndex((human) => sameHuman(human, failedClosed));
+    this.v41FailedClosedHuman = null;
+    if (index < 0) return result;
+
+    const [consumed] = this.pendingHumans.splice(index, 1);
+    this.v41GenerationStats.humanReplanFailClosedConsumes += 1;
+    this.broadcast?.({
+      type: "generation_contract",
+      action: "v41-human-replan-failed-closed-consumed",
+      human: clean(consumed?.from, 32),
+      messageId: clean(consumed?.messageId, 80),
+      at: Date.now()
+    });
+    return "failed-closed";
   }
 
   v41Snapshot(now = Date.now()) {
@@ -249,6 +289,7 @@ export class ChatRoom extends V41SceneChatRoom {
         missingRequiredHumanReplanResponseDropsEntireTail: true,
         failedHumanReplanUsesProviderIndependentV14Fallback: true,
         failedHumanReplanUsesOnlyValidatedBuiltInFallback: true,
+        invalidValidatedFallbackConsumesLegacyRetry: true,
         noAdditionalProviderCall: true,
         providerRoutingUnchanged: true,
         phase1DOwnershipPolicyUnchanged: true,
