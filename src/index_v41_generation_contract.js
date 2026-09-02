@@ -4,14 +4,14 @@ import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
-} from "./generation_contract_v41_hardened.js";
+} from "./generation_contract_v41_final.js";
 
 export default worker;
 
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
     // Render Voice exactly once through the inherited scene/Director stack,
-    // then apply the hardened Phase 2A clause-order/normalization contract.
+    // then apply the final Phase 2A adversarial validation contract.
     // All Phase 2B fail-closed behavior remains inherited from Phase2ChatRoom.
     const voiced = await V41SceneChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
     const evaluation = evaluatePrimaryHumanVoice({
@@ -76,6 +76,6 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 }
 
-// Imported through the hardened contract and intentionally kept visible here:
+// Imported through the final contract and intentionally kept visible here:
 // Phase 2B structural validation remains the inherited implementation's gate.
 void evaluateHumanReplanPrimaryResponse;
