@@ -11,26 +11,24 @@ const POLARITY_QUESTION = /^\s*(?:do|does|did|is|are|was|were|can|could|would|sh
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const OPINION_RESPONSE = /\b(?:love|like|hate|prefer|favorite|fave|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
 const PRICE_REQUIREMENT = /\b(?:costs?|price|priced|pricing|worth|paid|paying|pay for|dollars?|bucks?|how much|go(?:es)? for)\b/i;
-const PRICE_LANGUAGE = /\b(?:bucks?|dollars?|grand|hundred|thousand|cheap|cheaper|expensive|pricey|price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
+const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
+const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much|a lot)\b/i;
+const PRICE_AMOUNT_WORD = /\b(?:hundred|thousand|grand)\b/i;
 const PRICE_CURRENCY_NUMBER = /(?:\$\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s*(?:bucks?|dollars?)\b/i;
 const APPROX_PRICE_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?\d+(?:\.\d{1,2})?\b/i;
 const QUANTITY_REQUIREMENT = /\b(?:how many|number of|quantity|count of)\b/i;
 const QUANTITY_RESPONSE = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
-const QUANTITY_LANGUAGE = /\b(?:how many|number|quantity|count|copies|units|systems?|consoles?|games?|ones?)\b/i;
+const QUANTITY_NUMERIC_CONTEXT = /\b(?:have|has|had|own|owns|owned|got|there(?:'s| is| are)|count(?:ed)?|number(?:ed)?)\s+\d{1,3}\b|\b\d{1,3}\s+(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const TIME_REQUIREMENT = /\b(?:when|what time|what year|what date|how long)\b/i;
 const TIME_RESPONSE = /\b(?:today|tomorrow|tonight|yesterday|morning|afternoon|evening|night|week|month|year|hour|minute|soon|later|ago|monday|tuesday|wednesday|thursday|friday|saturday|sunday|january|february|march|april|may|june|july|august|september|october|november|december)\b|\b\d{1,4}(?::\d{2})?(?:\s*[ap]m)?\b/i;
 const UNCERTAINTY_RESPONSE = /\b(?:idk|i dont know|i don't know|dunno|not sure|no idea|couldnt tell ya|couldn't tell ya)\b/i;
+const PRICE_UNCERTAINTY_SCOPE = /\b(?:how much|price|what (?:it|they|that|this|i|we) (?:costs?|cost|went for|paid)|go(?:es)? for|went for|worth)\b/i;
+const QUANTITY_UNCERTAINTY_SCOPE = /\b(?:how many|number|quantity|count|copies|units)\b/i;
+const TIME_UNCERTAINTY_SCOPE = /\b(?:when|time|year|date|how long)\b/i;
 const REPAIR_CUE = /\b(?:i mean|i meant|what i meant|meant that|was talking about|i was saying|my bad|sorry|oops|lemme explain|let me explain|to clarify)\b/i;
 const CLARIFY_INTENT = /^(?:clarify|clarification|challenge|correct|repair)$/i;
 const CLARIFY_HUMAN = /\b(?:what do you mean|what are you talking about|doesn'?t make sense|makes? no sense|why (?:are|r) (?:you|u) saying|who me|had what|what'?s that have to do with)\b/i;
 const MULTIPART_CUE = /\bboth\b|\band\s+(?:how|what|where|when|why|who|do|does|did|is|are|was|were|can|could|would|should|have|has|had|will)\b/i;
-
-const UNCERTAINTY_SCOPE = {
-  price: /\b(?:price|costs?|cost|worth|paid|pay|how much|go(?:es)? for|went for)\b/i,
-  quantity: /\b(?:how many|number|quantity|count|copies|units|ones?)\b/i,
-  time: /\b(?:when|time|year|date|how long)\b/i,
-  polarity: /\b(?:if|whether|own|owns|owned|have|has|had|got|like|love|want|can|could|did|does|do|is|are|was|were)\b/i
-};
 
 function clean(value, max = 520) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -102,14 +100,28 @@ function requirementKinds(humanText, meaning, goal) {
   return required;
 }
 
-function scopedUncertaintySatisfied(kind, text, multiPart) {
+function polarityUncertaintyScope(contract, text) {
+  const source = `${contract?.human?.text || ""} ${contract?.move?.meaning || ""} ${contract?.goal || ""}`;
+  if (/\b(?:own|ownership|have|has|got)\b/i.test(source)) return /\b(?:own|owns|owned|have|has|had|got)\b/i.test(text);
+  if (/\b(?:like|love|hate|prefer|favorite|fave)\b/i.test(source)) return /\b(?:like|love|hate|prefer|favorite|fave)\b/i.test(text);
+  if (/\b(?:can|could|able|ability)\b/i.test(source)) return /\b(?:can|could|able)\b/i.test(text);
+  return /\b(?:if|whether)\b/i.test(text);
+}
+
+function scopedUncertaintySatisfied(kind, text, multiPart, contract) {
   if (!UNCERTAINTY_RESPONSE.test(text)) return false;
   if (!multiPart) return true;
-  return Boolean(UNCERTAINTY_SCOPE[kind]?.test(text));
+  if (kind === "price") return PRICE_UNCERTAINTY_SCOPE.test(text);
+  if (kind === "quantity") return QUANTITY_UNCERTAINTY_SCOPE.test(text);
+  if (kind === "time") return TIME_UNCERTAINTY_SCOPE.test(text);
+  if (kind === "polarity") return polarityUncertaintyScope(contract, text);
+  return false;
 }
 
 function priceSatisfied(text, multiPart) {
-  if (PRICE_CURRENCY_NUMBER.test(text) || PRICE_LANGUAGE.test(text)) return true;
+  if (PRICE_CURRENCY_NUMBER.test(text) || PRICE_QUALITATIVE.test(text)) return true;
+  if (PRICE_AMOUNT_WORD.test(text) && (PRICE_CONTEXT.test(text) || !multiPart)) return true;
+  if (PRICE_CONTEXT.test(text) && hasNonYearNumber(text)) return true;
   if (APPROX_PRICE_NUMBER.test(text)) {
     const values = numericValues(text);
     return values.some((value) => !looksLikeYear(value));
@@ -120,11 +132,13 @@ function priceSatisfied(text, multiPart) {
 function quantitySatisfied(text, multiPart) {
   if (QUANTITY_RESPONSE.test(text)) return true;
   if (!hasQuantityNumber(text)) return false;
-  return !multiPart || QUANTITY_LANGUAGE.test(text) || numericValues(text).some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
+  if (!multiPart) return true;
+  if (QUANTITY_NUMERIC_CONTEXT.test(text)) return true;
+  return /^\s*\d{1,3}\b/.test(text) && numericValues(text).some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
 }
 
-function requirementSatisfied(kind, text, contextOverlap = 0, hard = false, multiPart = false) {
-  if (scopedUncertaintySatisfied(kind, text, multiPart)) return true;
+function requirementSatisfied(kind, text, contextOverlap = 0, hard = false, multiPart = false, contract = null) {
+  if (scopedUncertaintySatisfied(kind, text, multiPart, contract)) return true;
   if (kind === "price") return priceSatisfied(text, multiPart);
   if (kind === "quantity") return quantitySatisfied(text, multiPart);
   if (kind === "time") return TIME_RESPONSE.test(text);
@@ -282,7 +296,7 @@ export function evaluatePrimaryHumanVoice({ plan = null, lines = [], human = nul
 
   const coverage = (contract.requirements || []).map((kind) => {
     const hard = kind === "price" || kind === "quantity" || (kind === "polarity" && contract.multiPart);
-    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap, hard, contract.multiPart) };
+    return { kind, hard, satisfied: requirementSatisfied(kind, text, contextOverlap, hard, contract.multiPart, contract) };
   });
   const missing = coverage.filter((row) => row.hard && !row.satisfied).map((row) => row.kind);
   if (missing.length) {
