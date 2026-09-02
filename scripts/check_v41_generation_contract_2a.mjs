@@ -61,13 +61,11 @@ for (const surface of ["not sure what it costs", "no idea what it goes for", "i 
   assert.equal(priceUncertaintyOnly.reason, "missing-polarity");
 }
 
-const genericALot = evaluatePrimaryHumanVoice({
-  plan: neoPlan,
-  human: neoHuman,
-  lines: line("yeah i like it a lot")
-});
-assert.equal(genericALot.ok, false, "generic 'a lot' must not masquerade as a price answer in multipart output");
-assert.equal(genericALot.reason, "missing-price");
+for (const surface of ["yeah i like it a lot", "yeah i play it a lot"]) {
+  const genericALot = evaluatePrimaryHumanVoice({ plan: neoPlan, human: neoHuman, lines: line(surface) });
+  assert.equal(genericALot.ok, false, `${surface} must not masquerade as a price answer in multipart output`);
+  assert.equal(genericALot.reason, "missing-price");
+}
 
 assert.equal(evaluatePrimaryHumanVoice({
   plan: neoPlan,
@@ -143,6 +141,44 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: countPriceHuman,
   lines: line("i have 2, they go for about 600 bucks")
 }).ok, true);
+
+const countOpinionPlan = directPlan({
+  meaning: "say how many Neo Geo systems he owns and whether he likes this one"
+});
+const countOpinionHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  text: "how many neo geo systems do you own and do you like this one?"
+};
+const pronounOne = evaluatePrimaryHumanVoice({
+  plan: countOpinionPlan,
+  human: countOpinionHuman,
+  lines: line("yeah i like this one")
+});
+assert.equal(pronounOne.ok, false, "pronoun 'one' in an opinion clause must not satisfy the count obligation");
+assert.equal(pronounOne.reason, "missing-quantity");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: countOpinionPlan,
+  human: countOpinionHuman,
+  lines: line("i have one and yeah i like this one")
+}).ok, true, "count-scoped word quantity plus opinion should pass");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: countOpinionPlan,
+  human: countOpinionHuman,
+  lines: line("one, and yeah i like this one")
+}).ok, true, "a leading compact count answer should remain natural");
+
+const worthOpinionPlan = directPlan({ meaning: "say whether he thinks a Neo Geo is worth buying" });
+const worthOpinionHuman = { from: "Crateman", target: "MetallicaFan", text: "is a neo geo worth buying?" };
+const worthOpinionContract = buildPrimaryHumanVoiceContract({ plan: worthOpinionPlan, human: worthOpinionHuman });
+assert.deepEqual(worthOpinionContract.requirements, ["polarity"], "purchase-worth opinion must not create a hard price obligation");
+assert.equal(evaluatePrimaryHumanVoice({ plan: worthOpinionPlan, human: worthOpinionHuman, lines: line("yeah absolutely") }).ok, true);
+
+const valuationPlan = directPlan({ meaning: "answer what a Neo Geo is worth" });
+const valuationHuman = { from: "Crateman", target: "MetallicaFan", text: "what is a neo geo worth?" };
+assert.deepEqual(buildPrimaryHumanVoiceContract({ plan: valuationPlan, human: valuationHuman }).requirements, ["price"]);
+assert.equal(evaluatePrimaryHumanVoice({ plan: valuationPlan, human: valuationHuman, lines: line("yeah absolutely") }).ok, false);
+assert.equal(evaluatePrimaryHumanVoice({ plan: valuationPlan, human: valuationHuman, lines: line("around 600 bucks") }).ok, true);
 
 const zeldaPlan = directPlan({
   speaker: "SegaMan",
