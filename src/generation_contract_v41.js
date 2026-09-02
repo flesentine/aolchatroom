@@ -11,6 +11,7 @@ const POLARITY_AUX = "(?:do|does|did|is|are|was|were|can|could|would|should|have
 const POLARITY_QUESTION = new RegExp(`^\\s*${POLARITY_AUX}\\b`, "i");
 const POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|dont|don't|doesnt|doesn't|didnt|didn't|cant|can't|couldnt|couldn't|wouldnt|wouldn't|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i own|i don't own|i dont own|i got|i don't have|i dont have|got one|have one|own one)\b/i;
 const HARD_POLARITY_RESPONSE = /\b(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|i do|i don't|i dont|i did|i didn't|i didnt|i own|i don't own|i dont own|i don't have|i dont have|i haven't got|i havent got|got one|have one|own one|i (?:own|have|got) (?:one|it|a|an|the))\b/i;
+const BASIC_POLARITY_LEADING_MARKER = /^\s*(?:yes|yeah|yea|yep|yup|no|nah|nope|never)\b/i;
 const STANDALONE_POLARITY_RESPONSE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably|i do|i don't|i dont|i did|i didn't|i didnt|i have|i haven't|i havent|i am|i'm|i was|i wasn't|i wasnt|i will|i won't|i wont)\s*$/i;
 const BASIC_POLARITY_WITH_AMOUNT = /^\s*(?:yes|yeah|yea|yep|yup|no|nah|nope)\b\s*(?!(?:more|less|higher|lower|over|under|than)\b)(?:(?:about|around|like|roughly|approx(?:imately)?)\s+)?(?:\$\s*)?\d+(?:\.\d{1,2})?(?:\s*(?:bucks?|dollars?))?(?:\s*(?:tho|though))?\s*$/i;
 const PRICE_NEGATIVE_MODIFIER = /^\s*(?:no\s+(?:more|less|higher|lower|over|under|than)|not\s+really\s+(?:expensive|cheap|cheaper|pricey|costly)|not\s+(?:expensive|cheap|cheaper|pricey|costly))\b/i;
@@ -109,7 +110,10 @@ function splitClauses(value) {
 
 function polarityScopeTypeFromText(source) {
   const text = clean(source, 420);
-  if (/\b(?:own|owns|owned|ownership|have|has|had|got)\b/i.test(text)) return "ownership";
+  const ownership = /\b(?:own|owns|owned|ownership|got)\b/i.test(text)
+    || /\b(?:do|does|did)\s+(?:you|u|he|she|they|we|i)\s+have\b/i.test(text)
+    || /\b(?:you|u|he|she|they|we|i)\s+(?:have|has|had)\s+(?:a|an|the|one|it|any|some|this|that|these|those|\d+)\b/i.test(text);
+  if (ownership) return "ownership";
   if (/\b(?:like|love|hate|prefer|favorite|fave|worth buying|worth getting|think|believe|feel)\b/i.test(text)) return "opinion";
   if (/\b(?:can|could|able|ability)\b/i.test(text)) return "ability";
   if (/\b(?:pay|paid)\b/i.test(text)) return "payment";
@@ -127,7 +131,8 @@ function polarityObligations(humanText, meaning, goal) {
       id: `polarity:${index}`,
       kind: "polarity",
       clause,
-      scope: polarityScopeTypeFromText(clause)
+      scope: polarityScopeTypeFromText(clause),
+      contextTokens: [...tokens(clause)]
     }));
   }
 
@@ -137,7 +142,8 @@ function polarityObligations(humanText, meaning, goal) {
       id: "polarity:semantic",
       kind: "polarity",
       clause: semantic || clean(humanText, 420),
-      scope: polarityScopeTypeFromText(semantic || humanText)
+      scope: polarityScopeTypeFromText(semantic || humanText),
+      contextTokens: [...tokens(semantic || humanText)]
     }];
   }
   return [];
@@ -148,11 +154,14 @@ function polarityScopeType(contract) {
     || polarityScopeTypeFromText(`${contract?.human?.text || ""} ${contract?.move?.meaning || ""} ${contract?.goal || ""}`);
 }
 
-function clauseHasScopeContext(clause, scope) {
+function clauseHasScopeContext(clause, scope, obligation = null) {
   if (scope === "ownership") return /\b(?:own|owns|owned|have|has|had|got)\b/i.test(clause);
   if (scope === "opinion") return /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?)\b/i.test(clause);
   if (scope === "ability") return /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i.test(clause);
   if (scope === "payment") return /\b(?:pay|paid)\b/i.test(clause);
+  if (scope === "generic" && obligation?.contextTokens?.length) {
+    return overlapCount(tokens(clause), new Set(obligation.contextTokens)) > 0;
+  }
   return false;
 }
 
@@ -191,7 +200,7 @@ function requirementKinds(humanText, meaning, goal, polarity = null) {
 
 function polarityUncertaintyScope(contract, text, obligation = null) {
   const scope = obligation?.scope || polarityScopeType(contract);
-  return clauseHasScopeContext(text, scope) || (scope === "generic" && /\b(?:if|whether)\b/i.test(text));
+  return clauseHasScopeContext(text, scope, obligation) || (scope === "generic" && /\b(?:if|whether)\b/i.test(text));
 }
 
 function scopedUncertaintySatisfied(kind, text, multiPart, contract, obligation = null) {
@@ -211,18 +220,19 @@ function withoutUncertaintyPhrases(text) {
 function contextualPolaritySatisfied(clause, obligation) {
   const scope = obligation?.scope || "generic";
   if (PRICE_NEGATIVE_MODIFIER.test(clause)) return false;
-  if (!clauseHasScopeContext(clause, scope)) return false;
+  if (!clauseHasScopeContext(clause, scope, obligation)) return false;
 
   if (scope === "opinion" && OPINION_RESPONSE.test(clause)) return true;
   if (scope === "ability" && /\b(?:i|we|he|she|they)\s+(?:can|can't|cant|cannot|could|couldn't|couldnt)\b/i.test(clause)) return true;
   if (scope === "payment" && /\b(?:i|we|he|she|they)\s+(?:did|didn't|didnt|paid|pay)\b/i.test(clause)) return true;
   if (scope === "ownership" && /\b(?:i|we|he|she|they)\s+(?:(?:do(?:n't)?|did(?:n't)?)\s+)?(?:own|have|got)\b/i.test(clause)) return true;
+  if (scope === "generic" && /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i.test(clause)) return true;
   return HARD_POLARITY_RESPONSE.test(clause);
 }
 
 function compactStandalonePolarity(clause) {
   if (PRICE_NEGATIVE_MODIFIER.test(clause)) return false;
-  return STANDALONE_POLARITY_RESPONSE.test(clause) || BASIC_POLARITY_WITH_AMOUNT.test(clause);
+  return STANDALONE_POLARITY_RESPONSE.test(clause) || BASIC_POLARITY_WITH_AMOUNT.test(clause) || BASIC_POLARITY_LEADING_MARKER.test(clause);
 }
 
 function polarityCoverageForObligations(obligations, text, contract) {
