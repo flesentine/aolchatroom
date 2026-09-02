@@ -86,6 +86,22 @@ assert.equal(result.ok, false);
 assert.equal(result.reason, "missing-polarity");
 assert.equal(evaluate(reverseMultipart, "600 bucks, yep").ok, true);
 
+const genericDouble = "is it red and is it big?";
+const genericContract = buildPrimaryHumanVoiceContract({ plan: directPlan(), human: human(genericDouble) });
+assert.deepEqual(genericContract.polarityObligations.map((row) => row.scope), ["generic", "generic"]);
+assert.equal(evaluate(genericDouble, "yes it is red, no it is not big").ok, true,
+  "generic yes/no clauses must match their own clause context");
+assert.equal(evaluate(genericDouble, "yes it is red").ok, false,
+  "one generic clause answer must not satisfy two generic yes/no obligations");
+
+const playedAndLiked = "have you played it and do you like it?";
+const playedContract = buildPrimaryHumanVoiceContract({ plan: directPlan(), human: human(playedAndLiked) });
+assert.deepEqual(playedContract.polarityObligations.map((row) => row.scope), ["generic", "opinion"],
+  "auxiliary 'have' in a perfect-tense question must not be mistaken for ownership");
+assert.equal(evaluate(playedAndLiked, "yeah played it, love it").ok, true);
+assert.equal(evaluate(playedAndLiked, "played it, love it").ok, false,
+  "the first yes/no clause still needs an explicit answer rather than topical overlap alone");
+
 assert.equal(evaluate("how much do you like the Neo Geo?", "i love it", "say how much he likes the Neo Geo").ok, true);
 assert.equal(evaluate("how much do you play it?", "every day", "say how much he plays it").ok, true);
 assert.equal(evaluate("what is a neo geo worth?", "around 600 bucks", "answer what it is worth").ok, true);
