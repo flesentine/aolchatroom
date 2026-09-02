@@ -12,8 +12,8 @@ const STANDALONE = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|na
 const LEADING_POLARITY = /^\s*(?:yes|yeah|yea|yep|yup|sure|definitely|absolutely|no|nah|nope|not really|never|maybe|probably)\b/i;
 const OPINION = /\b(?:like|love|hate|prefer|favorite|fave|worth|think|believe|feel|good|bad|rules?|rocks?|sucks?|awesome|cool|great|terrible|awful|best|worst)\b/i;
 const EXPLICIT_OWNERSHIP = /\b(?:own|owns|owned)\b/i;
-const DIRECT_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:it|this|that|these|those|\d+\b|one\b(?!\s+[a-z]))/i;
-const NAMED_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:a|an|the|some|any|no)\s+([a-z0-9'-]+(?:\s+[a-z0-9'-]+){0,2})/i;
+const DIRECT_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:it|this|that|these|those|\d+\b(?!\s+[a-z])|one\b(?!\s+[a-z]))/i;
+const NAMED_POSSESSION = /\b(?:i|we|he|she|they)\s+(?:(?:have|has|had)(?:\s+got)?|got)\s+(?:a|an|the|some|any|no|\d+)\s+([a-z0-9'-]+(?:\s+[a-z0-9'-]+){0,2})/i;
 const ABILITY = /\b(?:can|could|able|can't|cant|cannot|couldn't|couldnt)\b/i;
 const PAYMENT = /\b(?:pay|paid)\b/i;
 const SUBJECT_AUX = /\b(?:i|we|you|u|he|she|they|it|this|that)\s+(?:am|is|are|was|were|do|does|did|have|has|had|can|could|will|would)\b/i;
@@ -26,7 +26,7 @@ const MONEY_EVIDENCE = /(?:[$£€¥]\s*\d+(?:\.\d{1,2})?)|\b\d+(?:\.\d{1,2})?\s
 const PRICE_CONTEXT = /\b(?:price|priced|costs?|cost|paid|pay|worth|go(?:es)? for|went for|sell(?:s|ing)? for)\b/i;
 const PRICE_QUALITATIVE = /\b(?:cheap|cheaper|expensive|pricey|too much)\b/i;
 const PRICE_AMOUNT_WORD = /\b(?:hundred|thousand|grand)\b/i;
-const APPROX_NUMBER = /\b(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?(\d+(?:\.\d{1,2})?)\b/i;
+const APPROX_PRICE_ONLY = /^\s*(?:about|around|like|roughly|approx(?:imately)?|maybe|probably)\s+\$?\d+(?:\.\d{1,2})?\s*$/i;
 const COUNT_WORD = /\b(?:zero|none|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve|dozen|couple|few|several|many|tons?)\b/i;
 const COUNT_NOUN = /\b(?:copies|units|systems?|consoles?|games?|ones?)\b/i;
 const CONTENT_STOP = new Set([
@@ -34,6 +34,10 @@ const CONTENT_STOP = new Set([
   "for", "from", "had", "has", "have", "he", "her", "him", "his", "i", "if", "in", "is", "it", "its", "me", "my",
   "no", "not", "of", "on", "or", "our", "she", "that", "the", "their", "them", "they", "this", "to", "u", "was", "we",
   "were", "will", "would", "yes", "yeah", "you", "your"
+]);
+const HARD_SUBJECT_STOP = new Set([
+  "what", "how", "much", "many", "price", "cost", "costs", "costed", "worth", "pay", "paid", "number", "quantity", "count",
+  "own", "owns", "owned", "go", "goes", "went", "about", "around", "roughly", "approximately", "approx", "maybe", "probably", "between"
 ]);
 
 function clean(value, max = 900) {
@@ -116,6 +120,14 @@ function splitResponseClauses(value) {
   return splitResponseSegments(value).map((segment) => segment.text);
 }
 
+function splitEvidenceSegments(value) {
+  const protectedText = clean(value).replace(
+    /\bbetween\b([^,;!?]{0,100}?)\band\b([^,;!?]{0,100}?)(?=\s*(?:[,;!?]|$|\b(?:but|plus)\b))/gi,
+    (match) => match.replace(/\band\b/i, " __range_and__ ")
+  );
+  return splitResponseSegments(protectedText).map((segment) => segment.text.replace(/__range_and__/g, "and"));
+}
+
 function splitQuestionClauses(value) {
   return clean(value)
     .split(/(?:[,;!?]+|\b(?:and|but|though|tho)\b)/i)
@@ -132,6 +144,15 @@ function contentTokens(value) {
       .map((token) => token.replace(/^'+|'+$/g, ""))
       .filter((token) => token.length >= 3 && !CONTENT_STOP.has(token))
   );
+}
+
+function hardSubjectTokens(value) {
+  return new Set([...contentTokens(value)].filter((token) => !HARD_SUBJECT_STOP.has(token) && !/^\d/.test(token)));
+}
+
+function setsOverlap(a, b) {
+  for (const token of a) if (b.has(token)) return true;
+  return false;
 }
 
 function overlapsObligation(clause, obligation) {
@@ -319,10 +340,23 @@ function repairChoiceAlternative(evaluation, question, rawText) {
   return repairCoverage(evaluation, "polarity", { explicitChoiceAlternative: true });
 }
 
+function distinctRequestedClauses(clauses) {
+  const rows = clauses.map((clause) => ({ clause, subject: hardSubjectTokens(clause) }));
+  if (rows.length <= 1 || rows.some((row) => !row.subject.size)) return [];
+  const kept = [];
+  for (const row of rows) {
+    if (kept.some((prior) => setsOverlap(prior.subject, row.subject))) continue;
+    kept.push(row);
+  }
+  return kept.length > 1 ? kept.map((row) => row.clause) : [];
+}
+
 function repeatedHumanHardObligations(question) {
   const clauses = splitQuestionClauses(question);
-  const quantity = clauses.filter((clause) => HARD_QUANTITY_QUESTION.test(clause));
-  const price = clauses.filter((clause) => !PURCHASE_WORTH_OPINION.test(clause) && HARD_PRICE_QUESTION.test(clause));
+  const quantityRaw = clauses.filter((clause) => HARD_QUANTITY_QUESTION.test(clause));
+  const priceRaw = clauses.filter((clause) => !PURCHASE_WORTH_OPINION.test(clause) && HARD_PRICE_QUESTION.test(clause));
+  const quantity = distinctRequestedClauses(quantityRaw);
+  const price = distinctRequestedClauses(priceRaw);
   return {
     ...(quantity.length > 1 ? { quantity } : {}),
     ...(price.length > 1 ? { price } : {})
@@ -345,8 +379,7 @@ function priceEvidenceSegment(segment) {
   if (MONEY_EVIDENCE.test(text) || PRICE_QUALITATIVE.test(text)) return true;
   if (PRICE_AMOUNT_WORD.test(text) && PRICE_CONTEXT.test(text)) return true;
   if (PRICE_CONTEXT.test(text) && numericValues(text).some((value) => !isYear(value))) return true;
-  const approx = text.match(APPROX_NUMBER);
-  return Boolean(approx && !isYear(Number(approx[1])));
+  return APPROX_PRICE_ONLY.test(text);
 }
 
 function quantityEvidenceSegment(segment) {
@@ -361,26 +394,56 @@ function quantityEvidenceSegment(segment) {
   return /^\s*\d{1,3}\b/.test(text) && numbers.some((value) => Number.isInteger(value) && value >= 0 && value <= 99);
 }
 
+function assignRepeatedEvidence(clauses, kind, normalizedSurface) {
+  const segments = splitEvidenceSegments(normalizedSurface);
+  const evidenceFn = kind === "quantity" ? quantityEvidenceSegment : priceEvidenceSegment;
+  const segmentRows = segments
+    .map((text, index) => ({ text, index, evidence: evidenceFn(text), subject: hardSubjectTokens(text) }))
+    .filter((row) => row.evidence);
+  const used = new Set();
+  const assignments = Array(clauses.length).fill(null);
+  const clauseSubjects = clauses.map(hardSubjectTokens);
+
+  // First assign evidence that explicitly names the requested subject.
+  for (let clauseIndex = 0; clauseIndex < clauses.length; clauseIndex += 1) {
+    const subject = clauseSubjects[clauseIndex];
+    const match = segmentRows.find((row) => !used.has(row.index) && row.subject.size && setsOverlap(subject, row.subject));
+    if (match) {
+      assignments[clauseIndex] = match.text;
+      used.add(match.index);
+    }
+  }
+
+  // Compact bare evidence (e.g. "$600, $50" or "2 and 5") can fill
+  // remaining obligations in question order. Subject-bearing evidence cannot.
+  for (let clauseIndex = 0; clauseIndex < clauses.length; clauseIndex += 1) {
+    if (assignments[clauseIndex]) continue;
+    const match = segmentRows.find((row) => !used.has(row.index) && !row.subject.size);
+    if (match) {
+      assignments[clauseIndex] = match.text;
+      used.add(match.index);
+    }
+  }
+  return assignments;
+}
+
 function validateRepeatedHardCoverage(evaluation, question, normalizedSurface) {
   if (!evaluation?.ok) return evaluation;
   const repeated = repeatedHumanHardObligations(question);
   const kinds = Object.keys(repeated);
   if (!kinds.length) return evaluation;
 
-  const segments = splitResponseClauses(normalizedSurface);
   let coverage = [...(evaluation.coverage || [])];
   const evidence = { ...(evaluation.evidence || {}), repeatedHardCoverage: {} };
   let missingKind = null;
 
   for (const kind of kinds) {
     const clauses = repeated[kind];
-    const matchingSegments = segments.filter((segment) => kind === "quantity"
-      ? quantityEvidenceSegment(segment)
-      : priceEvidenceSegment(segment));
+    const assignments = assignRepeatedEvidence(clauses, kind, normalizedSurface);
     evidence.repeatedHardCoverage[kind] = {
       required: clauses.length,
-      satisfied: Math.min(matchingSegments.length, clauses.length),
-      segments: matchingSegments
+      satisfied: assignments.filter(Boolean).length,
+      assignments
     };
     coverage = coverage.filter((row) => row.kind !== kind);
     clauses.forEach((clause, index) => {
@@ -388,11 +451,11 @@ function validateRepeatedHardCoverage(evaluation, question, normalizedSurface) {
         id: `${kind}:clause:${index}`,
         kind,
         hard: true,
-        satisfied: index < matchingSegments.length,
+        satisfied: Boolean(assignments[index]),
         clause
       });
     });
-    if (matchingSegments.length < clauses.length && !missingKind) missingKind = kind;
+    if (assignments.filter(Boolean).length < clauses.length && !missingKind) missingKind = kind;
   }
 
   const contract = {
