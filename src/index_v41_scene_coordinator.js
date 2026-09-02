@@ -1,7 +1,7 @@
 import v40Worker, { ChatRoom as V40ChatRoom } from "./index_v40_scene_continuity.js";
-import { SceneCoordinator } from "./scene_coordinator_v41.js";
+import { SceneOwnershipCoordinator } from "./scene_ownership_coordinator_v41.js";
 
-const PASS = "scene-coordinator-v41-1c";
+const PASS = "scene-coordinator-v41-1d";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -43,10 +43,15 @@ export default {
       endpoints: { ...(data.endpoints || {}), v41: "/api/v41-status" },
       v41: {
         sceneCoordinator: true,
-        phase: "1C",
+        phase: "1D",
         preservesV17SceneIdsAndStorageSchema: true,
         ownsSceneAssociationDecision: true,
-        scoredAssociationInsteadOfLegacyFirstMatch: true,
+        effectiveOpenQuestionAuthority: true,
+        effectiveRecentSubjectAuthority: true,
+        roomParticipantRecencyAloneCannotAssociate: true,
+        legacyHumanReplanBlanketCarryRetired: true,
+        detachedHumanReplanSideLinesCannotEvictAtSceneCap: true,
+        ambientHumanProtectionUsesRecentMomentumParticipantsOnly: true,
         exactSceneIdAndReplyToRemainHardAnchors: true,
         ownsAmbientMomentumDecision: true,
         ownsHumanSceneProtectionDecision: true,
@@ -54,10 +59,9 @@ export default {
         ownsModernSceneCloseDecision: true,
         ownsFinalExistingSceneContinuationDecision: true,
         legacySceneLayersDelegateThroughAuthorityHook: true,
-        duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true,
-        legacyFallbacksRemainForStandaloneRegressionLayers: true,
         v17SceneConstructionHydrationAndStorageRemainBaseOwned: true,
         noProviderRoutingChange: true,
+        noGenerationSemanticChange: true,
         statusEndpoint: "/api/v41-status",
         ...(runtime ? { runtime } : {})
       }
@@ -68,12 +72,9 @@ export default {
 export class ChatRoom extends V40ChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.sceneCoordinator = new SceneCoordinator(this);
+    this.sceneCoordinator = new SceneOwnershipCoordinator(this);
   }
 
-  // Lower v26/v37/v38/v40 layers use this for lifecycle decisions. Phase 1C also
-  // uses the same authority for identity, so association and continuation cannot
-  // disagree about whether a scene is usable.
   sceneLifecycleAuthority() {
     return this.sceneCoordinator;
   }
@@ -91,23 +92,42 @@ export class ChatRoom extends V40ChatRoom {
     return null;
   }
 
+  queueScenePlan(lines, reason = "background", trigger = null, front = false) {
+    const queued = super.queueScenePlan(lines, reason, trigger, front);
+    if (!queued || reason !== "human-replan") return queued;
+    this.sceneCoordinator.stabilizeHumanReplanPlan(this.currentScenePlan, this.aiQueue || []);
+    return queued;
+  }
+
+  canStartScene(message, now = Date.now()) {
+    if (this.sceneCoordinator.shouldPreventSideLineSceneEviction(message, now)) {
+      this.sceneCoordinator.noteSideLineSceneCapEvictionBlock();
+      return false;
+    }
+    return super.canStartScene(message, now);
+  }
+
   v41Snapshot(now = Date.now()) {
     return {
       pass: PASS,
       deployVersion: 41,
-      phase: "1C",
+      phase: "1D",
       coordinator: this.sceneCoordinator.snapshot(now),
       policy: {
         v17SceneIdsAndStorageSchemaPreserved: true,
         v17LegacyFuzzyMatcherBypassedInV41Production: true,
         sceneAssociationRoutedThroughCoordinator: true,
         explicitSceneIdAndReplyToRemainHardAnchors: true,
-        coarseTopicAloneCannotClaimScene: true,
-        unrelatedTargetPresenceAloneCannotClaimScene: true,
-        ambiguityCreatesNoAssociationInsteadOfArbitraryMerge: true,
+        effectiveOpenQuestionWindowAlignedToLegacyConversationObligation: true,
+        answeredStoredOpenQuestionsIgnoredForOwnership: true,
+        effectiveRecentSubjectUsedWithoutMutatingStoredSceneTopic: true,
+        roomParticipantRecencyAloneCannotClaimScene: true,
+        legacyHumanReplanBlanketCarryRetiredAtV41Boundary: true,
+        directHumanReplanRepliesAnchoredByReplyTo: true,
+        detachedHumanReplanSideLinesCannotEvictExistingScenes: true,
+        ambientHumanProtectionUsesRecentMomentumWindowParticipantsOnly: true,
         legacySceneLayersDelegateThroughAuthorityHook: true,
         duplicateLifecycleDecisionPolicyRetiredFromProductionPath: true,
-        legacyFallbacksRemainForStandaloneRegressionLayers: true,
         ambientMomentumRoutedThroughCoordinator: true,
         v26FinishFatigueRoutedThroughCoordinator: true,
         v37AmbientExhaustionRoutedThroughCoordinator: true,
@@ -118,7 +138,8 @@ export class ChatRoom extends V40ChatRoom {
         existingLayerCountersAndBroadcastActionsPreserved: true,
         v17SceneConstructionHydrationAndAgeStorageLifecycleRemainBaseOwned: true,
         noProviderRoutingChange: true,
-        noAdditionalProviderCall: true
+        noAdditionalProviderCall: true,
+        phase2GenerationContractStillDeferred: true
       }
     };
   }
