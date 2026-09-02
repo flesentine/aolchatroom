@@ -70,16 +70,20 @@ assert.equal(evaluate(ownershipPriceQuestion, "yeah 600 bucks", ownershipPriceMe
 
 const countPriceQuestion = "how many systems do you have and how much did they cost?";
 const countPriceMeaning = "say how many systems he has and how much they cost";
-for (const surface of ["I have 600 bucks into them", "I have 60.0 bucks into them", "I have 1,000 bucks into them"]) {
+for (const surface of ["I have 600 bucks into them", "I have 60.0 bucks into them", "I have 1,000 bucks into them", "It was a $1,000 game console"]) {
   result = evaluate(countPriceQuestion, surface, countPriceMeaning);
-  assert.equal(result.ok, false, `${surface} must not reuse currency as the system count`);
+  assert.equal(result.ok, false, `${surface} must not reuse a monetary value as the system count`);
   assert.equal(result.reason, "missing-quantity");
 }
 assert.equal(evaluate(countPriceQuestion, "I have 2 and they cost 600 bucks", countPriceMeaning).ok, true);
+assert.equal(evaluate(countPriceQuestion, "I own 1,000 systems, around 600 bucks each", countPriceMeaning).ok, true,
+  "possession-shaped grouped count must repair quantity without weakening price separation");
 
 const groupedCountQuestion = "how many systems do you have and do you like them?";
 assert.equal(evaluate(groupedCountQuestion, "I have 1,000 systems, and yes I like them").ok, true,
   "an explicit grouped count above 999 must remain valid when a count noun follows it");
+assert.equal(evaluate(groupedCountQuestion, "about 1,000 systems, and yes I like them").ok, true,
+  "a compact approximate grouped count must remain valid");
 
 const crossClauseHowMuch = "how much do you play it, and do you think it costs too much?";
 result = evaluate(crossClauseHowMuch, "every day, yeah");
@@ -96,7 +100,11 @@ assert.deepEqual(result.contract.requirements, ["polarity"]);
 assert.equal(evaluate("is it red or is it blue?", "it's red").ok, true,
   "a genuine either-or choice must not become two mandatory yes/no answers");
 assert.equal(evaluate("do you want tea or do you want coffee?", "coffee").ok, true,
-  "a genuine preference choice must accept the selected alternative without a second polarity answer");
+  "a genuine preference choice must accept a bare selected alternative");
+assert.equal(evaluate("do you want tea or do you want coffee?", "I want coffee please").ok, true,
+  "a selection-shaped choice answer remains valid");
+assert.equal(evaluate("do you want tea or do you want coffee?", "I spilled coffee yesterday").ok, false,
+  "merely mentioning a unique alternative must not repair a missing choice answer");
 
 const reverseMultipart = "how much did it cost, and do you own one?";
 result = evaluate(reverseMultipart, "600 bucks");
@@ -114,13 +122,29 @@ const ownershipThenPerfect = "do you own it and have you played it?";
 result = evaluate(ownershipThenPerfect, "I've played it, yeah");
 assert.equal(result.ok, false, "perfect auxiliary have must not masquerade as ownership evidence");
 assert.equal(result.reason, "missing-polarity");
+result = evaluate(ownershipThenPerfect, "I've got to play it, yeah");
+assert.equal(result.ok, false, "non-possessive got-to must not masquerade as ownership evidence");
+assert.equal(result.reason, "missing-polarity");
 assert.equal(evaluate(ownershipThenPerfect, "I own it, and I've played it").ok, true);
+assert.equal(evaluate(ownershipThenPerfect, "I've got one, and I've played it").ok, true,
+  "possession-shaped have-got remains valid ownership evidence");
+
+const reverseStandalone = "did you finish it and did you start it?";
+assert.equal(evaluate(reverseStandalone, "I did start it, but no").ok, true,
+  "a contrastive trailing standalone answer may cover the only earlier unsatisfied clause");
+assert.equal(evaluate(reverseStandalone, "I did start it, no").ok, false,
+  "a comma trailing standalone must not silently backfill an earlier clause");
 
 const existential = "are there any games and do you like them?";
 assert.equal(evaluate(existential, "there are, yes i like them").ok, true,
   "ordinary existential auxiliary answers must satisfy generic polarity obligations");
 assert.equal(evaluate(existential, "there's one, yes i like them").ok, true,
   "contracted existential answers must satisfy generic polarity obligations");
+const negativeExistential = "is there a cover charge and do you like the venue?";
+assert.equal(evaluate(negativeExistential, "there's not one, but yes i like it").ok, true,
+  "negative contracted existential answers must normalize as negative polarity evidence");
+assert.equal(evaluate(negativeExistential, "there's no cover charge, but yes i like it").ok, true,
+  "there's-no existential answers must also remain negative evidence");
 
 const genericDouble = "is it red and is it big?";
 assert.equal(evaluate(genericDouble, "yes it's red, no it's not big").ok, true);
