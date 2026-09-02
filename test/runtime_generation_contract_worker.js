@@ -34,6 +34,10 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return ["gemini"];
   }
 
+  hasReadyAi() {
+    return true;
+  }
+
   directHumanDirectorEligible(packet) {
     if (this.contractBypassDirector) return false;
     return super.directHumanDirectorEligible(packet);
@@ -308,22 +312,28 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
   async contractHumanBadFallbackReject() {
+    const now = Date.now();
     const human = {
       kind: "human",
       from: "Crateman",
       target: "MetallicaFan",
       text: "what do you think?",
       messageId: "m-human-bad-fallback",
-      at: Date.now()
+      at: now,
+      _replyDueAt: now - 1,
+      _timingRecorded: true
     };
     this.reset({ history: [human], bots: ["MetallicaFan", "SegaMan"] });
     this.configureLegacyHumanPlan(human, { answerFirst: false, validFallback: false });
+    this.pendingHumans = [human];
 
-    const result = await this.generateHumanReplan(human);
-    equal(result.length, 0, "invalid fallback must fail closed to no output instead of restoring discarded side chatter");
+    const result = await this.handlePendingHumanWithAi(now);
+    equal(result, "failed-closed", "invalid validated fallback should be consumed instead of entering the legacy provider retry loop");
+    equal(this.pendingHumans.length, 0, "failed-closed human must not be requeued for another provider attempt");
     equal(this.v41GenerationStats.humanReplanFallbackRejects, 1, "bad deterministic fallback should be observable");
+    equal(this.v41GenerationStats.humanReplanFailClosedConsumes, 1, "legacy retry suppression should be observable");
     equal(this.v41LastHumanReplanContract?.discardedLines, 2, "failed generated tail remains discarded even when fallback also fails");
-    return { rejected: true, discarded: 2 };
+    return { rejected: true, consumed: true, discarded: 2 };
   }
 
   async contractClarificationReject() {
@@ -378,6 +388,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.requiredHumanReplanPrimaryResponseMustBeFirst, true, "status should expose Phase 2B first-slot authority");
     equal(snapshot.policy.missingRequiredHumanReplanResponseDropsEntireTail, true, "status should expose whole-tail fail-closed behavior");
     equal(snapshot.policy.failedHumanReplanUsesProviderIndependentV14Fallback, true, "status should expose provider-independent Phase 2B fallback");
+    equal(snapshot.policy.invalidValidatedFallbackConsumesLegacyRetry, true, "status should expose retry-loop suppression for failed-closed humans");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
     equal(snapshot.policy.noAdditionalProviderCall, true, "Phase 2 must not add a judge-model call");
     return { phase: snapshot.phase, pass: snapshot.pass };
