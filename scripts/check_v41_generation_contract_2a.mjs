@@ -49,6 +49,25 @@ const priceOnlyNeo = evaluatePrimaryHumanVoice({
 assert.equal(priceOnlyNeo.ok, false, "topic overlap plus a price must not silently satisfy the separate yes/no obligation");
 assert.equal(priceOnlyNeo.reason, "missing-polarity");
 
+// Codex P1 regression: evidence must be scoped to the obligation it actually
+// answers. Generic uncertainty about ownership is not uncertainty about price,
+// and a calendar year is not price evidence just because it is numeric.
+const ownershipUncertainOnly = evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("not sure if i still own it")
+});
+assert.equal(ownershipUncertainOnly.ok, false);
+assert.equal(ownershipUncertainOnly.reason, "missing-price");
+
+const purchaseYearOnly = evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("yeah i bought it in 1995")
+});
+assert.equal(purchaseYearOnly.ok, false);
+assert.equal(purchaseYearOnly.reason, "missing-price");
+
 const completeNeo = evaluatePrimaryHumanVoice({
   plan: neoPlan,
   human: neoHuman,
@@ -60,13 +79,23 @@ assert.equal(evaluatePrimaryHumanVoice({
   human: neoHuman,
   lines: line("i own one, they go for like 600 bucks")
 }).ok, true, "an explicit ownership statement plus price must satisfy hard multipart polarity coverage");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("yeah i own one, it was like 600")
+}).ok, true, "an approximate non-year number can be price evidence when phrased as an amount");
 
 const uncertainPrice = evaluatePrimaryHumanVoice({
   plan: neoPlan,
   human: neoHuman,
   lines: line("nah i dont own one and idk what they cost")
 });
-assert.equal(uncertainPrice.ok, true, "explicit uncertainty still addresses the price obligation instead of silently dropping it");
+assert.equal(uncertainPrice.ok, true, "price-scoped uncertainty addresses the price obligation instead of silently dropping it");
+assert.equal(evaluatePrimaryHumanVoice({
+  plan: neoPlan,
+  human: neoHuman,
+  lines: line("yeah i own one but no idea what they go for")
+}).ok, true, "another price-scoped uncertainty form should be accepted");
 
 // Do not overfit ordinary AOL brevity. A single yes/no or opinion question can
 // still be answered naturally without parroting topic keywords.
@@ -83,12 +112,16 @@ const zelda = evaluatePrimaryHumanVoice({
 assert.equal(zelda.ok, true);
 assert.equal(zelda.coverage.find((row) => row.kind === "polarity")?.hard, false, "single polarity questions remain conservative/advisory");
 
-// Price is a high-confidence obligation even when it is the only question.
+// Price is a high-confidence obligation even when it is the only question. In
+// that single-obligation shape, a bare non-year amount or generic uncertainty can
+// still be a natural compact answer because there is no competing clause.
 const pricePlan = directPlan({ meaning: "answer what the Neo Geo costs" });
 const priceHuman = { from: "Crateman", target: "MetallicaFan", text: "what does a neo geo cost?" };
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("lol") }).ok, false);
+assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("600") }).ok, true);
 assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("like 600 bucks") }).ok, true);
-assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("idk, no idea what they go for") }).ok, true);
+assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("idk") }).ok, true);
+assert.equal(evaluatePrimaryHumanVoice({ plan: pricePlan, human: priceHuman, lines: line("1995") }).ok, false, "a bare year must not be accepted as a price");
 
 // Clarification/repair turns must remain tied to the referenced exchange rather
 // than becoming a random room tangent.
