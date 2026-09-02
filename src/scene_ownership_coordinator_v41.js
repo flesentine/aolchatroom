@@ -211,6 +211,13 @@ export class SceneOwnershipCoordinator extends SceneCoordinator {
 
   shouldPreventSideLineSceneEviction(message, now = Date.now()) {
     if (!this.isHumanReplanSideMessage(message)) return false;
+    this.room?.pruneScenes?.(now);
+    if (this.room?.sceneBoard instanceof Map) {
+      const openCount = [...this.room.sceneBoard.values()]
+        .filter((scene) => !scene?.closedAt && scene?.status !== "closed")
+        .length;
+      return openCount >= 3;
+    }
     const open = typeof this.room?.openScenes === "function" ? this.room.openScenes(now) : [];
     return open.length >= 3;
   }
