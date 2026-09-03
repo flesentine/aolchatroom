@@ -230,6 +230,66 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { fallback: true, text: fallback[0]?.text, reason: this.v41LastGenerationContract?.reason };
   }
 
+  async contractEraPrimaryReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "how much did the PS5 cost?",
+      messageId: "m-human-era-primary",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "$499";
+    const plan = directPlan({
+      goal: "Give the PS5 price",
+      meaning: "answer how much the PS5 cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "production Voice must reject a context-only confident answer to a future-world premise");
+    equal(this.v41LastGenerationContract?.reason, "era-boundary-confident-answer", "future premise rejection should be diagnosed at the semantic boundary");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason, eraDate: this.currentEraDate() };
+  }
+
+  async contractEraFallbackSafe() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "how much did the PS5 cost?",
+      messageId: "m-human-era-fallback",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "$499";
+    this.contractDirectorDecision = {
+      provider: "phase2-director",
+      move: {
+        complete: true,
+        speaker: "MetallicaFan",
+        target: "Crateman",
+        replyTo: "m-human-era-fallback",
+        subject: "PS5 price",
+        goal: "answer how much the PS5 cost",
+        moveType: "answer",
+        sceneAction: "continue",
+        contextEvidence: { source: "phase2-era-contract" }
+      }
+    };
+
+    const fallback = await this.generateHumanReplan(human);
+    equal(fallback.length, 1, "future-premise Voice rejection should recover with one period-safe direct-human fallback");
+    equal(fallback[0]?.speaker, "MetallicaFan", "era fallback must preserve required responder");
+    equal(fallback[0]?.target, "Crateman", "era fallback must preserve human target");
+    equal(fallback[0]?.source, "built-in", "era fallback must remain provider-independent built-in output");
+    equal(fallback[0]?.text, "what? never heard of that", "v14 topic/question fallback must be made period-safe after future-premise rejection");
+    equal(fallback[0]?._v37DirectHuman, true, "era fallback must preserve v37 direct-human marking");
+    equal(fallback[0]?._v41EraSafeFallback, true, "era fallback should expose the v41 sealed-world repair marker");
+    equal(this.v41LastGenerationContract?.reason, "era-boundary-confident-answer", "the primary semantic rejection should remain observable after fallback recovery");
+    ensure(Number(this.v37HumanDirectorStats?.voiceFallbacks || 0) >= 1, "v37 fallback counter must still record recovery");
+    return { fallback: true, text: fallback[0]?.text, reason: this.v41LastGenerationContract?.reason };
+  }
+
   configureLegacyHumanPlan(human, { answerFirst = false, validFallback = true } = {}) {
     this.contractBypassDirector = true;
     const answer = {
@@ -389,6 +449,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.missingRequiredHumanReplanResponseDropsEntireTail, true, "status should expose whole-tail fail-closed behavior");
     equal(snapshot.policy.failedHumanReplanUsesProviderIndependentV14Fallback, true, "status should expose provider-independent Phase 2B fallback");
     equal(snapshot.policy.invalidValidatedFallbackConsumesLegacyRetry, true, "status should expose retry-loop suppression for failed-closed humans");
+    equal(snapshot.policy.semanticCompletenessDefersToSealed1996World, true, "status should expose the finding-94 semantic/world bridge");
+    equal(snapshot.policy.deterministicFallbackDefersToSealed1996World, true, "status should expose the finding-95 fallback/world bridge");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
     equal(snapshot.policy.noAdditionalProviderCall, true, "Phase 2 must not add a judge-model call");
     return { phase: snapshot.phase, pass: snapshot.pass };
@@ -400,6 +462,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "semantic-polarity-scope-reject") return this.contractPolarityScopeReject();
     if (name === "semantic-pass") return this.contractSemanticPass();
     if (name === "human-fallback") return this.contractFullHumanFallback();
+    if (name === "era-primary-reject") return this.contractEraPrimaryReject();
+    if (name === "era-fallback-safe") return this.contractEraFallbackSafe();
     if (name === "human-tail-fail-closed") return this.contractHumanTailFailClosed();
     if (name === "human-answer-first-pass") return this.contractHumanAnswerFirstPass();
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
