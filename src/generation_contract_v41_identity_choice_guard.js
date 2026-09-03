@@ -196,12 +196,16 @@ function scopedEraHumanViolation(args, evaluation, dateKey) {
   const semanticViolation = semantic ? eraWorldViolation(semantic, dateKey) : null;
   if (semanticViolation && semanticViolation !== "empty") return semanticViolation;
 
-  if (!eraTokens(semantic).length) return null;
+  // Mixed-era turns are only exempt when semantic scope uniquely selects a
+  // period-valid clause. Empty, zero-overlap, or tied Director metadata cannot
+  // prove that the Voice surface belongs to the safe clause, so fail closed
+  // just like the deterministic fallback path.
+  if (!eraTokens(semantic).length) return violating[0].violation;
   const scored = rows.map((row) => ({ ...row, score: overlapScore(semantic, row.clause) }));
   const maxScore = Math.max(...scored.map((row) => row.score));
-  if (maxScore <= 0) return null;
+  if (maxScore <= 0) return violating[0].violation;
   const winners = scored.filter((row) => row.score === maxScore);
-  if (winners.length !== 1) return null;
+  if (winners.length !== 1) return violating[0].violation;
   return winners[0].violation || null;
 }
 
