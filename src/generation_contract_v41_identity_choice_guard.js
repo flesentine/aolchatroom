@@ -4,6 +4,7 @@ import {
   evaluatePrimaryHumanVoice as evaluateReview81Voice,
   humanReplanPrimaryObligation
 } from "./generation_contract_v41_review81_base.js";
+import { eraWorldViolation } from "./era_world.js";
 
 const RELATION_WORDS = "(?:\\s+[a-z][a-z0-9'-]*)*?";
 const LONG_RELATION_TO_PS = new RegExp(
@@ -23,6 +24,8 @@ const RELATION_LEAD_MODIFIERS = new Set([
   "professional", "professionally", "purpose", "special", "specially",
   "specific", "specifically"
 ]);
+const ERA_IGNORANCE = /(?:^|\b)(?:what(?:'s| is| are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean|what\s+are\s+you\s+talking\s+about|never\s+heard\s+(?:of\s+)?(?:that|it)|(?:have|haven't|have\s+not|never)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't)\s+know\s+what\s+(?:that|it)\s+is|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)\s+what\s+(?:that|it)\s+is|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|from\s+the\s+future)(?:\b|$)|^\s*(?:huh+|what|lol\s+what|uh+\s+what)\s*[!?]*\s*$/i;
+const STRUCTURAL_FAILURE = /^(?:missing-primary-line|primary-speaker-mismatch|primary-target-mismatch)$/;
 
 function clean(value, max = 900) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -92,7 +95,7 @@ function normalizeLongPeripheralRelations(value) {
   return normalized;
 }
 
-function normalizeReview82to93Surface(value) {
+function normalizeReview82to94Surface(value) {
   let surface = clean(value)
     .replace(/[’]/g, "'")
     .replace(/[‐‑‒–—―−]/g, "-")
@@ -112,41 +115,88 @@ function evaluateWithSurface(args, surface) {
   });
 }
 
+function applyEraHumanBoundary(evaluation, args, surface) {
+  const dateKey = clean(args?.eraDateKey, 16);
+  if (!dateKey || !args?.human) return evaluation;
+
+  const humanViolation = eraWorldViolation(args.human.text || "", dateKey);
+  if (!humanViolation || humanViolation === "empty") return evaluation;
+  if (!evaluation?.enforced) return evaluation;
+  if (STRUCTURAL_FAILURE.test(evaluation.reason || "")) return evaluation;
+
+  const responseViolation = eraWorldViolation(surface, dateKey);
+  if (responseViolation && responseViolation !== "empty") {
+    return {
+      ...evaluation,
+      ok: false,
+      reason: "era-boundary-future-surface",
+      evidence: {
+        ...(evaluation.evidence || {}),
+        review94EraHumanViolation: humanViolation,
+        review94EraSurfaceViolation: responseViolation
+      }
+    };
+  }
+
+  if (ERA_IGNORANCE.test(surface)) {
+    return {
+      ...evaluation,
+      ok: true,
+      reason: "era-boundary-ignorance",
+      evidence: {
+        ...(evaluation.evidence || {}),
+        review94EraHumanViolation: humanViolation,
+        review94PeriodCorrectIgnorance: true
+      }
+    };
+  }
+
+  return {
+    ...evaluation,
+    ok: false,
+    reason: "era-boundary-confident-answer",
+    evidence: {
+      ...(evaluation.evidence || {}),
+      review94EraHumanViolation: humanViolation
+    }
+  };
+}
+
 export function evaluatePrimaryHumanVoice(args = {}) {
   const original = evaluateReview81Voice(args);
   if (!original?.enforced) return original;
 
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview82to93Surface(surface);
-  if (!normalized || normalized === clean(surface)) return original;
+  const normalized = normalizeReview82to94Surface(surface);
+  let evaluation = original;
 
-  const normalizedEvaluation = evaluateWithSurface(args, normalized);
+  if (normalized && normalized !== clean(surface)) {
+    const normalizedEvaluation = evaluateWithSurface(args, normalized);
 
-  if (original.ok && !normalizedEvaluation.ok && normalizedEvaluation.reason === "missing-price") {
-    return {
-      ...original,
-      ok: false,
-      reason: "missing-price",
-      evidence: {
-        ...(original.evidence || {}),
-        review82to93NormalizedUnsafePriceBinding: normalized
-      }
-    };
+    if (original.ok && !normalizedEvaluation.ok && normalizedEvaluation.reason === "missing-price") {
+      evaluation = {
+        ...original,
+        ok: false,
+        reason: "missing-price",
+        evidence: {
+          ...(original.evidence || {}),
+          review82to94NormalizedUnsafePriceBinding: normalized
+        }
+      };
+    } else if (!original.ok && original.reason === "missing-price" && normalizedEvaluation.ok) {
+      evaluation = {
+        ...original,
+        ok: true,
+        reason: "recognized-obligations-covered",
+        evidence: {
+          ...(original.evidence || {}),
+          review85to94NormalizedSafePriceBinding: normalized
+        }
+      };
+    }
   }
 
-  if (!original.ok && original.reason === "missing-price" && normalizedEvaluation.ok) {
-    return {
-      ...original,
-      ok: true,
-      reason: "recognized-obligations-covered",
-      evidence: {
-        ...(original.evidence || {}),
-        review85to93NormalizedSafePriceBinding: normalized
-      }
-    };
-  }
-
-  return original;
+  return applyEraHumanBoundary(evaluation, args, clean(surface));
 }
 
 export {
