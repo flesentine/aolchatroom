@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review93",
+    subject: "phase2-review94",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -26,7 +26,8 @@ function evaluate(question, surface, options = {}) {
       target: options.target || "Crateman",
       text: surface,
       source: "gemini"
-    }]
+    }],
+    eraDateKey: options.eraDateKey || ""
   });
 }
 
@@ -80,7 +81,7 @@ for (const valid of [
   "I paid $499 for a fancy brand new home video game console designed exclusively to work with the PlayStation 5"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, valid, { meaning: singlePriceMeaning }).ok, true,
-    `${valid} must remain valid PS5 price evidence`);
+    `${valid} must remain valid PS5 price evidence when the evaluator is intentionally used without an era boundary`);
 }
 for (const invalid of [
   "The PlayStation 5 headset price was $70",
@@ -189,11 +190,48 @@ assert.equal(evaluate(
   repeatedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 launch price was $499",
   { meaning: repeatedPriceMeaning }
-).ok, true, "a normal PS4 price plus a qualified PS5 launch price must pass");
+).ok, true, "a normal PS4 price plus a qualified PS5 launch price must pass without an era boundary");
 assert.equal(evaluate(
   repeatedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 costs $499 while a headset compatible with the PlayStation 5 costs $70",
   { meaning: repeatedPriceMeaning }
 ).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-93 plus adjacent price-binding regressions passed");
+// Finding 94: production supplies a 1996 eraDateKey. Future-product questions must
+// prefer period-correct ignorance over semantic completion of an impossible premise.
+for (const confident of ["$499", "yeah", "nah i dont own one", "it costs 499 bucks"] ) {
+  result = evaluate(singlePriceQuestion, confident, {
+    meaning: singlePriceMeaning,
+    eraDateKey: "1996-09-03"
+  });
+  assert.equal(result.ok, false, `${confident} must not confidently answer a PS5 question inside the sealed 1996 world`);
+  assert.equal(result.reason, "era-boundary-confident-answer");
+}
+for (const periodCorrect of [
+  "what?",
+  "what is that?",
+  "never heard of that",
+  "i have no clue what that is",
+  "are you kidding?",
+  "you mean the PlayStation?"
+]) {
+  result = evaluate(singlePriceQuestion, periodCorrect, {
+    meaning: singlePriceMeaning,
+    eraDateKey: "1996-09-03"
+  });
+  assert.equal(result.ok, true, `${periodCorrect} must be accepted as period-correct ignorance for a future-product question`);
+  assert.equal(result.reason, "era-boundary-ignorance");
+}
+result = evaluate(singlePriceQuestion, "what is a PS5?", {
+  meaning: singlePriceMeaning,
+  eraDateKey: "1996-09-03"
+});
+assert.equal(result.ok, false, "a bot may not repeat the future console token even while expressing confusion");
+assert.equal(result.reason, "era-boundary-future-surface");
+assert.equal(evaluate(
+  "how much did the Neo Geo cost?",
+  "around 600 bucks",
+  { meaning: "give the Neo Geo price", eraDateKey: "1996-09-03" }
+).ok, true, "the era boundary must not weaken ordinary period-valid price answers");
+
+console.log("v41 Phase 2A review 78-94 plus adjacent price-binding and sealed-era regressions passed");
