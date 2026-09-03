@@ -18,9 +18,13 @@ const BOUNDARY_START = `(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)*${INDEPENDENT_CLAU
 const DISCOURSE_NOUN_BOUNDARY_START = `(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)+${NOUN_CLAUSE_START}`;
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
-  "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
-  "even", "expensive", "fine", "fun", "good", "great", "okay", "ok", "really",
-  "still", "so", "terrible", "too", "very", "well", "worse", "worth",
+  "a", "an", "any", "as", "actually", "also", "awesome", "awful", "bad", "better",
+  "big", "black", "blue", "broken", "cheap", "cool", "even", "expensive", "fine",
+  "fun", "good", "great", "gray", "green", "grey", "huge", "large", "little",
+  "new", "newer", "nice", "old", "older", "okay", "ok", "original", "other",
+  "purple", "really", "red", "regular", "same", "silver", "small", "so", "standard",
+  "still", "terrible", "tiny", "too", "used", "very", "weird", "well", "white",
+  "working", "worse", "worth", "yellow",
   "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
   "can", "could", "would", "will", "should"
 ]);
