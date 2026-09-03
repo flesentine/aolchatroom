@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review86",
+    subject: "phase2-review87",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -63,7 +63,11 @@ for (const valid of [
   "The PlayStation-5 costs $499",
   "The PlayStation–5 costs $499",
   "A fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
-  "A fancy brand new replacement video game console for the PlayStation 5 costs $499"
+  "A fancy brand new replacement video game console for the PlayStation 5 costs $499",
+  "This fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
+  "John's fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
+  "fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
+  "I paid $499 for a fancy brand new home video game console designed exclusively to work with the PlayStation 5"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, valid, { meaning: singlePriceMeaning }).ok, true,
     `${valid} must remain valid PS5 price evidence`);
@@ -88,7 +92,12 @@ for (const invalid of [
   "A PlayStation-5-compatible headset costs $70",
   "A PlayStation–5-compatible headset costs $70",
   "A PlayStation—5-compatible headset costs $70",
-  "A fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70"
+  "A fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
+  "This fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
+  "That fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
+  "John's fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
+  "fancy brand new wireless gaming stereo headset designed exclusively to work with the PlayStation 5 costs $70",
+  "I paid $70 for a fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5"
 ]) {
   const result = evaluate(singlePriceQuestion, invalid, { meaning: singlePriceMeaning });
   assert.equal(result.ok, false, `${invalid} must not satisfy the PS5 console price`);
@@ -98,7 +107,8 @@ for (const validWithPeripheral of [
   "The PlayStation 5 costs $499, but a headset for the PlayStation 5 costs $70",
   "The PlayStation 5 costs $499 while a headset compatible with the PlayStation 5 costs $70",
   "A headset compatible with the PlayStation 5 costs $70 while the PlayStation 5 costs $499",
-  "The PlayStation 5 costs $499 alongside a headset compatible with the PlayStation 5 costs $70"
+  "The PlayStation 5 costs $499 alongside a headset compatible with the PlayStation 5 costs $70",
+  "The PlayStation 5 costs $499 while this fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, validWithPeripheral, { meaning: singlePriceMeaning }).ok, true,
     `${validWithPeripheral} must keep the explicit console price valid despite extra peripheral pricing`);
@@ -158,4 +168,4 @@ assert.equal(evaluate(
   { meaning: repeatedPriceMeaning }
 ).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-86 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-87 plus adjacent price-binding regressions passed");
