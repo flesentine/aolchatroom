@@ -81,7 +81,7 @@ for (const demonstrative of ["this", "that"]) {
     `yeah, ${demonstrative} Neo Geo was good`,
     `say whether ${demonstrative} Neo Geo was any good`
   );
-  assert.equal(primary.ok, true, `explicit ${demonstrative} Neo Geo subject must reset future carry`);
+  assert.equal(primary.ok, true, `explicit ${demonstrative} Neo Geo subject must reset future carry; reason=${primary.reason}; evidence=${JSON.stringify(primary.evidence || {})}`);
   assert.notEqual(primary.reason, "era-boundary-confident-answer");
   assert.equal(
     scopedFallbackEraViolation(question, eraDateKey, `say whether ${demonstrative} Neo Geo was any good`),
