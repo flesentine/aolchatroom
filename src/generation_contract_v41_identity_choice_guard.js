@@ -14,6 +14,7 @@ const ERA_SCOPE_STOPWORDS = new Set([
   "price", "cost", "say", "she", "that", "the", "their", "them", "they", "this",
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
+const ERA_ANAPHOR = /\b(?:it|its|that|this|one|they|them|those|these)\b/i;
 const ERA_IGNORANCE_CLAUSE = /^(?:(?:huh+|what|lol\s+what|uh+\s+what)|what(?:'s|\s+is|\s+are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean(?:\s+by\s+(?:that|this|it))?|what\s+are\s+you\s+talking\s+about|(?:i(?:'ve|\s+have)?\s+)?never\s+heard(?:\s+of)?\s+(?:that|it)(?:\s+before)?|(?:i\s+)?(?:haven't|have\s+not)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?have\s+never\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't|dont)\s+know(?:\s+what\s+(?:that|it)\s+is)?|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)(?:\s+what\s+(?:that|it)\s+is)?|beats\s+me|(?:(?:that|this|it)\s+)?(?:doesn't|does\s+not|doesnt)\s+ring\s+a\s+bell|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|are\s+you\s+from\s+the\s+future|from\s+the\s+future)$/i;
 
 function clean(value, max = 1200) {
@@ -65,6 +66,21 @@ function overlapScore(left, right) {
   return score;
 }
 
+function propagateAnaphoricEraViolations(rows) {
+  let carried = null;
+  return rows.map((row) => {
+    if (row.violation) {
+      carried = row.violation;
+      return row;
+    }
+    if (carried && ERA_ANAPHOR.test(row.clause)) {
+      return { ...row, violation: carried, inheritedEraViolation: true };
+    }
+    carried = null;
+    return row;
+  });
+}
+
 function semanticScopeText(args, evaluation) {
   const planned = args?.plan?.moves?.[0] || {};
   const contracted = evaluation?.contract?.move || {};
@@ -84,13 +100,13 @@ function scopedEraHumanViolation(args, evaluation, dateKey) {
   const clauses = splitHumanEraClauses(args?.human?.text || "");
   if (!clauses.length) return null;
 
-  const rows = clauses.map((clause) => {
+  const rows = propagateAnaphoricEraViolations(clauses.map((clause) => {
     const violation = eraWorldViolation(clause, dateKey);
     return {
       clause,
       violation: violation && violation !== "empty" ? violation : null
     };
-  });
+  }));
   const violating = rows.filter((row) => row.violation);
   if (!violating.length) return null;
   if (violating.length === rows.length) return violating[0].violation;
@@ -138,8 +154,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-future-surface",
       evidence: {
         ...(evaluation.evidence || {}),
-        review100EraHumanViolation: humanViolation,
-        review100EraSurfaceViolation: responseViolation
+        review102EraHumanViolation: humanViolation,
+        review102EraSurfaceViolation: responseViolation
       }
     };
   }
@@ -151,8 +167,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-ignorance",
       evidence: {
         ...(evaluation.evidence || {}),
-        review100EraHumanViolation: humanViolation,
-        review100PeriodCorrectIgnorance: true
+        review102EraHumanViolation: humanViolation,
+        review102PeriodCorrectIgnorance: true
       }
     };
   }
@@ -163,7 +179,7 @@ function applyEraHumanBoundary(evaluation, args, surface) {
     reason: "era-boundary-confident-answer",
     evidence: {
       ...(evaluation.evidence || {}),
-      review100EraHumanViolation: humanViolation
+      review102EraHumanViolation: humanViolation
     }
   };
 }
