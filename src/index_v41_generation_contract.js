@@ -72,12 +72,36 @@ export class ChatRoom extends Phase2ChatRoom {
     const human = this.pendingHumans.shift();
     this.v41LastGenerationContract = null;
     const replies = this.v41DeterministicHumanFallback(human) || [];
-    const queued = replies.length
-      ? Number(this.queueAiLines?.(replies.slice(0, 3), "human") || 0)
-      : 0;
+    const evaluation = evaluateHumanReplanPrimaryResponse({
+      lines: replies,
+      human,
+      history: this.history || []
+    });
+    const rejected = Boolean(evaluation?.enforced && !evaluation.ok);
+    let queued = 0;
+
+    if (rejected) {
+      // Total-provider degradation must not bypass Phase 2B's first-responder
+      // ownership contract. Consume an invalid deterministic fallback instead
+      // of repeatedly queueing/retrying a reply from the wrong bot.
+      this.v41GenerationStats.humanReplanFallbackRejects += 1;
+      this.v41GenerationStats.humanReplanFailClosedConsumes += 1;
+      this.noteHumanReplanContract?.(evaluation, replies, human, null);
+      this.broadcast?.({
+        type: "generation_contract",
+        action: "v41-degraded-human-fallback-fail-closed",
+        reason: evaluation.reason || "",
+        expectedSpeaker: evaluation.obligation?.speaker || "",
+        expectedTarget: evaluation.obligation?.target || human?.from || "",
+        discardedLines: Array.isArray(replies) ? replies.length : 0,
+        at: Date.now()
+      });
+    } else if (replies.length) {
+      queued = Number(this.queueAiLines?.(replies.slice(0, 3), "human") || 0);
+    }
 
     if (!queued) {
-      this.pendingHumans.unshift(human);
+      if (!rejected) this.pendingHumans.unshift(human);
       this.v37ProductionTurnStats.degradedFallbackMisses += 1;
     } else {
       this.v37ProductionTurnStats.degradedHumanFallbacksQueued += queued;
@@ -114,7 +138,8 @@ export class ChatRoom extends Phase2ChatRoom {
         deterministicFallbackDefersToSealed1996World: true,
         deterministicFallbackScopesMixedEraTurns: true,
         deterministicFallbackRequiresFreshGenerationScope: true,
-        degradedHumanFallbackDefersToSealed1996World: true
+        degradedHumanFallbackDefersToSealed1996World: true,
+        degradedHumanFallbackPreservesPhase2BPrimarySlot: true
       }
     };
   }
