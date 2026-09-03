@@ -16,6 +16,13 @@ const LONG_HEAD_BOUNDARIES = new Set([
   "to", "from", "at", "by"
 ]);
 const SAFE_LONG_HEADS = new Set(["console", "system", "unit", "device", "machine"]);
+const RELATION_LEAD_MODIFIERS = new Set([
+  "careful", "carefully", "custom", "customized", "deliberate", "deliberately",
+  "exclusive", "exclusively", "express", "expressly", "fresh", "freshly",
+  "new", "newly", "official", "officially", "particular", "particularly",
+  "professional", "professionally", "purpose", "special", "specially",
+  "specific", "specifically"
+]);
 
 function clean(value, max = 900) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -23,9 +30,14 @@ function clean(value, max = 900) {
 
 function normalizeNamedModelPossessives(value) {
   return value.replace(
-    /\b(?:(?:[a-z][a-z0-9-]*'s)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(?:the\s+)?(?:(?:[a-z][a-z0-9-]*'(?:s)?)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
     "my "
   );
+}
+
+function relationLeadModifier(word) {
+  const normalized = String(word || "").toLowerCase();
+  return RELATION_LEAD_MODIFIERS.has(normalized) || normalized.endsWith("ly");
 }
 
 function normalizeLongPeripheralRelations(value) {
@@ -42,7 +54,7 @@ function normalizeLongPeripheralRelations(value) {
     let boundary = -1;
     for (let index = words.length - 2; index >= 0; index -= 1) {
       const word = words[index][0].toLowerCase();
-      if (LONG_HEAD_BOUNDARIES.has(word) || word.endsWith("'s")) {
+      if (LONG_HEAD_BOUNDARIES.has(word) || word.endsWith("'s") || word.endsWith("'")) {
         boundary = index;
         break;
       }
@@ -50,6 +62,18 @@ function normalizeLongPeripheralRelations(value) {
 
     const nounWords = words.slice(boundary + 1);
     if (nounWords.length <= 5) continue;
+
+    let lastSafeIndex = -1;
+    for (let index = nounWords.length - 1; index >= 0; index -= 1) {
+      if (SAFE_LONG_HEADS.has(nounWords[index][0].toLowerCase())) {
+        lastSafeIndex = index;
+        break;
+      }
+    }
+    if (lastSafeIndex >= 0 && nounWords.slice(lastSafeIndex + 1).every((row) => relationLeadModifier(row[0]))) {
+      continue;
+    }
+
     const firstNoun = nounWords[0];
     const head = nounWords[nounWords.length - 1]?.[0] || "";
     if (!head || SAFE_LONG_HEADS.has(head.toLowerCase())) continue;
@@ -68,10 +92,10 @@ function normalizeLongPeripheralRelations(value) {
   return normalized;
 }
 
-function normalizeReview82to90Surface(value) {
+function normalizeReview82to93Surface(value) {
   let surface = clean(value)
     .replace(/[’]/g, "'")
-    .replace(/[‐‑‒–—―]/g, "-")
+    .replace(/[‐‑‒–—―−]/g, "-")
     .replace(/\bplaystation\s*-\s*(\d+)\b/gi, "PlayStation $1")
     .replace(/\bps\s*-\s*(\d+)\b/gi, "PS $1")
     .replace(/\b((?:playstation|ps)\s*\d+)\s*-\s*(compatible)\b/gi, "$1-$2")
@@ -93,7 +117,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   if (!original?.enforced) return original;
 
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview82to90Surface(surface);
+  const normalized = normalizeReview82to93Surface(surface);
   if (!normalized || normalized === clean(surface)) return original;
 
   const normalizedEvaluation = evaluateWithSurface(args, normalized);
@@ -105,7 +129,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       reason: "missing-price",
       evidence: {
         ...(original.evidence || {}),
-        review82to90NormalizedUnsafePriceBinding: normalized
+        review82to93NormalizedUnsafePriceBinding: normalized
       }
     };
   }
@@ -117,7 +141,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       reason: "recognized-obligations-covered",
       evidence: {
         ...(original.evidence || {}),
-        review85to90NormalizedSafePriceBinding: normalized
+        review85to93NormalizedSafePriceBinding: normalized
       }
     };
   }
