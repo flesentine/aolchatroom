@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review80",
+    subject: "phase2-review85",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -58,7 +58,10 @@ for (const valid of [
   "the price for the PlayStation 5 was $499",
   "$499 for the PlayStation 5",
   "the PlayStation 5 costs $499",
-  "I paid $499 for my PlayStation 5"
+  "I paid $499 for my PlayStation 5",
+  "I paid $499 for John's PlayStation 5",
+  "The PlayStation-5 costs $499",
+  "The PlayStation–5 costs $499"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, valid, { meaning: singlePriceMeaning }).ok, true,
     `${valid} must remain valid PS5 price evidence`);
@@ -75,17 +78,29 @@ for (const invalid of [
   "a bundle with the PlayStation 5 costs $600",
   "I paid $70 for a headset for my PlayStation 5",
   "I paid $70 for a headset compatible with my PlayStation 5",
-  "a PlayStation 5-compatible headset costs $70"
+  "a PlayStation 5-compatible headset costs $70",
+  "A controller for John's PlayStation 5 costs $70",
+  "a case made for Chris's PlayStation 5 costs $20",
+  "I paid $70 for John's PlayStation 5 controller",
+  "a headset for John's friend's PlayStation 5 costs $70",
+  "A PlayStation-5-compatible headset costs $70",
+  "A PlayStation–5-compatible headset costs $70",
+  "A PlayStation—5-compatible headset costs $70",
+  "A fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70"
 ]) {
   const result = evaluate(singlePriceQuestion, invalid, { meaning: singlePriceMeaning });
   assert.equal(result.ok, false, `${invalid} must not satisfy the PS5 console price`);
   assert.equal(result.reason, "missing-price");
 }
-assert.equal(evaluate(
-  singlePriceQuestion,
+for (const validWithPeripheral of [
   "The PlayStation 5 costs $499, but a headset for the PlayStation 5 costs $70",
-  { meaning: singlePriceMeaning }
-).ok, true, "an extra peripheral price must not invalidate an already-complete console price answer");
+  "The PlayStation 5 costs $499 while a headset compatible with the PlayStation 5 costs $70",
+  "A headset compatible with the PlayStation 5 costs $70 while the PlayStation 5 costs $499",
+  "The PlayStation 5 costs $499 alongside a headset compatible with the PlayStation 5 costs $70"
+]) {
+  assert.equal(evaluate(singlePriceQuestion, validWithPeripheral, { meaning: singlePriceMeaning }).ok, true,
+    `${validWithPeripheral} must keep the explicit console price valid despite extra peripheral pricing`);
+}
 
 // Adjacent independent probe: a peripheral can be introduced mid-clause after an amount/preposition.
 for (const invalid of [
@@ -123,10 +138,22 @@ result = evaluate(
 );
 assert.equal(result.ok, false, "a relational peripheral head must not supply the missing PS5 console price in a repeated-price answer");
 assert.equal(result.reason, "missing-price");
+result = evaluate(
+  repeatedPriceQuestion,
+  "The PlayStation 4 was $400 and a controller for John's PlayStation 5 costs $70",
+  { meaning: repeatedPriceMeaning }
+);
+assert.equal(result.ok, false, "a named-possessive peripheral relation must not supply the missing PS5 price");
+assert.equal(result.reason, "missing-price");
 assert.equal(evaluate(
   repeatedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 launch price was $499",
   { meaning: repeatedPriceMeaning }
 ).ok, true, "a normal PS4 price plus a qualified PS5 launch price must pass");
+assert.equal(evaluate(
+  repeatedPriceQuestion,
+  "The PlayStation 4 was $400 and the PlayStation 5 costs $499 while a headset compatible with the PlayStation 5 costs $70",
+  { meaning: repeatedPriceMeaning }
+).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-81 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-85 plus adjacent price-binding regressions passed");
