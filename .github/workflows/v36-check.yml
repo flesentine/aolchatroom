@@ -19,5 +19,9 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '24'
+      - name: Bootstrap pinned Wrangler
+        run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.127.1
+      - name: Verify pinned Wrangler
+        run: npx --no-install wrangler --version
       - name: Run full regression suite
         run: npm run check
