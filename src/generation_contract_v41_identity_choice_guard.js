@@ -51,9 +51,9 @@ function normalizeModelPossessive(value) {
   return value.replace(/\b((?:playstation|ps)\s*\d+)\s*'s\b/gi, "$1");
 }
 
-function normalizeSafeHeadCompoundModifiers(value) {
+function normalizeRelationHeadCompoundModifiers(value) {
   return value.replace(
-    /\b(console|system|unit|device|machine)\s+(?:(?:[a-z]+ly|very|well|hand|factory|mass|purpose|home|custom)(?:\s*-\s*|\s+))+(designed|made|built|intended)\b/gi,
+    /\b([a-z][a-z0-9-]*)\s+(?:(?:[a-z]+ly|very|well|hand|factory|mass|purpose|home|custom)(?:\s*-\s*|\s+))+(designed|made|built|intended)\b(?=[^.;!?]{0,120}\b(?:for|to\s+(?:work\s+)?with)\s+(?:my\s+)?(?:playstation|ps)\s*\d+\b)/gi,
     "$1 $2"
   );
 }
@@ -62,7 +62,7 @@ function normalizeReview96to112Surface(value) {
   let surface = clean(value).replace(/[’]/g, "'");
   surface = normalizeInternalApostrophePossessives(surface);
   surface = normalizeModelPossessive(surface);
-  surface = normalizeSafeHeadCompoundModifiers(surface);
+  surface = normalizeRelationHeadCompoundModifiers(surface);
   return clean(surface);
 }
 
