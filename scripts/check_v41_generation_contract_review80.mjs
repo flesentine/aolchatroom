@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review90",
+    subject: "phase2-review93",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -60,12 +60,19 @@ for (const valid of [
   "the PlayStation 5 costs $499",
   "I paid $499 for my PlayStation 5",
   "I paid $499 for John's PlayStation 5",
+  "I paid $499 for Chris' PlayStation 5",
+  "I paid $499 for the Joneses' PlayStation 5",
   "I paid $499 for John's old PlayStation 5",
   "I paid $499 for John's very old slightly scratched original beloved PlayStation 5",
   "John's very own PlayStation 5 costs $499",
   "The PlayStation-5 costs $499",
   "The PlayStation–5 costs $499",
+  "The PlayStation−5 costs $499",
   "A fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
+  "A fancy brand new home video game console carefully designed exclusively to work with the PlayStation 5 costs $499",
+  "A fancy brand new home video game system custom built for the PlayStation 5 costs $499",
+  "A fancy brand new home video game unit purpose built for the PlayStation 5 costs $499",
+  "A fancy brand new home video game console newly made for the PlayStation 5 costs $499",
   "A fancy brand new replacement video game console for the PlayStation 5 costs $499",
   "This fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
   "John's fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
@@ -89,8 +96,11 @@ for (const invalid of [
   "I paid $70 for a headset compatible with my PlayStation 5",
   "a PlayStation 5-compatible headset costs $70",
   "A controller for John's PlayStation 5 costs $70",
+  "A controller for Chris' PlayStation 5 costs $70",
+  "A controller for the Joneses' PlayStation 5 costs $70",
   "a case made for Chris's PlayStation 5 costs $20",
   "I paid $70 for John's PlayStation 5 controller",
+  "I paid $70 for Chris' PlayStation 5 controller",
   "a headset for John's friend's PlayStation 5 costs $70",
   "A controller for John's old PlayStation 5 costs $70",
   "A controller for John's very old slightly scratched original beloved PlayStation 5 costs $70",
@@ -99,10 +109,13 @@ for (const invalid of [
   "A PlayStation-5-compatible headset costs $70",
   "A PlayStation–5-compatible headset costs $70",
   "A PlayStation—5-compatible headset costs $70",
+  "A PlayStation−5-compatible headset costs $70",
   "A PlayStation 5 - compatible headset costs $70",
   "A PlayStation 5 – compatible headset costs $70",
   "A PlayStation 5 — compatible headset costs $70",
+  "A PlayStation 5 − compatible headset costs $70",
   "A fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
+  "A fancy brand new wireless gaming headset carefully designed exclusively to work with the PlayStation 5 costs $70",
   "A fancy brand new wireless gaming headset designed very carefully and quite deliberately exclusively to work with the PlayStation 5 costs $70",
   "This fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
   "That fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
@@ -167,10 +180,10 @@ assert.equal(result.ok, false, "a relational peripheral head must not supply the
 assert.equal(result.reason, "missing-price");
 result = evaluate(
   repeatedPriceQuestion,
-  "The PlayStation 4 was $400 and a controller for John's PlayStation 5 costs $70",
+  "The PlayStation 4 was $400 and a controller for Chris' PlayStation 5 costs $70",
   { meaning: repeatedPriceMeaning }
 );
-assert.equal(result.ok, false, "a named-possessive peripheral relation must not supply the missing PS5 price");
+assert.equal(result.ok, false, "a bare-apostrophe possessive peripheral relation must not supply the missing PS5 price");
 assert.equal(result.reason, "missing-price");
 assert.equal(evaluate(
   repeatedPriceQuestion,
@@ -183,4 +196,4 @@ assert.equal(evaluate(
   { meaning: repeatedPriceMeaning }
 ).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-90 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-93 plus adjacent price-binding regressions passed");
