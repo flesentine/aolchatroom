@@ -14,19 +14,12 @@ export default worker;
 
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
-    // Render Voice exactly once through the inherited scene/Director stack,
-    // then apply the final Phase 2A adversarial validation contract.
-    // All Phase 2B fail-closed behavior remains inherited from Phase2ChatRoom.
     const voiced = await V41SceneChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
     const evaluation = evaluatePrimaryHumanVoice({
       plan,
       lines: voiced,
       human,
       history: this.history || [],
-      // Phase 2 semantic completeness must never overrule the sealed 1996
-      // world inherited from v13. Supplying the room's mirror-date lets the
-      // evaluator prefer period-correct ignorance when a human introduces a
-      // future product or behavior.
       eraDateKey: typeof this.currentEraDate === "function" ? this.currentEraDate() : ""
     });
     this.noteGenerationContract(evaluation, plan, voiced, human);
@@ -49,26 +42,49 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 
   v41DeterministicHumanFallback(human) {
-    // Keep the provider-independent Phase 2B emergency path explicit at the
-    // canonical production boundary. Never dynamically dispatch through later
-    // provider-aware builtInHumanReply overrides.
     const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
     const eraDateKey = typeof this.currentEraDate === "function" ? this.currentEraDate() : "";
     return periodSafeHumanFallbackLines(fallback, human, eraDateKey, this.v41EraFallbackScope(human));
   }
 
   async generateHumanReplan(human) {
-    // A semantic scope is trusted only if this exact replan records it. Clear
-    // the previous turn before entering the inherited path so a provider-empty
-    // or otherwise fallback-only replan cannot reuse stale Director semantics.
+    // Semantic fallback scope must be created by this exact replan.
     this.v41LastGenerationContract = null;
-
-    // v37 also has its own provider-independent v14 fallback when Voice returns
-    // empty. Post-process the completed inherited path so either fallback route
-    // is period-safe without changing responder selection or provider routing.
     const lines = await super.generateHumanReplan(human);
     const eraDateKey = typeof this.currentEraDate === "function" ? this.currentEraDate() : "";
     return periodSafeHumanFallbackLines(lines, human, eraDateKey, this.v41EraFallbackScope(human));
+  }
+
+  queueV37DegradedFallback(now = Date.now(), forceSoon = false) {
+    if (!this.providerPoolDegraded?.(now)) return false;
+
+    // v37's degraded human path runs before normal replanning and therefore
+    // bypasses generateHumanReplan(). Intercept only that human branch here;
+    // the inherited ambient degraded path remains byte-for-byte authoritative.
+    if (!this.pendingHumans?.length) return super.queueV37DegradedFallback(now, forceSoon);
+
+    this.v37ProductionTurnStats.degradedModeTicks += 1;
+    const retryMs = typeof this.shortestCooldownMs === "function"
+      ? Math.max(0, Number(this.shortestCooldownMs(now) || 0))
+      : 0;
+    const retrySeconds = Math.max(1, Math.ceil((retryMs || 1000) / 1000));
+
+    const human = this.pendingHumans.shift();
+    this.v41LastGenerationContract = null;
+    const replies = this.v41DeterministicHumanFallback(human) || [];
+    const queued = replies.length
+      ? Number(this.queueAiLines?.(replies.slice(0, 3), "human") || 0)
+      : 0;
+
+    if (!queued) {
+      this.pendingHumans.unshift(human);
+      this.v37ProductionTurnStats.degradedFallbackMisses += 1;
+    } else {
+      this.v37ProductionTurnStats.degradedHumanFallbacksQueued += queued;
+    }
+
+    this.setAiStatus?.(`AI degraded · built-in fallback active · provider retry in ~${retrySeconds}s`);
+    return queued > 0;
   }
 
   async handlePendingHumanWithAi(now = Date.now()) {
@@ -97,12 +113,11 @@ export class ChatRoom extends Phase2ChatRoom {
         semanticCompletenessDefersToSealed1996World: true,
         deterministicFallbackDefersToSealed1996World: true,
         deterministicFallbackScopesMixedEraTurns: true,
-        deterministicFallbackRequiresFreshGenerationScope: true
+        deterministicFallbackRequiresFreshGenerationScope: true,
+        degradedHumanFallbackDefersToSealed1996World: true
       }
     };
   }
 }
 
-// Imported through the final guard contract and intentionally kept visible here:
-// Phase 2B structural validation remains the inherited implementation's gate.
 void evaluateHumanReplanPrimaryResponse;
