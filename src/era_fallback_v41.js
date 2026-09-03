@@ -9,6 +9,7 @@ const SCOPE_STOPWORDS = new Set([
 ]);
 const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)";
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
@@ -24,6 +25,10 @@ function clean(value, max = 1800) {
 
 function normalizeClauseBoundaries(value) {
   let surface = clean(value).replace(/[’]/g, "'");
+  surface = surface.replace(
+    new RegExp(`(${DISCOURSE_MARKER})\\s*,\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"),
+    "$1 "
+  );
   surface = surface.replace(new RegExp(`,\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
   surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
   return surface;
@@ -54,7 +59,7 @@ function overlapScore(left, right) {
 
 function stripDiscourseAnaphor(value) {
   let clause = clean(value, 500);
-  const prefix = /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)[,;:]?\s+)+/i;
+  const prefix = new RegExp(`^(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)+`, "i");
   while (prefix.test(clause)) clause = clause.replace(prefix, "");
   return clause;
 }
