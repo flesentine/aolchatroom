@@ -92,6 +92,8 @@ const contracts = [
   "semantic-polarity-scope-reject",
   "semantic-pass",
   "human-fallback",
+  "era-primary-reject",
+  "era-fallback-safe",
   "human-tail-fail-closed",
   "human-answer-first-pass",
   "human-bad-fallback-reject",
