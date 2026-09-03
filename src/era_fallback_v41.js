@@ -100,6 +100,128 @@ function maskDemonstrativeDeterminers(clause) {
   );
 }
 
+function embeddedPronounUsesPriorReferent(clause, pronoun) {
+  const leader = new RegExp(
+    `^(?:i\\s+(?:think|guess|bet|mean|wonder|feel|heard)|you\\s+(?:think|guess|said|say|mean)|there\\s+(?:is|are|was|were))\\b\\s*(.*)import { eraWorldViolation } from "./era_world.js";
+
+const SCOPE_STOPWORDS = new Set([
+  "a", "an", "and", "answer", "are", "as", "at", "be", "did", "do", "does",
+  "for", "give", "he", "her", "him", "his", "how", "human", "i", "in", "is",
+  "it", "its", "latest", "me", "message", "much", "my", "of", "on", "or", "our",
+  "price", "cost", "say", "she", "that", "the", "their", "them", "they", "this",
+  "to", "was", "were", "what", "whether", "with", "you", "your"
+]);
+const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
+const STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
+const NEGATED_CLAUSE_LEADER = "(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)";
+const NOUN_CLAUSE_START = "(?:(?:the|my|your|his|her|our|their|this|that|these|those)\\s+(?:[a-z0-9][a-z0-9'-]*\\s+){0,4}[a-z0-9][a-z0-9'-]*\\s+(?:costs?|is|are|was|were|has|have|had|does|do|did)\\b)";
+const INDEPENDENT_CLAUSE_START = `(?:${STRONG_CLAUSE_LEADER}\\b|${NEGATED_CLAUSE_LEADER}\\b|${WH_QUESTION_START})`;
+const DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyways|anyhow|then|now|btw|by\\s+the\\s+way|look|okay|ok|so|personally)";
+const BOUNDARY_START = `(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)*${INDEPENDENT_CLAUSE_START}`;
+const DISCOURSE_NOUN_BOUNDARY_START = `(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)+${NOUN_CLAUSE_START}`;
+const DEMONSTRATIVE = "(?:this|that|these|those)";
+const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
+  "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
+  "even", "expensive", "fine", "fun", "good", "great", "okay", "ok", "really",
+  "still", "so", "terrible", "too", "very", "well", "worse", "worth",
+  "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
+  "can", "could", "would", "will", "should"
+]);
+const NEGATIVE_AUXILIARY = new Map([
+  ["isn't", "is not"], ["aren't", "are not"], ["wasn't", "was not"], ["weren't", "were not"],
+  ["don't", "do not"], ["doesn't", "does not"], ["didn't", "did not"],
+  ["hasn't", "has not"], ["haven't", "have not"], ["hadn't", "had not"],
+  ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
+  ["won't", "will not"], ["shouldn't", "should not"]
+]);
+
+function clean(value, max = 1800) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
+function normalizeClauseBoundaries(value) {
+  let surface = clean(value).replace(/[’]/g, "'");
+  surface = surface.replace(
+    new RegExp(`(${DISCOURSE_MARKER})\\s*,\\s+(?=${INDEPENDENT_CLAUSE_START})`, "gi"),
+    "$1 "
+  );
+  surface = surface.replace(new RegExp(`,\\s+(?=${BOUNDARY_START})`, "gi"), "; ");
+  surface = surface.replace(
+    new RegExp(`\\s+(?:plus|also|and|but|although|while|whereas|even\\s+though|even\\s+if),?\\s+(?=(?:${BOUNDARY_START}|${DISCOURSE_NOUN_BOUNDARY_START}))`, "gi"),
+    "; "
+  );
+  surface = surface.replace(
+    new RegExp(`\\s+(?:plus|also),\\s+(?=${NOUN_CLAUSE_START})`, "gi"),
+    "; "
+  );
+  return surface;
+}
+
+function splitClauses(value) {
+  return normalizeClauseBoundaries(value)
+    .split(/\s*(?:[;!?]+|\.\s+)\s*/i)
+    .map((row) => clean(row, 500))
+    .filter(Boolean);
+}
+
+function scopeTokens(value) {
+  return clean(value)
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .split(/\s+/)
+    .filter((token) => token && token.length > 1 && !SCOPE_STOPWORDS.has(token));
+}
+
+function overlapScore(left, right) {
+  const a = new Set(scopeTokens(left));
+  const b = new Set(scopeTokens(right));
+  let score = 0;
+  for (const token of a) if (b.has(token)) score += 1;
+  return score;
+}
+
+function stripDiscourseAnaphor(value) {
+  let clause = clean(value, 500);
+  const prefix = new RegExp(`^(?:(?:${DISCOURSE_MARKER})[,;:]?\\s+)+`, "i");
+  while (prefix.test(clause)) clause = clause.replace(prefix, "");
+  return clause;
+}
+
+function normalizeNegativeAuxiliaries(value) {
+  return clean(value, 500).replace(
+    /\b(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)\b/gi,
+    (match) => NEGATIVE_AUXILIARY.get(match.toLowerCase()) || match
+  );
+}
+
+function maskDemonstrativeDeterminers(clause) {
+  return clean(clause, 500).replace(
+    new RegExp(`\\b(${DEMONSTRATIVE})\\s+([a-z0-9][a-z0-9-]*)\\b`, "gi"),
+    (match, demonstrative, next) => DEMONSTRATIVE_PRONOUN_FOLLOW.has(String(next || "").toLowerCase())
+      ? match
+      : `explicit-subject ${next}`
+  );
+}
+
+,
+    "i"
+  ).exec(clause);
+  if (!leader) return false;
+
+  const tail = leader[1] || "";
+  const pronounMatch = new RegExp(`\\b${pronoun}\\b`, "i").exec(tail);
+  if (!pronounMatch) return false;
+
+  const beforePronoun = tail.slice(0, pronounMatch.index);
+  const explicitSubject = new RegExp(
+    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,3}\\s+(?:is|are|was|were|costs?|has|have|had|does|do|did)\\b`,
+    "i"
+  ).test(beforePronoun);
+
+  return !explicitSubject;
+}
+
 function clauseIsAnaphoric(value) {
   const clause = normalizeNegativeAuxiliaries(stripDiscourseAnaphor(value));
   if (!clause) return false;
@@ -109,10 +231,7 @@ function clauseIsAnaphoric(value) {
   const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:not\\s+)?${pronoun}\\b`, "i").test(masked);
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(masked);
-  const embeddedPronoun = new RegExp(
-    `^(?:i\\s+(?:think|guess|bet|mean|wonder|feel|heard)|you\\s+(?:think|guess|said|say|mean)|there\\s+(?:is|are|was|were))\\b.*\\b${pronoun}\\b`,
-    "i"
-  ).test(masked);
+  const embeddedPronoun = embeddedPronounUsesPriorReferent(masked, pronoun);
   const comparisonPronoun = new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+${pronoun}\\b`, "i").test(masked);
 
   return directPronoun || auxiliaryPronoun || whPronoun || youPronoun || embeddedPronoun || comparisonPronoun;
