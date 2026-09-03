@@ -11,6 +11,7 @@ const LONG_HEAD_BOUNDARIES = new Set([
   "this", "that", "these", "those", "for", "of", "on", "with",
   "to", "from", "at", "by"
 ]);
+const SAFE_LONG_HEADS = new Set(["console", "system", "unit", "device", "machine"]);
 
 function clean(value, max = 900) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -47,7 +48,7 @@ function normalizeLongPeripheralRelations(value) {
     if (nounWords.length <= 5) continue;
     const firstNoun = nounWords[0];
     const head = nounWords[nounWords.length - 1]?.[0] || "";
-    if (!head) continue;
+    if (!head || SAFE_LONG_HEADS.has(head.toLowerCase())) continue;
 
     edits.push({
       start: tail.index + firstNoun.index,
