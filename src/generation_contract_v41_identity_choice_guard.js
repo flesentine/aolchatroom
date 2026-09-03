@@ -171,7 +171,7 @@ function possessiveHardwarePrice(surface, model) {
 }
 function unsafeReverseTail(surface, model) {
   const modelPattern = phraseRegex(model);
-  const pattern = new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s**$`, "i");
+  const pattern = new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s*$`, "i");
   return responseClauses(surface).some((clause) => {
     const match = canonicalText(clause).toLowerCase().match(pattern);
     if (!match) return false;
