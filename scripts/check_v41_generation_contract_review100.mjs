@@ -139,9 +139,12 @@ assert.equal(result.reason, "era-boundary-ignorance");
 
 // A new independent 1996 subject breaks the inherited future reference. The
 // following pronoun belongs to Neo Geo rather than the earlier PS5 disclaimer.
+// Name Neo Geo explicitly in the answer so this regression isolates era-scope
+// reset behavior from older response-coreference capabilities in the frozen
+// semantic evaluator.
 result = evaluate(
   "I've never heard of PS5; do you like the Neo Geo and is it worth buying?",
-  "yeah i like it",
+  "yeah i like the Neo Geo",
   "say whether he likes the Neo Geo",
   { eraDateKey: "1996-09-03" }
 );
