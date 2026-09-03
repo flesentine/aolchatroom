@@ -94,7 +94,30 @@ assert.equal(mixedResult[0]._v41EraSafeFallback, true);
 mixedResult = periodSafeHumanFallbackLines([builtIn("yeah maybe")], mixedHuman, dateKey);
 assert.equal(mixedResult[0].text, "what? never heard of that");
 
+// Finding 102: an anaphoric later clause still refers to the future object even
+// though the explicit forbidden noun is only present in the first clause.
+for (const [text, scope] of [
+  ["do you own a PS5 and was it any good?", "say whether it was any good"],
+  ["how much did the PS5 cost and was it worth it?", "say whether it was worth it"],
+  ["have you used an iPhone and did you like it?", "say whether he liked it"]
+]) {
+  const human = { from: "Crateman", target: "MetallicaFan", text };
+  assert.notEqual(scopedFallbackEraViolation(text, dateKey, scope), "", `anaphoric future fallback scope must remain sealed: ${text}`);
+  const result = periodSafeHumanFallbackLines([builtIn("yeah maybe")], human, dateKey, scope);
+  assert.equal(result[0].text, "what? never heard of that");
+  assert.equal(result[0]._v41EraSafeFallback, true);
+}
+
+// A new explicit 1996 subject resets the carry; a following pronoun then belongs
+// to that new subject rather than the earlier PS5 disclaimer.
+const resetText = "I've never heard of PS5; do you like the Neo Geo and is it worth buying?";
+assert.equal(scopedFallbackEraViolation(resetText, dateKey, "say whether the Neo Geo is worth buying"), "");
+const resetHuman = { from: "Crateman", target: "MetallicaFan", text: resetText };
+const resetLine = builtIn("yeah maybe", { marker: "reset" });
+const resetResult = periodSafeHumanFallbackLines([resetLine], resetHuman, dateKey, "say whether the Neo Geo is worth buying");
+assert.equal(resetResult[0], resetLine);
+
 assert.deepEqual(periodSafeHumanFallbackLines([], futureHuman, dateKey), []);
 assert.deepEqual(periodSafeHumanFallbackLines(null, futureHuman, dateKey), []);
 
-console.log("v41 findings 95/101 period-safe deterministic/v37 fallback regressions passed");
+console.log("v41 findings 95/101/102 period-safe deterministic/v37 fallback regressions passed");
