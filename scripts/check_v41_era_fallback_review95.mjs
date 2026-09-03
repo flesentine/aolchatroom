@@ -1,5 +1,9 @@
 import assert from "node:assert/strict";
-import { periodSafeHumanFallbackLines, scopedFallbackEraViolation } from "../src/era_fallback_v41.js";
+import {
+  periodSafeHumanFallbackLines,
+  scopedFallbackEraViolation,
+  trustedGenerationContractScope
+} from "../src/era_fallback_v41.js";
 
 const dateKey = "1996-09-03";
 
@@ -117,7 +121,61 @@ const resetLine = builtIn("yeah maybe", { marker: "reset" });
 const resetResult = periodSafeHumanFallbackLines([resetLine], resetHuman, dateKey, "say whether the Neo Geo is worth buying");
 assert.equal(resetResult[0], resetLine);
 
+// Finding 104: fallback clause scoping must use the same comma/plus/also
+// boundaries as the primary evaluator.
+for (const text of [
+  "I've never heard of PS5, how much did the Neo Geo cost?",
+  "I've never heard of PS5 plus how much did the Neo Geo cost?",
+  "I've never heard of PS5 also how much did the Neo Geo cost?"
+]) {
+  assert.equal(scopedFallbackEraViolation(text, dateKey, "answer the Neo Geo price"), "", `valid Neo Geo fallback scope must survive mixed boundary: ${text}`);
+  assert.notEqual(scopedFallbackEraViolation(text, dateKey, "answer the PS5 price"), "", `future fallback scope must stay sealed: ${text}`);
+}
+
+// Finding 105: a cached Director scope is usable only for the same complete
+// human identity. Matching only a long prefix, another target/reply anchor, or a
+// different message id must not authorize a semantic exemption.
+const scopeMove = {
+  subject: "Neo Geo price",
+  goal: "answer the Neo Geo price",
+  meaning: "say how much the Neo Geo cost",
+  topic: "gaming"
+};
+const exactHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  replyTo: "m-anchor",
+  messageId: "m-current",
+  text: "I've never heard of PS5; how much did the Neo Geo cost?"
+};
+const exactContract = {
+  human: { ...exactHuman },
+  move: scopeMove
+};
+assert.match(trustedGenerationContractScope(exactContract, exactHuman), /Neo Geo price/i, "exact current-turn identity should expose its fresh scope");
+assert.equal(trustedGenerationContractScope(exactContract, { ...exactHuman, messageId: "m-other" }), "", "different message id must reject cached scope");
+assert.equal(trustedGenerationContractScope(exactContract, { ...exactHuman, target: "SegaMan" }), "", "different target must reject cached scope");
+assert.equal(trustedGenerationContractScope(exactContract, { ...exactHuman, replyTo: "m-other-anchor" }), "", "different reply anchor must reject cached scope");
+
+const longPrefix = "same long prefix ".repeat(12);
+const stalePrefixContract = {
+  human: {
+    from: "Crateman",
+    target: "MetallicaFan",
+    replyTo: "",
+    text: longPrefix.slice(0, 180)
+  },
+  move: scopeMove
+};
+const laterLongHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  replyTo: "",
+  text: `${longPrefix}then I asked about a PS5`
+};
+assert.equal(trustedGenerationContractScope(stalePrefixContract, laterLongHuman), "", "180-character prefix matches must never authorize stale scope");
+
 assert.deepEqual(periodSafeHumanFallbackLines([], futureHuman, dateKey), []);
 assert.deepEqual(periodSafeHumanFallbackLines(null, futureHuman, dateKey), []);
 
-console.log("v41 findings 95/101/102 period-safe deterministic/v37 fallback regressions passed");
+console.log("v41 findings 95/101/102/104/105 period-safe fallback regressions passed");
