@@ -116,4 +116,35 @@ result = evaluate(
 assert.equal(result.ok, false);
 assert.equal(result.reason, "era-boundary-confident-answer");
 
-console.log("v41 findings 96-100 adversarial regressions passed");
+// Finding 102: a later pronoun/deictic clause can remain semantically about the
+// future subject even when the forbidden noun appears only in the first clause.
+for (const [question, surface, meaning] of [
+  ["do you own a PS5 and was it any good?", "yeah it was great", "say whether it was any good"],
+  ["how much did the PS5 cost and was it worth it?", "yeah totally worth it", "say whether it was worth it"],
+  ["have you used an iPhone and did you like it?", "yeah i liked it", "say whether he liked it"],
+  ["have you seen YouTube and what did you think of it?", "pretty cool", "say what he thought of it"]
+]) {
+  const rejected = evaluate(question, surface, meaning, { eraDateKey: "1996-09-03" });
+  assert.equal(rejected.ok, false, `anaphoric future clause must stay sealed: ${question}`);
+  assert.equal(rejected.reason, "era-boundary-confident-answer");
+}
+result = evaluate(
+  "do you own a PS5 and was it any good?",
+  "never heard of it",
+  "say whether it was any good",
+  { eraDateKey: "1996-09-03" }
+);
+assert.equal(result.ok, true, "period-correct ignorance remains valid for an anaphoric future clause");
+assert.equal(result.reason, "era-boundary-ignorance");
+
+// A new independent 1996 subject breaks the inherited future reference. The
+// following pronoun belongs to Neo Geo rather than the earlier PS5 disclaimer.
+result = evaluate(
+  "I've never heard of PS5; do you like the Neo Geo and is it worth buying?",
+  "yeah i like it",
+  "say whether he likes the Neo Geo",
+  { eraDateKey: "1996-09-03" }
+);
+assert.equal(result.ok, true, "explicit period-valid subject must break future-reference carry");
+
+console.log("v41 findings 96-102 adversarial regressions passed");
