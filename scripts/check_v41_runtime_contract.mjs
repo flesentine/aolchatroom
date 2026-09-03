@@ -74,11 +74,7 @@ async function stopWorker() {
 
 async function waitForWorker() {
   let lastError = "";
-  // A cold npx bootstrap can exceed 30s when the npm registry is slow. This
-  // is the first workerd harness in the aggregate suite, so give the pinned
-  // Wrangler process enough time to download before treating startup as a
-  // contract failure. Later runtime harnesses normally reuse the warmed cache.
-  for (let attempt = 0; attempt < 900; attempt += 1) {
+  for (let attempt = 0; attempt < 300; attempt += 1) {
     if (exited) break;
     try {
       const response = await fetch(`${origin}/health`);
