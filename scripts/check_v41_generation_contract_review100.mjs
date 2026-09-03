@@ -149,4 +149,43 @@ result = evaluate(
 );
 assert.equal(result.ok, true, "explicit period-valid subject must break future-reference carry");
 
-console.log("v41 findings 96-102 adversarial regressions passed");
+// Finding 103: mixed internal/simple possessive chains must normalize as one
+// determiner phrase instead of letting the peripheral binder stop at O'Connor's.
+for (const surface of [
+  "A controller for O'Connor's brother's PlayStation 5 costs $70",
+  "A case for D'Angelo's friend's old PlayStation 5 costs $20",
+  "I paid $70 for O'Connor's brother's PlayStation 5 controller"
+]) {
+  const rejected = evaluate("how much did the PlayStation 5 cost?", surface, "give the PlayStation 5 price");
+  assert.equal(rejected.ok, false, `nested internal-apostrophe peripheral must stay unsafe: ${surface}`);
+  assert.equal(rejected.reason, "missing-price");
+}
+result = evaluate(
+  "how much did the PlayStation 5 cost?",
+  "I paid $499 for O'Connor's brother's PlayStation 5",
+  "give the PlayStation 5 price"
+);
+assert.equal(result.ok, true, "nested internal-apostrophe possessor must remain valid for the console itself");
+
+// Finding 104: comma splices and clause-leading plus/also are ordinary mixed-turn
+// boundaries too. They must isolate a valid 1996 obligation without weakening a
+// future-selected semantic scope.
+for (const question of [
+  "I've never heard of PS5, how much did the Neo Geo cost?",
+  "I've never heard of PS5 plus how much did the Neo Geo cost?",
+  "I've never heard of PS5 also how much did the Neo Geo cost?"
+]) {
+  const accepted = evaluate(question, "around 600 bucks", "give the Neo Geo price", { eraDateKey: "1996-09-03" });
+  assert.equal(accepted.ok, true, `mixed-era clause boundary must preserve Neo Geo answer: ${question}`);
+  assert.notEqual(accepted.reason, "era-boundary-confident-answer");
+}
+result = evaluate(
+  "how much did the PS5 cost, what do you think of the Neo Geo?",
+  "$499",
+  "give the PS5 price",
+  { eraDateKey: "1996-09-03" }
+);
+assert.equal(result.ok, false, "comma boundary must not exempt the future-selected clause");
+assert.equal(result.reason, "era-boundary-confident-answer");
+
+console.log("v41 findings 96-104 adversarial regressions passed");
