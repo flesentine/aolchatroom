@@ -146,7 +146,7 @@ const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
 
 function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   const tail = surface.slice(offset + demonstrative.length);
-  const match = /^\s+((?:[a-z0-9][a-z0-9-]*(?:\s+|(?=[,;.!?]|$))){1,5})/i.exec(tail);
+  const match = /^\s+((?:[a-z0-9][a-z0-9-]*(?:\s+|(?=[,;.!?]|$))){1,10})/i.exec(tail);
   if (!match) return false;
   const words = match[1].trim().split(/\s+/).filter(Boolean);
   if (!words.length) return false;
@@ -158,10 +158,7 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return false;
     if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return explicitCandidate;
-    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) {
-      if (explicitCandidate) return true;
-      continue;
-    }
+    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) continue;
     explicitCandidate = true;
   }
   return explicitCandidate;
@@ -190,7 +187,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 
   const beforePronoun = tail.slice(0, pronounMatch.index);
   const explicitSubject = new RegExp(
-    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:is|are|was|were|costs?|has|have|had|does|do|did)\\b`,
+    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:(?:is|are|was|were|costs?|has|have|had|does|do|did)|(?:will|would|can|could|should|may|might|must)\\s+(?:be|have|cost|work|look|seem|feel|run))\\b`,
     "i"
   ).test(beforePronoun);
 
@@ -198,7 +195,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to)|in\\s+comparison\\s+(?:with|to))\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = /^\s+(?:used\s+to\s+be|was|were|is|are|has\s+been|have\s+been|had\s+been)\b/i;
   let match;
   while ((match = comparison.exec(clause))) {
