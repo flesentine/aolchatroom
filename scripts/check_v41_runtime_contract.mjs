@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { wranglerSpawnSpec } from "./wrangler_spawn.mjs";
 
 const port = 8900 + (process.pid % 500);
 const origin = `http://127.0.0.1:${port}`;
@@ -26,17 +27,16 @@ function sleep(ms) {
 // On POSIX, detach the process group so cleanup can terminate Wrangler, esbuild,
 // and workerd together instead of leaving grandchildren alive after the tests pass.
 const groupKillSupported = process.platform !== "win32";
+const wrangler = wranglerSpawnSpec([
+  "dev",
+  "--config",
+  "wrangler.runtime-contract.jsonc",
+  "--port",
+  String(port)
+]);
 const child = spawn(
-  "npx",
-  [
-    "--yes",
-    "wrangler@4.127.1",
-    "dev",
-    "--config",
-    "wrangler.runtime-contract.jsonc",
-    "--port",
-    String(port)
-  ],
+  wrangler.command,
+  wrangler.args,
   {
     cwd: process.cwd(),
     env: { ...process.env, NO_COLOR: "1" },
