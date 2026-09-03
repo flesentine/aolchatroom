@@ -8,14 +8,21 @@ const SCOPE_STOPWORDS = new Set([
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
 const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
+const CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
 }
 
+function normalizeClauseBoundaries(value) {
+  let surface = clean(value).replace(/[’]/g, "'");
+  surface = surface.replace(new RegExp(`,\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  return surface;
+}
+
 function splitClauses(value) {
-  return clean(value)
-    .replace(/[’]/g, "'")
+  return normalizeClauseBoundaries(value)
     .split(/\s*(?:[;!?]+|\.\s+)\s*|\s+(?:even\s+though|even\s+if|although|while|whereas|but|and)\s+/i)
     .map((row) => clean(row, 500))
     .filter(Boolean);
@@ -68,6 +75,31 @@ function groupedRows(humanText, eraDateKey) {
     rows.push({ clause, violation });
   }
   return rows;
+}
+
+export function trustedGenerationContractScope(last, human) {
+  const stored = last?.human;
+  if (!stored || !human) return "";
+
+  const storedId = clean(stored.messageId, 120);
+  const currentId = clean(human.messageId, 120);
+  if (storedId || currentId) {
+    if (!storedId || !currentId || storedId !== currentId) return "";
+  }
+
+  if (clean(stored.from, 32) !== clean(human.from, 32)) return "";
+  if (clean(stored.target || "room", 32) !== clean(human.target || "room", 32)) return "";
+  if (clean(stored.replyTo, 120) !== clean(human.replyTo, 120)) return "";
+  if (clean(stored.text, 1800) !== clean(human.text, 1800)) return "";
+
+  const move = last.move || {};
+  return clean([
+    move.subject,
+    move.goal,
+    move.meaning,
+    move.topic,
+    JSON.stringify(move)
+  ].filter(Boolean).join(" "), 1200);
 }
 
 export function scopedFallbackEraViolation(humanText, eraDateKey, scopeText = "") {
