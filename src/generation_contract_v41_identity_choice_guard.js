@@ -29,7 +29,7 @@ const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "big", "black", "blue", "broken", "cheap", "cool", "even", "expensive", "fine",
   "fun", "good", "great", "gray", "green", "grey", "huge", "large", "little",
   "new", "newer", "nice", "old", "older", "okay", "ok", "original", "other",
-  "purple", "really", "red", "regular", "same", "silver", "small", "so", "standard",
+  "pricey", "purple", "really", "red", "regular", "same", "silver", "sleek", "small", "so", "standard",
   "still", "terrible", "tiny", "too", "used", "very", "weird", "well", "white",
   "working", "worse", "worth", "yellow",
   "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
@@ -151,22 +151,20 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   const words = match[1].trim().split(/\s+/).filter(Boolean);
   if (!words.length) return false;
 
-  const first = words[0].toLowerCase();
-  if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(first)) return false;
-  if (!DEMONSTRATIVE_PRONOUN_FOLLOW.has(first)) {
-    return !DEMONSTRATIVE_GENERIC_REFERENT.has(first);
-  }
-
-  for (const word of words.slice(1)) {
+  let explicitCandidate = false;
+  for (const word of words) {
     const normalized = word.toLowerCase();
-    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) continue;
-    if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return false;
-    if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return false;
     if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return false;
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return false;
-    return true;
+    if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
+    if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return explicitCandidate;
+    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) {
+      if (explicitCandidate) return true;
+      continue;
+    }
+    explicitCandidate = true;
   }
-  return false;
+  return explicitCandidate;
 }
 
 function maskDemonstrativeDeterminers(clause) {
@@ -181,7 +179,7 @@ function maskDemonstrativeDeterminers(clause) {
 
 function embeddedPronounUsesPriorReferent(clause, pronoun) {
   const leader = new RegExp(
-    `^(?:i\\s+(?:think|guess|bet|mean|wonder|feel|heard|know|believe|suppose|assume|suspect|remember|recall|figure|hope|doubt)|you\\s+(?:think|guess|said|say|mean|know|believe|suppose|remember|recall|figure)|there\\s+(?:is|are|was|were))\\b\\s*(.*)`,
+    `^(?:i\\s+(?:(?:can|could|would|might|may|really|just|actually|probably|still)\\s+){0,2}(?:think|guess|bet|mean|wonder|feel|hear|heard|know|believe|suppose|assume|suspect|remember|recall|figure|hope|doubt|reckon|understand|realize|realise|imagine|expect|consider|notice)|you\\s+(?:(?:can|could|would|might|may|really|just|actually|probably|still)\\s+){0,2}(?:think|guess|say|said|mean|know|believe|suppose|remember|recall|figure|reckon|understand|realize|realise|imagine|expect|consider|notice)|there\\s+(?:is|are|was|were))\\b\\s*(.*)`,
     "i"
   ).exec(clause);
   if (!leader) return false;
@@ -192,11 +190,23 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 
   const beforePronoun = tail.slice(0, pronounMatch.index);
   const explicitSubject = new RegExp(
-    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,3}\\s+(?:is|are|was|were|costs?|has|have|had|does|do|did)\\b`,
+    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:is|are|was|were|costs?|has|have|had|does|do|did)\\b`,
     "i"
   ).test(beforePronoun);
 
   return !explicitSubject;
+}
+
+function comparisonPronounUsesPriorReferent(clause, pronoun) {
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+(${pronoun})\\b`, "gi");
+  const localSelfTail = /^\s+(?:used\s+to\s+be|was|were|is|are|has\s+been|have\s+been|had\s+been)\b/i;
+  let match;
+  while ((match = comparison.exec(clause))) {
+    const tail = clause.slice(comparison.lastIndex);
+    if (localSelfTail.test(tail)) continue;
+    return true;
+  }
+  return false;
 }
 
 function clauseIsAnaphoric(value) {
@@ -209,9 +219,7 @@ function clauseIsAnaphoric(value) {
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const embeddedPronoun = embeddedPronounUsesPriorReferent(masked, pronoun);
-  const localSelfComparison = /\bthan\s+(?:it|that|this|one|they|them|those|these)\s+(?:used\s+to\s+be|was|were|is|are|has\s+been|have\s+been|had\s+been)\b/i.test(masked);
-  const comparisonPronoun = !localSelfComparison
-    && new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+${pronoun}\\b`, "i").test(masked);
+  const comparisonPronoun = comparisonPronounUsesPriorReferent(masked, pronoun);
 
   return directPronoun || auxiliaryPronoun || whPronoun || youPronoun || embeddedPronoun || comparisonPronoun;
 }
