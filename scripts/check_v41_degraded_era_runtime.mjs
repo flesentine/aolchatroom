@@ -73,17 +73,31 @@ async function waitForWorker() {
   ].join("\n"));
 }
 
-try {
-  await waitForWorker();
-  const response = await fetch(`${origin}/contract/degraded-era-fallback`);
+async function runContract(name) {
+  const response = await fetch(`${origin}/contract/${encodeURIComponent(name)}`);
   let data = null;
   try { data = await response.json(); } catch {}
-  assert.equal(response.ok, true, `degraded-era HTTP failure: ${JSON.stringify(data)}`);
-  assert.equal(data?.ok, true, `degraded-era contract failure: ${JSON.stringify(data)}`);
-  assert.equal(data?.detail?.text, "what? never heard of that");
-  assert.equal(data?.detail?.eraSafe, true);
-  console.log("ok - degraded-era-fallback");
-  console.log("v41 degraded-provider sealed-era real-Worker contract: 1/1 passed");
+  assert.equal(response.ok, true, `${name} HTTP failure: ${JSON.stringify(data)}`);
+  assert.equal(data?.ok, true, `${name} contract failure: ${JSON.stringify(data)}`);
+  console.log(`ok - ${name}`);
+  return data?.detail || {};
+}
+
+try {
+  await waitForWorker();
+  const era = await runContract("degraded-era-fallback");
+  assert.equal(era.text, "what? never heard of that");
+  assert.equal(era.eraSafe, true);
+
+  const longScope = await runContract("long-current-scope");
+  assert.equal(longScope.trusted, true);
+  assert.ok(Number(longScope.textLength || 0) > 180);
+
+  const responder = await runContract("degraded-responder-fail-closed");
+  assert.equal(responder.failClosed, true);
+  assert.equal(responder.reason, "primary-speaker-mismatch");
+
+  console.log("v41 degraded-provider/identity real-Worker contracts: 3/3 passed");
 } catch (error) {
   console.error(error?.stack || error);
   if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-50).join("\n"));
