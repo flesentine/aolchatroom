@@ -9,6 +9,8 @@ const MONEY = "(?:[$£€¥]\\s*\\d{1,3}(?:,\\d{3})*(?:\\.\\d{1,2})?|\\b\\d{1,3}
 const SAFE_HARDWARE = "(?:(?:(?:video\\s+game|gaming|home)\\s+)?(?:console|system|unit|device|machine))";
 const PRICE_QUALIFIER = "(?:(?:(?:launch|retail|list|original|new|used|street|sale|asking|current|average)\\s+)?(?:price|cost)|msrp)";
 const PRICE_VERB = "(?:is|was|were|costs?|cost|went\\s+for|goes?\\s+for|sells?\\s+for|sold\\s+for|priced\\s+at|worth|:|-)";
+const MODEL_DETERMINER = "(?:(?:the|a|an|my|your|his|her|our|their|this|that|these|those)\\s+)?";
+const PRICE_RELATION = "(?:for\\s+use\\s+with|compatible\\s+with|made\\s+for|designed\\s+for|intended\\s+for|built\\s+for|works?\\s+with|used\\s+with|with|on|of|for)";
 const OWN_ASSERTION = /(\b(?:i|we|he|she|they)\s+(?:(?:do|does|did|really|actually|definitely|absolutely|certainly|personally|still|currently)\s+)*(?:(?:not|never|no\s+longer)\s+)?(?:own|owns|owned)\s+)([^,;.!?]+?)(?=\s+\b(?:and|but|though|tho|or|plus)\b|[,;.!?]|$)/gi;
 const HAVE_ASSERTION = /(\b(?:i|we|he|she|they)\s+(?:(?:not|never|no\s+longer|do\s+not|does\s+not|did\s+not)\s+)?(?:have|has|had|got)\s+)([^,;.!?]+?)(?=\s+\b(?:and|but|though|tho|or|plus)\b|[,;.!?]|$)/gi;
 
@@ -108,7 +110,7 @@ function classifyPriceBindings(surface, model) {
   for (const rawClause of responseClauses(surface)) {
     const clause = canonicalText(rawClause).toLowerCase();
 
-    const leading = clause.match(new RegExp(`(?:^(?:(?:a|an|the)\\s+)?|\\b(?:for|on|of)\\s+(?:(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)?|\\b(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)(?<head>[a-z][a-z0-9'-]*(?:\\s+[a-z][a-z0-9'-]*){0,4})\\s+for\\s+(?:the\\s+)?${modelPattern}\\b`, "i"));
+    const leading = clause.match(new RegExp(`(?:^(?:(?:a|an|the)\\s+)?|\\b(?:for|on|of)\\s+(?:(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)?|\\b(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)(?<head>[a-z][a-z0-9'-]*(?:\\s+[a-z][a-z0-9'-]*){0,4})\\s+${PRICE_RELATION}\\s+${MODEL_DETERMINER}${modelPattern}\\b`, "i"));
     if (leading && money.test(clause)) {
       if (safePricePhrase(leading.groups?.head || "")) valid = true;
       else {
@@ -117,9 +119,15 @@ function classifyPriceBindings(surface, model) {
       }
     }
 
-    const reverse = clause.match(new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*){0,6})\\s*$`, "i"));
+    const reverse = clause.match(new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+${MODEL_DETERMINER}${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*){0,6})\\s*$`, "i"));
     if (reverse) {
       if (safePricePhrase(reverse.groups?.tail || "")) valid = true;
+      else unsafe = true;
+    }
+
+    const compound = clause.match(new RegExp(`\\b${modelPattern}-(?<tail>[a-z][a-z0-9'-]*(?:\\s+[a-z][a-z0-9'-]*){0,5})\\s+${PRICE_VERB}\\s*${MONEY}`, "i"));
+    if (compound) {
+      if (safePricePhrase(compound.groups?.tail || "")) valid = true;
       else unsafe = true;
     }
 
