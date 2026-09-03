@@ -166,22 +166,34 @@ function possessiveHardwarePrice(surface, model) {
   const pattern = new RegExp(`\\b${modelPattern}(?:\\s+(?:console|system|unit|device|machine))?'s\\s+(?:price|cost)\\s+(?:(?:is|was|were|costs?|=|:)\\s*)?${MONEY}`, "i");
   return responseClauses(surface).some((clause) => pattern.test(canonicalText(clause).toLowerCase()));
 }
+function tailTokens(value) {
+  return clean(value || "").split(/\s+/).filter(Boolean)
+    .map((token) => canonicalToken(token.replace(/'s$/i, "")));
+}
 function unsafeReverseTail(surface, model) {
   const modelPattern = phraseRegex(model);
   const pattern = new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s*$`, "i");
   return responseClauses(surface).some((clause) => {
     const match = canonicalText(clause).toLowerCase().match(pattern);
     if (!match) return false;
-    const tail = clean(match.groups?.tail || "").split(/\s+/).filter(Boolean).map((token) => canonicalToken(token.replace(/'s$/i, "")));
-    return tail.some((token) => !SAFE_HARDWARE.has(token));
+    return tailTokens(match.groups?.tail).some((token) => !SAFE_HARDWARE.has(token));
+  });
+}
+function unsafeForwardTail(surface, model) {
+  const modelPattern = phraseRegex(model);
+  const pattern = new RegExp(`\\b${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s+(?:(?:price|cost)\\s+)?(?:is|was|were|costs?|cost|went\\s+for|goes?\\s+for|sells?\\s+for|sold\\s+for|priced\\s+at|worth|:|-)\\s*${MONEY}`, "i");
+  return responseClauses(surface).some((clause) => {
+    const match = canonicalText(clause).toLowerCase().match(pattern);
+    if (!match) return false;
+    return tailTokens(match.groups?.tail).some((token) => !SAFE_HARDWARE.has(token));
   });
 }
 function validatePrice(evaluation, question, surface) {
   if (!evaluation?.enforced) return evaluation;
   const models = extractPriceModels(question);
-  if (models.length < 2) return evaluation;
-  const unsafe = models.filter((model) => unsafeReverseTail(surface, model));
-  if (evaluation?.ok && unsafe.length) return { ...evaluation, ok: false, reason: "missing-price", evidence: { ...(evaluation.evidence || {}), review70UnsafeReverseTail: unsafe } };
+  if (!models.length) return evaluation;
+  const unsafe = models.filter((model) => unsafeReverseTail(surface, model) || unsafeForwardTail(surface, model));
+  if (evaluation?.ok && unsafe.length) return { ...evaluation, ok: false, reason: "missing-price", evidence: { ...(evaluation.evidence || {}), review70UnsafePriceBinding: unsafe } };
   if (!evaluation?.ok && evaluation?.reason === "missing-price" && !(evaluation?.contract?.polarityObligations || []).length && models.every((model) => possessiveHardwarePrice(surface, model))) {
     return { ...evaluation, ok: true, reason: "recognized-obligations-covered", evidence: { ...(evaluation.evidence || {}), review70HardwarePossessivePriceRepaired: true } };
   }
