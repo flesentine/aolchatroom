@@ -19,9 +19,10 @@ const ERA_STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|ca
 const ERA_WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
 const ERA_NEGATED_CLAUSE_LEADER = "(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)";
 const ERA_NOUN_CLAUSE_START = "(?:(?:the|my|your|his|her|our|their|this|that|these|those)\\s+(?:[a-z0-9][a-z0-9'-]*\\s+){0,4}[a-z0-9][a-z0-9'-]*\\s+(?:costs?|is|are|was|were|has|have|had|does|do|did)\\b)";
-const ERA_INDEPENDENT_CLAUSE_START = `(?:${ERA_STRONG_CLAUSE_LEADER}\\b|${ERA_NEGATED_CLAUSE_LEADER}\\b|${ERA_WH_QUESTION_START}|${ERA_NOUN_CLAUSE_START})`;
+const ERA_INDEPENDENT_CLAUSE_START = `(?:${ERA_STRONG_CLAUSE_LEADER}\\b|${ERA_NEGATED_CLAUSE_LEADER}\\b|${ERA_WH_QUESTION_START})`;
 const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyways|anyhow|then|now|btw|by\\s+the\\s+way|look|okay|ok|so|personally)";
 const ERA_BOUNDARY_START = `(?:(?:${ERA_DISCOURSE_MARKER})[,;:]?\\s+)*${ERA_INDEPENDENT_CLAUSE_START}`;
+const ERA_DISCOURSE_NOUN_BOUNDARY_START = `(?:(?:${ERA_DISCOURSE_MARKER})[,;:]?\\s+)+${ERA_NOUN_CLAUSE_START}`;
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
@@ -77,7 +78,11 @@ function normalizeEraClauseBoundaries(value) {
   );
   surface = surface.replace(new RegExp(`,\\s+(?=${ERA_BOUNDARY_START})`, "gi"), "; ");
   surface = surface.replace(
-    new RegExp(`\\s+(?:plus|also|and|but|although|while|whereas|even\\s+though|even\\s+if),?\\s+(?=${ERA_BOUNDARY_START})`, "gi"),
+    new RegExp(`\\s+(?:plus|also|and|but|although|while|whereas|even\\s+though|even\\s+if),?\\s+(?=(?:${ERA_BOUNDARY_START}|${ERA_DISCOURSE_NOUN_BOUNDARY_START}))`, "gi"),
+    "; "
+  );
+  surface = surface.replace(
+    new RegExp(`\\s+(?:plus|also),\\s+(?=${ERA_NOUN_CLAUSE_START})`, "gi"),
     "; "
   );
   return surface;
