@@ -6,6 +6,7 @@ import {
 } from "./generation_contract_v41_review69_base.js";
 
 const DIRECT_OBJECT = /^(?:it|one|this|that|these|those|\d+)$/i;
+const STANDALONE_NEGATIVE = /^(?:no|nah|nope|not really|never|i don't|i dont|i do not)$/i;
 const STANDALONE_POLARITY = /^(?:no|nah|nope|not really|never|i don't|i dont|i do not|yes|yeah|yep|yup|sure|definitely|absolutely|i do)$/i;
 const OWN_ASSERTION = /\b(?:i|we|he|she|they)\s+(?:(?:do|does|did|really|actually|definitely|absolutely|certainly|personally|still|currently)\s+)*(?:(not|never|no\s+longer)\s+)?(?:own|owns|owned)\s+(.+)$/i;
 const HAVE_ASSERTION = /\b(?:i|we|he|she|they)\s+(?:(not|never|no\s+longer|do\s+not|does\s+not|did\s+not)\s+)?(?:have|has|had|got)\s+(.+)$/i;
@@ -107,6 +108,8 @@ function validateOwnership(evaluation, surface) {
   const assertions = clauses.map(responseOwnershipAssertion);
 
   if (ownership.length === 1 && assertions.some(Boolean)) {
+    const leadingDenial = polarity[0]?.scope === "ownership" && STANDALONE_NEGATIVE.test(clauses[0] || "");
+    if (leadingDenial) return evaluation;
     const expected = requestedOwnershipIdentity(ownership[0]?.clause || "");
     if (!expected.direct) {
       const matched = assertions.filter(Boolean).some((row) => row.direct || identityMatches(expected.tokens, row.tokens));
