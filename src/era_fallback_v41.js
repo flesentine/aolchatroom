@@ -83,9 +83,7 @@ export function trustedGenerationContractScope(last, human) {
 
   const storedId = clean(stored.messageId, 120);
   const currentId = clean(human.messageId, 120);
-  if (storedId || currentId) {
-    if (!storedId || !currentId || storedId !== currentId) return "";
-  }
+  if (storedId && currentId && storedId !== currentId) return "";
 
   if (clean(stored.from, 32) !== clean(human.from, 32)) return "";
   if (clean(stored.target || "room", 32) !== clean(human.target || "room", 32)) return "";
