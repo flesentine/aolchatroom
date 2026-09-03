@@ -7,6 +7,7 @@ const SCOPE_STOPWORDS = new Set([
   "price", "cost", "say", "she", "that", "the", "their", "them", "they", "this",
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
+const ANAPHOR = /\b(?:it|its|that|this|one|they|them|those|these)\b/i;
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -36,16 +37,31 @@ function overlapScore(left, right) {
   return score;
 }
 
+function propagateAnaphoricViolations(rows) {
+  let carried = "";
+  return rows.map((row) => {
+    if (row.violation) {
+      carried = row.violation;
+      return row;
+    }
+    if (carried && ANAPHOR.test(row.clause)) {
+      return { ...row, violation: carried, inheritedEraViolation: true };
+    }
+    carried = "";
+    return row;
+  });
+}
+
 export function scopedFallbackEraViolation(humanText, eraDateKey, scopeText = "") {
   const fullViolation = eraWorldViolation(humanText || "", eraDateKey);
   if (!fullViolation || fullViolation === "empty") return "";
 
   const clauses = splitClauses(humanText);
   if (clauses.length <= 1) return fullViolation;
-  const rows = clauses.map((clause) => {
+  const rows = propagateAnaphoricViolations(clauses.map((clause) => {
     const violation = eraWorldViolation(clause, eraDateKey);
     return { clause, violation: violation && violation !== "empty" ? violation : "" };
-  });
+  }));
   if (rows.every((row) => row.violation)) return fullViolation;
 
   const scope = clean(scopeText);
