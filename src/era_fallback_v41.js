@@ -7,7 +7,7 @@ const SCOPE_STOPWORDS = new Set([
   "price", "cost", "say", "she", "that", "the", "their", "them", "they", "this",
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
-const ANAPHOR = /\b(?:it|its|that|this|one|they|them|those|these)\b/i;
+const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -37,31 +37,45 @@ function overlapScore(left, right) {
   return score;
 }
 
-function propagateAnaphoricViolations(rows) {
-  let carried = "";
-  return rows.map((row) => {
-    if (row.violation) {
-      carried = row.violation;
-      return row;
+function stripDiscourseAnaphor(value) {
+  return clean(value, 500).replace(
+    /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that)[,;:]?\s*)/i,
+    ""
+  );
+}
+
+function clauseIsAnaphoric(value) {
+  const clause = stripDiscourseAnaphor(value);
+  if (!clause) return false;
+  const pronoun = PRONOUN;
+  return new RegExp(`^(?:${pronoun})\\b`, "i").test(clause)
+    || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause)
+    || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause)
+    || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+}
+
+function groupedRows(humanText, eraDateKey) {
+  const rows = [];
+  for (const clause of splitClauses(humanText)) {
+    const rawViolation = eraWorldViolation(clause, eraDateKey);
+    const violation = rawViolation && rawViolation !== "empty" ? rawViolation : "";
+    if (!violation && rows.length && clauseIsAnaphoric(clause)) {
+      const previous = rows[rows.length - 1];
+      previous.clause = `${previous.clause}; ${clause}`;
+      previous.anaphoricTail = true;
+      continue;
     }
-    if (carried && ANAPHOR.test(row.clause)) {
-      return { ...row, violation: carried, inheritedEraViolation: true };
-    }
-    carried = "";
-    return row;
-  });
+    rows.push({ clause, violation });
+  }
+  return rows;
 }
 
 export function scopedFallbackEraViolation(humanText, eraDateKey, scopeText = "") {
   const fullViolation = eraWorldViolation(humanText || "", eraDateKey);
   if (!fullViolation || fullViolation === "empty") return "";
 
-  const clauses = splitClauses(humanText);
-  if (clauses.length <= 1) return fullViolation;
-  const rows = propagateAnaphoricViolations(clauses.map((clause) => {
-    const violation = eraWorldViolation(clause, eraDateKey);
-    return { clause, violation: violation && violation !== "empty" ? violation : "" };
-  }));
+  const rows = groupedRows(humanText, eraDateKey);
+  if (rows.length <= 1) return fullViolation;
   if (rows.every((row) => row.violation)) return fullViolation;
 
   const scope = clean(scopeText);
