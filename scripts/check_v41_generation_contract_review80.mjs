@@ -57,7 +57,8 @@ for (const valid of [
   "The PlayStation 5 launch price was $499",
   "the price for the PlayStation 5 was $499",
   "$499 for the PlayStation 5",
-  "the PlayStation 5 costs $499"
+  "the PlayStation 5 costs $499",
+  "I paid $499 for my PlayStation 5"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, valid, { meaning: singlePriceMeaning }).ok, true,
     `${valid} must remain valid PS5 price evidence`);
@@ -67,7 +68,14 @@ for (const invalid of [
   "The PlayStation 5 system controller costs $70",
   "a headset for the PlayStation 5 costs $70",
   "a case for the PlayStation 5 was $20",
-  "I paid $70 for a headset for the PlayStation 5"
+  "I paid $70 for a headset for the PlayStation 5",
+  "a headset compatible with the PlayStation 5 costs $70",
+  "a headset compatible with my PlayStation 5 costs $70",
+  "a controller designed for the PlayStation 5 costs $70",
+  "a bundle with the PlayStation 5 costs $600",
+  "I paid $70 for a headset for my PlayStation 5",
+  "I paid $70 for a headset compatible with my PlayStation 5",
+  "a PlayStation 5-compatible headset costs $70"
 ]) {
   const result = evaluate(singlePriceQuestion, invalid, { meaning: singlePriceMeaning });
   assert.equal(result.ok, false, `${invalid} must not satisfy the PS5 console price`);
@@ -108,10 +116,17 @@ let result = evaluate(
 );
 assert.equal(result.ok, false, "a leading peripheral head must not supply the missing PS5 console price in a repeated-price answer");
 assert.equal(result.reason, "missing-price");
+result = evaluate(
+  repeatedPriceQuestion,
+  "The PlayStation 4 was $400 and a headset compatible with the PlayStation 5 costs $70",
+  { meaning: repeatedPriceMeaning }
+);
+assert.equal(result.ok, false, "a relational peripheral head must not supply the missing PS5 console price in a repeated-price answer");
+assert.equal(result.reason, "missing-price");
 assert.equal(evaluate(
   repeatedPriceQuestion,
   "The PlayStation 4 was $400 and the PlayStation 5 launch price was $499",
   { meaning: repeatedPriceMeaning }
 ).ok, true, "a normal PS4 price plus a qualified PS5 launch price must pass");
 
-console.log("v41 Phase 2A review 78-80 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-81 plus adjacent price-binding regressions passed");
