@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { periodSafeHumanFallbackLines } from "../src/era_fallback_v41.js";
+import { periodSafeHumanFallbackLines, scopedFallbackEraViolation } from "../src/era_fallback_v41.js";
 
 const dateKey = "1996-09-03";
 
@@ -61,7 +61,40 @@ const providerLine = {
 const providerResult = periodSafeHumanFallbackLines([providerLine], futureHuman, dateKey);
 assert.equal(providerResult[0], providerLine, "the fallback guard must not rewrite provider Voice; Phase 2A owns provider semantics");
 
+// Finding 101: mixed human turns are scoped to the obligation that actually
+// triggered the fallback. An incidental future disclaimer must not erase a
+// period-valid Neo Geo fallback, but the same human turn remains sealed when
+// the selected semantic scope is the PS5 clause.
+const mixedHuman = {
+  from: "Crateman",
+  target: "MetallicaFan",
+  text: "I've never heard of PS5; how much did the Neo Geo cost?"
+};
+const mixedPeriodLine = builtIn("neo geo is way too expensive", { marker: "mixed" });
+let mixedResult = periodSafeHumanFallbackLines(
+  [mixedPeriodLine],
+  mixedHuman,
+  dateKey,
+  "answer the Neo Geo price"
+);
+assert.equal(mixedResult[0], mixedPeriodLine, "future disclaimer must not poison a separate period-valid fallback scope");
+assert.equal(scopedFallbackEraViolation(mixedHuman.text, dateKey, "answer the Neo Geo price"), "");
+
+mixedResult = periodSafeHumanFallbackLines(
+  [builtIn("yeah maybe")],
+  mixedHuman,
+  dateKey,
+  "answer the PS5 price"
+);
+assert.equal(mixedResult[0].text, "what? never heard of that", "future-selected fallback scope must remain sealed");
+assert.equal(mixedResult[0]._v41EraSafeFallback, true);
+
+// If the fallback path has no trustworthy semantic scope, fail safely rather
+// than assuming the valid clause is the one being answered.
+mixedResult = periodSafeHumanFallbackLines([builtIn("yeah maybe")], mixedHuman, dateKey);
+assert.equal(mixedResult[0].text, "what? never heard of that");
+
 assert.deepEqual(periodSafeHumanFallbackLines([], futureHuman, dateKey), []);
 assert.deepEqual(periodSafeHumanFallbackLines(null, futureHuman, dateKey), []);
 
-console.log("v41 finding 95 period-safe deterministic/v37 fallback regressions passed");
+console.log("v41 findings 95/101 period-safe deterministic/v37 fallback regressions passed");
