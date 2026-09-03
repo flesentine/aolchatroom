@@ -117,8 +117,9 @@ export class ChatRoom extends V41SceneChatRoom {
       human: human ? {
         from: clean(human.from, 32),
         target: clean(human.target || "room", 32),
-        text: clean(human.text, 180),
-        replyTo: clean(human.replyTo, 80)
+        text: clean(human.text, 1800),
+        replyTo: clean(human.replyTo, 120),
+        messageId: clean(human.messageId, 120)
       } : null,
       move: evaluation.contract?.move || null,
       requirements: [...(evaluation.contract?.requirements || [])],
