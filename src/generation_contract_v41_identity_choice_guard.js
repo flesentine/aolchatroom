@@ -18,7 +18,7 @@ const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const ERA_STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
 const ERA_WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
 const ERA_NEGATED_CLAUSE_LEADER = "(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)";
-const ERA_NOUN_CLAUSE_START = "(?:(?:the|my|your|his|her|our|their|this|that|these|those)\\s+(?:[a-z0-9][a-z0-9'-]*\\s+){0,4}[a-z0-9][a-z0-9'-]*\\s+(?:costs?|is|are|was|were|has|have|had|does|do|did)\\b)";
+const ERA_NOUN_CLAUSE_START = "(?:(?:the|my|your|his|her|our|their|this|that|these|those)\\s+(?:[a-z0-9][a-z0-9'-]*\\s+){0,9}[a-z0-9][a-z0-9'-]*\\s+(?:costs?|is|are|was|were|has|have|had|does|do|did)\\b)";
 const ERA_INDEPENDENT_CLAUSE_START = `(?:${ERA_STRONG_CLAUSE_LEADER}\\b|${ERA_NEGATED_CLAUSE_LEADER}\\b|${ERA_WH_QUESTION_START})`;
 const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyways|anyhow|then|now|btw|by\\s+the\\s+way|look|okay|ok|so|personally)";
 const ERA_BOUNDARY_START = `(?:(?:${ERA_DISCOURSE_MARKER})[,;:]?\\s+)*${ERA_INDEPENDENT_CLAUSE_START}`;
@@ -125,18 +125,44 @@ function normalizeNegativeAuxiliaries(value) {
   );
 }
 
+const DEMONSTRATIVE_NON_NOUN_FOLLOW = new Set([
+  "and", "as", "at", "because", "but", "by", "for", "from", "if", "in",
+  "of", "on", "or", "than", "to", "versus", "vs", "when", "where", "while", "with"
+]);
+
+function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
+  const tail = surface.slice(offset + demonstrative.length);
+  const match = /^\\s+((?:[a-z0-9][a-z0-9-]*(?:\\s+|(?=[,;.!?]|$))){1,5})/i.exec(tail);
+  if (!match) return false;
+  const words = match[1].trim().split(/\\s+/).filter(Boolean);
+  if (!words.length) return false;
+
+  const first = words[0].toLowerCase();
+  if (!DEMONSTRATIVE_PRONOUN_FOLLOW.has(first)) return true;
+
+  for (const word of words.slice(1)) {
+    const normalized = word.toLowerCase();
+    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) continue;
+    if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return false;
+    if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return false;
+    return true;
+  }
+  return false;
+}
+
 function maskDemonstrativeDeterminers(clause) {
-  return clean(clause, 500).replace(
-    new RegExp(`\\b(${DEMONSTRATIVE})\\s+([a-z0-9][a-z0-9-]*)\\b`, "gi"),
-    (match, demonstrative, next) => DEMONSTRATIVE_PRONOUN_FOLLOW.has(String(next || "").toLowerCase())
-      ? match
-      : `explicit-subject ${next}`
+  const surface = clean(clause, 500);
+  return surface.replace(
+    new RegExp(`\\b(${DEMONSTRATIVE})\\b`, "gi"),
+    (match, demonstrative, offset) => demonstrativeActsAsDeterminerAt(surface, offset, demonstrative)
+      ? "explicit-subject"
+      : match
   );
 }
 
 function embeddedPronounUsesPriorReferent(clause, pronoun) {
   const leader = new RegExp(
-    `^(?:i\\s+(?:think|guess|bet|mean|wonder|feel|heard)|you\\s+(?:think|guess|said|say|mean)|there\\s+(?:is|are|was|were))\\b\\s*(.*)`,
+    `^(?:i\\s+(?:think|guess|bet|mean|wonder|feel|heard|know|believe|suppose|assume|suspect|remember|recall|figure|hope|doubt)|you\\s+(?:think|guess|said|say|mean|know|believe|suppose|remember|recall|figure)|there\\s+(?:is|are|was|were))\\b\\s*(.*)`,
     "i"
   ).exec(clause);
   if (!leader) return false;
@@ -164,7 +190,9 @@ function clauseIsAnaphoric(value) {
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const embeddedPronoun = embeddedPronounUsesPriorReferent(masked, pronoun);
-  const comparisonPronoun = new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+${pronoun}\\b`, "i").test(masked);
+  const localSelfComparison = /\\bthan\\s+(?:it|that|this|one|they|them|those|these)\\s+(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b/i.test(masked);
+  const comparisonPronoun = !localSelfComparison
+    && new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+${pronoun}\\b`, "i").test(masked);
 
   return directPronoun || auxiliaryPronoun || whPronoun || youPronoun || embeddedPronoun || comparisonPronoun;
 }
