@@ -136,7 +136,7 @@ export class RuntimeDegradedEraRoom extends ProductionChatRoom {
     equal(queued, false, "wrong-responder degraded fallback must fail closed instead of queueing");
     equal(this.pendingHumans.length, 0, "invalid degraded fallback must be consumed rather than retried forever");
     equal(this.aiQueue.length, 0, "wrong-responder degraded fallback must never enter the real AI queue");
-    equal(this.v41LastHumanReplanContract?.reason, "primary-speaker-mismatch", "degraded rejection must retain Phase 2B routing diagnostics");
+    equal(this.v41LastHumanReplanContract?.reason, "required-responder-not-first", "degraded rejection must retain Phase 2B routing diagnostics");
     ensure(Number(this.v41GenerationStats?.humanReplanFallbackRejects || 0) >= 1, "degraded routing rejection must increment fallback rejects");
     ensure(Number(this.v41GenerationStats?.humanReplanFailClosedConsumes || 0) >= 1, "degraded routing rejection must increment fail-closed consumes");
     return {
