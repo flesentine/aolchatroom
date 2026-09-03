@@ -8,7 +8,9 @@ const SCOPE_STOPWORDS = new Set([
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
 const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
-const CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
+const INDEPENDENT_CLAUSE_START = `(?:${STRONG_CLAUSE_LEADER}\\b|${WH_QUESTION_START})`;
 const DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)";
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
@@ -18,6 +20,13 @@ const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
   "can", "could", "would", "will", "should"
 ]);
+const NEGATIVE_AUXILIARY = new Map([
+  ["isn't", "is not"], ["aren't", "are not"], ["wasn't", "was not"], ["weren't", "were not"],
+  ["don't", "do not"], ["doesn't", "does not"], ["didn't", "did not"],
+  ["hasn't", "has not"], ["haven't", "have not"], ["hadn't", "had not"],
+  ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
+  ["won't", "will not"], ["shouldn't", "should not"]
+]);
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -26,11 +35,11 @@ function clean(value, max = 1800) {
 function normalizeClauseBoundaries(value) {
   let surface = clean(value).replace(/[’]/g, "'");
   surface = surface.replace(
-    new RegExp(`(${DISCOURSE_MARKER})\\s*,\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"),
+    new RegExp(`(${DISCOURSE_MARKER})\\s*,\\s+(?=${INDEPENDENT_CLAUSE_START})`, "gi"),
     "$1 "
   );
-  surface = surface.replace(new RegExp(`,\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
-  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`,\\s+(?=${INDEPENDENT_CLAUSE_START})`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${INDEPENDENT_CLAUSE_START})`, "gi"), "; ");
   return surface;
 }
 
@@ -64,6 +73,13 @@ function stripDiscourseAnaphor(value) {
   return clause;
 }
 
+function normalizeNegativeAuxiliaries(value) {
+  return clean(value, 500).replace(
+    /\b(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)\b/gi,
+    (match) => NEGATIVE_AUXILIARY.get(match.toLowerCase()) || match
+  );
+}
+
 function demonstrativeActsAsDeterminer(clause) {
   const normalized = clean(clause, 500).toLowerCase();
   const match = normalized.match(new RegExp(`\\b${DEMONSTRATIVE}\\s+([a-z0-9][a-z0-9-]*)\\b`, "i"));
@@ -72,21 +88,21 @@ function demonstrativeActsAsDeterminer(clause) {
 }
 
 function clauseIsAnaphoric(value) {
-  const clause = stripDiscourseAnaphor(value);
+  const clause = normalizeNegativeAuxiliaries(stripDiscourseAnaphor(value));
   if (!clause) return false;
   const pronoun = PRONOUN;
   const demonstrativeDeterminer = demonstrativeActsAsDeterminer(clause);
   const directPronoun = new RegExp(`^(?:${pronoun})\\b`, "i").test(clause);
-  const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause);
+  const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:not\\s+)?${pronoun}\\b`, "i").test(clause);
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause);
-  const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+  const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(clause);
 
   if (demonstrativeDeterminer && new RegExp(`\\b${DEMONSTRATIVE}\\b`, "i").test(clause)) {
     const withoutDemonstratives = clause.replace(new RegExp(`\\b${DEMONSTRATIVE}\\b`, "gi"), " explicit-subject ");
     return new RegExp(`^(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
-      || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
+      || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:not\\s+)?(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
       || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
-      || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives);
+      || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives);
   }
 
   return directPronoun || auxiliaryPronoun || whPronoun || youPronoun;
@@ -159,9 +175,6 @@ export function periodSafeHumanFallbackLines(lines, human, eraDateKey, scopeText
     : "";
   if (!violation) return rows;
 
-  // Preserve the inherited fallback's routing/source metadata. Only replace
-  // built-in text when the human premise being answered cannot exist in the
-  // sealed 1996 world; provider Voice has already been handled by Phase 2A.
   return rows.map((line) => {
     if (String(line?.source || "") !== "built-in") return line;
     return {
