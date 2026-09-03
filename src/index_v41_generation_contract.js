@@ -9,6 +9,10 @@ import {
 
 export default worker;
 
+function clean(value, max = 180) {
+  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
+}
+
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
     // Render Voice exactly once through the inherited scene/Director stack,
@@ -41,13 +45,28 @@ export class ChatRoom extends Phase2ChatRoom {
     return [];
   }
 
+  v41EraFallbackScope(human) {
+    const last = this.v41LastGenerationContract;
+    if (!last?.human || !human) return "";
+    if (clean(last.human.from, 32) !== clean(human.from, 32)) return "";
+    if (clean(last.human.text, 180) !== clean(human.text, 180)) return "";
+    const move = last.move || {};
+    return clean([
+      move.subject,
+      move.goal,
+      move.meaning,
+      move.topic,
+      JSON.stringify(move)
+    ].filter(Boolean).join(" "), 1200);
+  }
+
   v41DeterministicHumanFallback(human) {
     // Keep the provider-independent Phase 2B emergency path explicit at the
     // canonical production boundary. Never dynamically dispatch through later
     // provider-aware builtInHumanReply overrides.
     const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
     const eraDateKey = typeof this.currentEraDate === "function" ? this.currentEraDate() : "";
-    return periodSafeHumanFallbackLines(fallback, human, eraDateKey);
+    return periodSafeHumanFallbackLines(fallback, human, eraDateKey, this.v41EraFallbackScope(human));
   }
 
   async generateHumanReplan(human) {
@@ -56,7 +75,7 @@ export class ChatRoom extends Phase2ChatRoom {
     // is period-safe without changing responder selection or provider routing.
     const lines = await super.generateHumanReplan(human);
     const eraDateKey = typeof this.currentEraDate === "function" ? this.currentEraDate() : "";
-    return periodSafeHumanFallbackLines(lines, human, eraDateKey);
+    return periodSafeHumanFallbackLines(lines, human, eraDateKey, this.v41EraFallbackScope(human));
   }
 
   async handlePendingHumanWithAi(now = Date.now()) {
@@ -83,7 +102,8 @@ export class ChatRoom extends Phase2ChatRoom {
         failedHumanReplanUsesProviderIndependentV14Fallback: true,
         failedHumanReplanUsesOnlyValidatedBuiltInFallback: true,
         semanticCompletenessDefersToSealed1996World: true,
-        deterministicFallbackDefersToSealed1996World: true
+        deterministicFallbackDefersToSealed1996World: true,
+        deterministicFallbackScopesMixedEraTurns: true
       }
     };
   }
