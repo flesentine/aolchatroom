@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
+import { wranglerSpawnSpec } from "./wrangler_spawn.mjs";
 
 const port = 9800 + (process.pid % 300);
 const origin = `http://127.0.0.1:${port}`;
@@ -21,9 +22,16 @@ function sleep(ms) {
 }
 
 const groupKillSupported = process.platform !== "win32";
+const wrangler = wranglerSpawnSpec([
+  "dev",
+  "--config",
+  "wrangler.scene-ownership-contract.jsonc",
+  "--port",
+  String(port)
+]);
 const child = spawn(
-  "npx",
-  ["--yes", "wrangler@4.127.1", "dev", "--config", "wrangler.scene-ownership-contract.jsonc", "--port", String(port)],
+  wrangler.command,
+  wrangler.args,
   {
     cwd: process.cwd(),
     env: { ...process.env, NO_COLOR: "1" },
