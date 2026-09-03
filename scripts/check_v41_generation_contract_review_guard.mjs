@@ -157,4 +157,32 @@ assert.equal(evaluate(
   { meaning: priceMeaning }
 ).ok, true, "generic hardware-head possessive price syntax must be accepted");
 
+// New adversarial pass: the requested console identity must not be satisfied by owning a peripheral whose name contains the console model.
+for (const invalid of [
+  "I own a PlayStation 5 headset, and I have played it",
+  "I own a PlayStation 5 controller, and I have played it"
+]) {
+  result = evaluate(ownershipQuestion, invalid);
+  assert.equal(result.ok, false, `${invalid} must not count as owning the PS5 console itself`);
+  assert.equal(result.reason, "missing-polarity");
+}
+assert.equal(evaluate(ownershipQuestion, "I own a PlayStation 5 console, and I have played it").ok, true,
+  "a generic console head must remain valid ownership evidence");
+
+// New adversarial pass: single-model price questions need the same hardware/peripheral binding as repeated price questions.
+const singlePriceQuestion = "how much did the PlayStation 5 cost?";
+const singlePriceMeaning = "give the PlayStation 5 price";
+for (const invalid of [
+  "$300 for the PlayStation 5 headset",
+  "the PlayStation 5 controller costs $70"
+]) {
+  result = evaluate(singlePriceQuestion, invalid, { meaning: singlePriceMeaning });
+  assert.equal(result.ok, false, `${invalid} must not satisfy the requested PS5 console price`);
+  assert.equal(result.reason, "missing-price");
+}
+assert.equal(evaluate(singlePriceQuestion, "$300 for the PlayStation 5", { meaning: singlePriceMeaning }).ok, true,
+  "amount-before-model single console price must remain valid");
+assert.equal(evaluate(singlePriceQuestion, "the PlayStation 5 costs $300", { meaning: singlePriceMeaning }).ok, true,
+  "model-before-amount single console price must remain valid");
+
 console.log("v41 Phase 2A latest review guard regressions passed");
