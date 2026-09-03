@@ -79,6 +79,26 @@ assert.equal(evaluate(
   { meaning: singlePriceMeaning }
 ).ok, true, "an extra peripheral price must not invalidate an already-complete console price answer");
 
+// Adjacent independent probe: a peripheral can be introduced mid-clause after an amount/preposition.
+for (const invalid of [
+  "I paid $70 for games for the PlayStation 5",
+  "I paid $70 for my headset for the PlayStation 5"
+]) {
+  const result = evaluate(singlePriceQuestion, invalid, { meaning: singlePriceMeaning });
+  assert.equal(result.ok, false, `${invalid} must not donate a peripheral price to the PS5 console`);
+  assert.equal(result.reason, "missing-price");
+}
+assert.equal(evaluate(
+  singlePriceQuestion,
+  "I paid $499 for the console for the PlayStation 5",
+  { meaning: singlePriceMeaning }
+).ok, true, "a safe generic console head after the amount/preposition must remain valid");
+assert.equal(evaluate(
+  singlePriceQuestion,
+  "I paid $499 for a video game console for the PlayStation 5",
+  { meaning: singlePriceMeaning }
+).ok, true, "a safe generic compound console head must remain valid");
+
 const repeatedPriceQuestion = "how much did the PlayStation 4 cost and how much did the PlayStation 5 cost?";
 const repeatedPriceMeaning = "give the PlayStation 4 price and the PlayStation 5 price";
 let result = evaluate(
@@ -94,4 +114,4 @@ assert.equal(evaluate(
   { meaning: repeatedPriceMeaning }
 ).ok, true, "a normal PS4 price plus a qualified PS5 launch price must pass");
 
-console.log("v41 Phase 2A review 78-80 regressions passed");
+console.log("v41 Phase 2A review 78-80 plus adjacent price-binding regressions passed");
