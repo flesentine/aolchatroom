@@ -108,7 +108,7 @@ function classifyPriceBindings(surface, model) {
   for (const rawClause of responseClauses(surface)) {
     const clause = canonicalText(rawClause).toLowerCase();
 
-    const leading = clause.match(new RegExp(`(?:^(?:(?:a|an|the)\\s+)?|\\b(?:a|an|the)\\s+)(?<head>[a-z][a-z0-9'-]*(?:\\s+[a-z][a-z0-9'-]*){0,4})\\s+for\\s+(?:the\\s+)?${modelPattern}\\b`, "i"));
+    const leading = clause.match(new RegExp(`(?:^(?:(?:a|an|the)\\s+)?|\\b(?:for|on|of)\\s+(?:(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)?|\\b(?:a|an|the|my|your|his|her|our|their|this|that|these|those)\\s+)(?<head>[a-z][a-z0-9'-]*(?:\\s+[a-z][a-z0-9'-]*){0,4})\\s+for\\s+(?:the\\s+)?${modelPattern}\\b`, "i"));
     if (leading && money.test(clause)) {
       if (safePricePhrase(leading.groups?.head || "")) valid = true;
       else {
