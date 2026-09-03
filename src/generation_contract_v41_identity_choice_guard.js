@@ -18,7 +18,7 @@ const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const ERA_STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
 const ERA_WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
 const ERA_INDEPENDENT_CLAUSE_START = `(?:${ERA_STRONG_CLAUSE_LEADER}\\b|${ERA_WH_QUESTION_START})`;
-const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)";
+const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyways|anyhow|then|now|btw|by\\s+the\\s+way|look|okay|ok|so|personally)";
 const ERA_BOUNDARY_START = `(?:(?:${ERA_DISCOURSE_MARKER})[,;:]?\\s+)*${ERA_INDEPENDENT_CLAUSE_START}`;
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
@@ -75,7 +75,7 @@ function normalizeEraClauseBoundaries(value) {
   );
   surface = surface.replace(new RegExp(`,\\s+(?=${ERA_BOUNDARY_START})`, "gi"), "; ");
   surface = surface.replace(
-    new RegExp(`\\s+(?:plus|also|and|but|although|while|whereas|even\\s+though|even\\s+if)\\s+(?=${ERA_BOUNDARY_START})`, "gi"),
+    new RegExp(`\\s+(?:plus|also|and|but|although|while|whereas|even\\s+though|even\\s+if),?\\s+(?=${ERA_BOUNDARY_START})`, "gi"),
     "; "
   );
   return surface;
