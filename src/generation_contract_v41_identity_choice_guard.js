@@ -132,9 +132,9 @@ const DEMONSTRATIVE_NON_NOUN_FOLLOW = new Set([
 
 function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   const tail = surface.slice(offset + demonstrative.length);
-  const match = /^\\s+((?:[a-z0-9][a-z0-9-]*(?:\\s+|(?=[,;.!?]|$))){1,5})/i.exec(tail);
+  const match = /^\s+((?:[a-z0-9][a-z0-9-]*(?:\s+|(?=[,;.!?]|$))){1,5})/i.exec(tail);
   if (!match) return false;
-  const words = match[1].trim().split(/\\s+/).filter(Boolean);
+  const words = match[1].trim().split(/\s+/).filter(Boolean);
   if (!words.length) return false;
 
   const first = words[0].toLowerCase();
@@ -190,7 +190,7 @@ function clauseIsAnaphoric(value) {
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(masked);
   const embeddedPronoun = embeddedPronounUsesPriorReferent(masked, pronoun);
-  const localSelfComparison = /\\bthan\\s+(?:it|that|this|one|they|them|those|these)\\s+(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b/i.test(masked);
+  const localSelfComparison = /\bthan\s+(?:it|that|this|one|they|them|those|these)\s+(?:used\s+to\s+be|was|were|is|are|has\s+been|have\s+been|had\s+been)\b/i.test(masked);
   const comparisonPronoun = !localSelfComparison
     && new RegExp(`\\b(?:than|versus|vs\\.?|over)\\s+${pronoun}\\b`, "i").test(masked);
 
