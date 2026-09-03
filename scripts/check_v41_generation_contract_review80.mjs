@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review85",
+    subject: "phase2-review86",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -61,7 +61,9 @@ for (const valid of [
   "I paid $499 for my PlayStation 5",
   "I paid $499 for John's PlayStation 5",
   "The PlayStation-5 costs $499",
-  "The PlayStation–5 costs $499"
+  "The PlayStation–5 costs $499",
+  "A fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
+  "A fancy brand new replacement video game console for the PlayStation 5 costs $499"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, valid, { meaning: singlePriceMeaning }).ok, true,
     `${valid} must remain valid PS5 price evidence`);
@@ -156,4 +158,4 @@ assert.equal(evaluate(
   { meaning: repeatedPriceMeaning }
 ).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-85 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-86 plus adjacent price-binding regressions passed");
