@@ -1,17 +1,16 @@
 import worker, { ChatRoom as Phase2ChatRoom } from "./index_v41_generation_contract_base.js";
 import { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
-import { periodSafeHumanFallbackLines } from "./era_fallback_v41.js";
+import {
+  periodSafeHumanFallbackLines,
+  trustedGenerationContractScope
+} from "./era_fallback_v41.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
 } from "./generation_contract_v41_identity_choice_guard.js";
 
 export default worker;
-
-function clean(value, max = 180) {
-  return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
-}
 
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
@@ -46,18 +45,7 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 
   v41EraFallbackScope(human) {
-    const last = this.v41LastGenerationContract;
-    if (!last?.human || !human) return "";
-    if (clean(last.human.from, 32) !== clean(human.from, 32)) return "";
-    if (clean(last.human.text, 180) !== clean(human.text, 180)) return "";
-    const move = last.move || {};
-    return clean([
-      move.subject,
-      move.goal,
-      move.meaning,
-      move.topic,
-      JSON.stringify(move)
-    ].filter(Boolean).join(" "), 1200);
+    return trustedGenerationContractScope(this.v41LastGenerationContract, human);
   }
 
   v41DeterministicHumanFallback(human) {
@@ -70,6 +58,11 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 
   async generateHumanReplan(human) {
+    // A semantic scope is trusted only if this exact replan records it. Clear
+    // the previous turn before entering the inherited path so a provider-empty
+    // or otherwise fallback-only replan cannot reuse stale Director semantics.
+    this.v41LastGenerationContract = null;
+
     // v37 also has its own provider-independent v14 fallback when Voice returns
     // empty. Post-process the completed inherited path so either fallback route
     // is period-safe without changing responder selection or provider routing.
@@ -103,7 +96,8 @@ export class ChatRoom extends Phase2ChatRoom {
         failedHumanReplanUsesOnlyValidatedBuiltInFallback: true,
         semanticCompletenessDefersToSealed1996World: true,
         deterministicFallbackDefersToSealed1996World: true,
-        deterministicFallbackScopesMixedEraTurns: true
+        deterministicFallbackScopesMixedEraTurns: true,
+        deterministicFallbackRequiresFreshGenerationScope: true
       }
     };
   }
