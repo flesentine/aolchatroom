@@ -5,7 +5,7 @@ function directPlan({ meaning = "Directly answer the human's latest message", go
   return {
     provider: "gemini",
     reason: "v37-human-director",
-    subject: "phase2-review87",
+    subject: "phase2-review90",
     goal,
     moves: [{
       speaker: "MetallicaFan",
@@ -60,6 +60,8 @@ for (const valid of [
   "the PlayStation 5 costs $499",
   "I paid $499 for my PlayStation 5",
   "I paid $499 for John's PlayStation 5",
+  "I paid $499 for John's old PlayStation 5",
+  "John's very own PlayStation 5 costs $499",
   "The PlayStation-5 costs $499",
   "The PlayStation–5 costs $499",
   "A fancy brand new home video game console designed exclusively to work with the PlayStation 5 costs $499",
@@ -89,9 +91,15 @@ for (const invalid of [
   "a case made for Chris's PlayStation 5 costs $20",
   "I paid $70 for John's PlayStation 5 controller",
   "a headset for John's friend's PlayStation 5 costs $70",
+  "A controller for John's old PlayStation 5 costs $70",
+  "A headset compatible with John's very own PlayStation 5 costs $70",
+  "I paid $70 for John's friend's old PlayStation 5 controller",
   "A PlayStation-5-compatible headset costs $70",
   "A PlayStation–5-compatible headset costs $70",
   "A PlayStation—5-compatible headset costs $70",
+  "A PlayStation 5 - compatible headset costs $70",
+  "A PlayStation 5 – compatible headset costs $70",
+  "A PlayStation 5 — compatible headset costs $70",
   "A fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
   "This fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
   "That fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70",
@@ -108,6 +116,10 @@ for (const validWithPeripheral of [
   "The PlayStation 5 costs $499 while a headset compatible with the PlayStation 5 costs $70",
   "A headset compatible with the PlayStation 5 costs $70 while the PlayStation 5 costs $499",
   "The PlayStation 5 costs $499 alongside a headset compatible with the PlayStation 5 costs $70",
+  "The PlayStation 5 costs $499 although a headset for the PlayStation 5 costs $70",
+  "A headset for the PlayStation 5 costs $70 although the PlayStation 5 costs $499",
+  "The PlayStation 5 costs $499 even though a headset compatible with the PlayStation 5 costs $70",
+  "A headset compatible with the PlayStation 5 costs $70 even though the PlayStation 5 costs $499",
   "The PlayStation 5 costs $499 while this fancy brand new wireless gaming headset designed exclusively to work with the PlayStation 5 costs $70"
 ]) {
   assert.equal(evaluate(singlePriceQuestion, validWithPeripheral, { meaning: singlePriceMeaning }).ok, true,
@@ -168,4 +180,4 @@ assert.equal(evaluate(
   { meaning: repeatedPriceMeaning }
 ).ok, true, "an unsafe extra PS5 binding must not erase the explicit PS5 console price in a repeated answer");
 
-console.log("v41 Phase 2A review 78-87 plus adjacent price-binding regressions passed");
+console.log("v41 Phase 2A review 78-90 plus adjacent price-binding regressions passed");
