@@ -22,6 +22,6 @@ jobs:
       - name: Bootstrap pinned Wrangler
         run: npm install --no-save --no-package-lock --no-audit --no-fund wrangler@4.127.1
       - name: Verify pinned Wrangler
-        run: npx --no-install wrangler --version
+        run: ./node_modules/.bin/wrangler --version
       - name: Run full regression suite
         run: npm run check
