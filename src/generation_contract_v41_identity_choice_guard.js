@@ -14,7 +14,7 @@ const ERA_SCOPE_STOPWORDS = new Set([
   "price", "cost", "say", "she", "that", "the", "their", "them", "they", "this",
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
-const ERA_ANAPHOR = /\b(?:it|its|that|this|one|they|them|those|these)\b/i;
+const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const ERA_IGNORANCE_CLAUSE = /^(?:(?:huh+|what|lol\s+what|uh+\s+what)|what(?:'s|\s+is|\s+are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean(?:\s+by\s+(?:that|this|it))?|what\s+are\s+you\s+talking\s+about|(?:i(?:'ve|\s+have)?\s+)?never\s+heard(?:\s+of)?\s+(?:that|it)(?:\s+before)?|(?:i\s+)?(?:haven't|have\s+not)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?have\s+never\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't|dont)\s+know(?:\s+what\s+(?:that|it)\s+is)?|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)(?:\s+what\s+(?:that|it)\s+is)?|beats\s+me|(?:(?:that|this|it)\s+)?(?:doesn't|does\s+not|doesnt)\s+ring\s+a\s+bell|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|are\s+you\s+from\s+the\s+future|from\s+the\s+future)$/i;
 
 function clean(value, max = 1200) {
@@ -66,19 +66,37 @@ function overlapScore(left, right) {
   return score;
 }
 
-function propagateAnaphoricEraViolations(rows) {
-  let carried = null;
-  return rows.map((row) => {
-    if (row.violation) {
-      carried = row.violation;
-      return row;
+function stripDiscourseAnaphor(value) {
+  return clean(value, 500).replace(
+    /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that)[,;:]?\s*)/i,
+    ""
+  );
+}
+
+function clauseIsAnaphoric(value) {
+  const clause = stripDiscourseAnaphor(value);
+  if (!clause) return false;
+  const pronoun = ERA_PRONOUN;
+  return new RegExp(`^(?:${pronoun})\\b`, "i").test(clause)
+    || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause)
+    || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause)
+    || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+}
+
+function groupEraClauseRows(clauses, dateKey) {
+  const rows = [];
+  for (const clause of clauses) {
+    const rawViolation = eraWorldViolation(clause, dateKey);
+    const violation = rawViolation && rawViolation !== "empty" ? rawViolation : null;
+    if (!violation && rows.length && clauseIsAnaphoric(clause)) {
+      const previous = rows[rows.length - 1];
+      previous.clause = `${previous.clause}; ${clause}`;
+      previous.anaphoricTail = true;
+      continue;
     }
-    if (carried && ERA_ANAPHOR.test(row.clause)) {
-      return { ...row, violation: carried, inheritedEraViolation: true };
-    }
-    carried = null;
-    return row;
-  });
+    rows.push({ clause, violation });
+  }
+  return rows;
 }
 
 function semanticScopeText(args, evaluation) {
@@ -100,13 +118,7 @@ function scopedEraHumanViolation(args, evaluation, dateKey) {
   const clauses = splitHumanEraClauses(args?.human?.text || "");
   if (!clauses.length) return null;
 
-  const rows = propagateAnaphoricEraViolations(clauses.map((clause) => {
-    const violation = eraWorldViolation(clause, dateKey);
-    return {
-      clause,
-      violation: violation && violation !== "empty" ? violation : null
-    };
-  }));
+  const rows = groupEraClauseRows(clauses, dateKey);
   const violating = rows.filter((row) => row.violation);
   if (!violating.length) return null;
   if (violating.length === rows.length) return violating[0].violation;
