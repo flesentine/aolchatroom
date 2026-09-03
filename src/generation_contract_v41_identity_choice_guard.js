@@ -18,7 +18,7 @@ function normalizeNamedModelPossessives(value) {
 
 function normalizeLongPeripheralRelations(value) {
   return value.replace(
-    /\b(a|an|the|my|your|his|her|our|their)\s+((?:[a-z][a-z0-9'-]*\s+){5,}[a-z][a-z0-9'-]*)\s+(?:compatible\s+with|(?:made|designed|built|intended)(?:\s+[a-z][a-z0-9'-]*){0,6}\s+(?:for|to\s+(?:work|use)\s+with)|works?(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|used(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|for|with)\s+(?=(?:(?:the|a|an|my|your|his|her|our|their)\s+)?(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(a|an|the|my|your|his|her|our|their)\s+((?:[a-z][a-z0-9'-]*\s+){5,}?[a-z][a-z0-9'-]*)\s+(?:compatible\s+with|(?:made|designed|built|intended)(?:\s+[a-z][a-z0-9'-]*){0,6}\s+(?:for|to\s+(?:work|use)\s+with)|works?(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|used(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|for|with)\s+(?=(?:(?:the|a|an|my|your|his|her|our|their)\s+)?(?:playstation|ps)\s*\d+\b)/gi,
     (_match, determiner, phrase) => {
       const words = clean(phrase).split(/\s+/);
       const head = words[words.length - 1] || phrase;
@@ -27,7 +27,7 @@ function normalizeLongPeripheralRelations(value) {
   );
 }
 
-function normalizeReview82to85Surface(value) {
+function normalizeReview82to86Surface(value) {
   let surface = clean(value)
     .replace(/[’]/g, "'")
     .replace(/[‐‑‒–—―]/g, "-")
@@ -51,7 +51,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   if (!original?.enforced) return original;
 
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview82to85Surface(surface);
+  const normalized = normalizeReview82to86Surface(surface);
   if (!normalized || normalized === clean(surface)) return original;
 
   const normalizedEvaluation = evaluateWithSurface(args, normalized);
@@ -75,7 +75,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       reason: "recognized-obligations-covered",
       evidence: {
         ...(original.evidence || {}),
-        review85NormalizedSafePriceBinding: normalized
+        review85to86NormalizedSafePriceBinding: normalized
       }
     };
   }
