@@ -15,7 +15,9 @@ const ERA_SCOPE_STOPWORDS = new Set([
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
 const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
-const ERA_CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const ERA_STRONG_CLAUSE_LEADER = "(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const ERA_WH_QUESTION_START = "(?:(?:how(?:\\s+(?:much|many))?|what|why|when|where|who)\\s+(?:do|does|did|is|are|was|were|have|has|had|can|could|would|will|should)\\b)";
+const ERA_INDEPENDENT_CLAUSE_START = `(?:${ERA_STRONG_CLAUSE_LEADER}\\b|${ERA_WH_QUESTION_START})`;
 const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)";
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
@@ -25,6 +27,13 @@ const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
   "can", "could", "would", "will", "should"
 ]);
+const NEGATIVE_AUXILIARY = new Map([
+  ["isn't", "is not"], ["aren't", "are not"], ["wasn't", "was not"], ["weren't", "were not"],
+  ["don't", "do not"], ["doesn't", "does not"], ["didn't", "did not"],
+  ["hasn't", "has not"], ["haven't", "have not"], ["hadn't", "had not"],
+  ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
+  ["won't", "will not"], ["shouldn't", "should not"]
+]);
 const ERA_IGNORANCE_CLAUSE = /^(?:(?:huh+|what|lol\s+what|uh+\s+what)|what(?:'s|\s+is|\s+are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean(?:\s+by\s+(?:that|this|it))?|what\s+are\s+you\s+talking\s+about|(?:i(?:'ve|\s+have)?\s+)?never\s+heard(?:\s+of)?\s+(?:that|it)(?:\s+before)?|(?:i\s+)?(?:haven't|have\s+not)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?have\s+never\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't|dont)\s+know(?:\s+what\s+(?:that|it)\s+is)?|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)(?:\s+what\s+(?:that|it)\s+is)?|beats\s+me|(?:(?:that|this|it)\s+)?(?:doesn't|does\s+not|doesnt)\s+ring\s+a\s+bell|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|are\s+you\s+from\s+the\s+future|from\s+the\s+future)$/i;
 
 function clean(value, max = 1200) {
@@ -33,9 +42,13 @@ function clean(value, max = 1200) {
 
 function normalizeInternalApostrophePossessives(value) {
   return value.replace(
-    /\b(?:the\s+)?(?:(?:[a-z][a-z0-9-]*(?:'[a-z][a-z0-9-]*)*'(?:s)?)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(?:the\s+)?(?:[a-z][a-z0-9-]*(?:'[a-z][a-z0-9-]*)*'(?:s)?)\s+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9'-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
     "my "
   );
+}
+
+function normalizeModelPossessive(value) {
+  return value.replace(/\b((?:playstation|ps)\s*\d+)\s*'s\b/gi, "$1");
 }
 
 function normalizeSafeHeadCompoundModifiers(value) {
@@ -45,24 +58,22 @@ function normalizeSafeHeadCompoundModifiers(value) {
   );
 }
 
-function normalizeReview96to108Surface(value) {
+function normalizeReview96to112Surface(value) {
   let surface = clean(value).replace(/[’]/g, "'");
   surface = normalizeInternalApostrophePossessives(surface);
+  surface = normalizeModelPossessive(surface);
   surface = normalizeSafeHeadCompoundModifiers(surface);
   return clean(surface);
 }
 
 function normalizeEraClauseBoundaries(value) {
   let surface = clean(value, 1800).replace(/[’]/g, "'");
-  // A discourse marker belongs to the clause it introduces. Protect its comma
-  // before the generic comma-splice normalizer so `honestly, was it...` does
-  // not become a standalone `honestly` row that steals the anaphor antecedent.
   surface = surface.replace(
-    new RegExp(`(${ERA_DISCOURSE_MARKER})\\s*,\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"),
+    new RegExp(`(${ERA_DISCOURSE_MARKER})\\s*,\\s+(?=${ERA_INDEPENDENT_CLAUSE_START})`, "gi"),
     "$1 "
   );
-  surface = surface.replace(new RegExp(`,\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
-  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`,\\s+(?=${ERA_INDEPENDENT_CLAUSE_START})`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${ERA_INDEPENDENT_CLAUSE_START})`, "gi"), "; ");
   return surface;
 }
 
@@ -96,6 +107,13 @@ function stripDiscourseAnaphor(value) {
   return clause;
 }
 
+function normalizeNegativeAuxiliaries(value) {
+  return clean(value, 500).replace(
+    /\b(?:isn't|aren't|wasn't|weren't|don't|doesn't|didn't|hasn't|haven't|hadn't|can't|couldn't|wouldn't|won't|shouldn't)\b/gi,
+    (match) => NEGATIVE_AUXILIARY.get(match.toLowerCase()) || match
+  );
+}
+
 function demonstrativeActsAsDeterminer(clause) {
   const normalized = clean(clause, 500).toLowerCase();
   const match = normalized.match(new RegExp(`\\b${DEMONSTRATIVE}\\s+([a-z0-9][a-z0-9-]*)\\b`, "i"));
@@ -104,21 +122,21 @@ function demonstrativeActsAsDeterminer(clause) {
 }
 
 function clauseIsAnaphoric(value) {
-  const clause = stripDiscourseAnaphor(value);
+  const clause = normalizeNegativeAuxiliaries(stripDiscourseAnaphor(value));
   if (!clause) return false;
   const pronoun = ERA_PRONOUN;
   const demonstrativeDeterminer = demonstrativeActsAsDeterminer(clause);
   const directPronoun = new RegExp(`^(?:${pronoun})\\b`, "i").test(clause);
-  const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause);
+  const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:not\\s+)?${pronoun}\\b`, "i").test(clause);
   const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause);
-  const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+  const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b${pronoun}\\b`, "i").test(clause);
 
   if (demonstrativeDeterminer && new RegExp(`\\b${DEMONSTRATIVE}\\b`, "i").test(clause)) {
     const withoutDemonstratives = clause.replace(new RegExp(`\\b${DEMONSTRATIVE}\\b`, "gi"), " explicit-subject ");
     return new RegExp(`^(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
-      || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
+      || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:not\\s+)?(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
       || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
-      || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives);
+      || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+(?:not\\s+)?you\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives);
   }
 
   return directPronoun || auxiliaryPronoun || whPronoun || youPronoun;
@@ -207,8 +225,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-future-surface",
       evidence: {
         ...(evaluation.evidence || {}),
-        review108EraHumanViolation: humanViolation,
-        review108EraSurfaceViolation: responseViolation
+        review112EraHumanViolation: humanViolation,
+        review112EraSurfaceViolation: responseViolation
       }
     };
   }
@@ -220,8 +238,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-ignorance",
       evidence: {
         ...(evaluation.evidence || {}),
-        review108EraHumanViolation: humanViolation,
-        review108PeriodCorrectIgnorance: true
+        review112EraHumanViolation: humanViolation,
+        review112PeriodCorrectIgnorance: true
       }
     };
   }
@@ -232,14 +250,14 @@ function applyEraHumanBoundary(evaluation, args, surface) {
     reason: "era-boundary-confident-answer",
     evidence: {
       ...(evaluation.evidence || {}),
-      review108EraHumanViolation: humanViolation
+      review112EraHumanViolation: humanViolation
     }
   };
 }
 
 export function evaluatePrimaryHumanVoice(args = {}) {
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview96to108Surface(surface);
+  const normalized = normalizeReview96to112Surface(surface);
   const baseArgs = { ...args, eraDateKey: "" };
 
   if (Array.isArray(args?.lines) && args.lines.length && normalized !== clean(surface)) {
@@ -255,7 +273,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       ...evaluation,
       evidence: {
         ...(evaluation.evidence || {}),
-        review96to108NormalizedSurface: normalized
+        review96to112NormalizedSurface: normalized
       }
     };
   }
