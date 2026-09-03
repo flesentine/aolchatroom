@@ -95,7 +95,7 @@ try {
 
   const responder = await runContract("degraded-responder-fail-closed");
   assert.equal(responder.failClosed, true);
-  assert.equal(responder.reason, "primary-speaker-mismatch");
+  assert.equal(responder.reason, "required-responder-not-first");
 
   console.log("v41 degraded-provider/identity real-Worker contracts: 3/3 passed");
 } catch (error) {
