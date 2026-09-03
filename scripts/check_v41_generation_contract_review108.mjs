@@ -76,18 +76,16 @@ for (const prefix of ["honestly", "well", "anyway", "frankly", "actually"]) {
 // period-valid subject resets the prior future reference in both paths.
 for (const demonstrative of ["this", "that"]) {
   const question = `I've never heard of PS5; was ${demonstrative} Neo Geo any good?`;
+  const scope = `say whether ${demonstrative} Neo Geo was any good`;
+  const fallbackViolation = scopedFallbackEraViolation(question, eraDateKey, scope);
   const primary = evaluate(
     question,
     `yeah, ${demonstrative} Neo Geo was good`,
-    `say whether ${demonstrative} Neo Geo was any good`
+    scope
   );
-  assert.equal(primary.ok, true, `explicit ${demonstrative} Neo Geo subject must reset future carry; reason=${primary.reason}; evidence=${JSON.stringify(primary.evidence || {})}`);
+  assert.equal(fallbackViolation, "", `fallback must treat ${demonstrative} Neo Geo as a new period-valid subject`);
+  assert.equal(primary.ok, true, `explicit ${demonstrative} Neo Geo subject must reset future carry; fallback=${fallbackViolation}; reason=${primary.reason}; evidence=${JSON.stringify(primary.evidence || {})}`);
   assert.notEqual(primary.reason, "era-boundary-confident-answer");
-  assert.equal(
-    scopedFallbackEraViolation(question, eraDateKey, `say whether ${demonstrative} Neo Geo was any good`),
-    "",
-    `fallback must treat ${demonstrative} Neo Geo as a new period-valid subject`
-  );
 }
 
 // But a standalone demonstrative without a following noun remains an anaphor.
