@@ -18,7 +18,12 @@ export class ChatRoom extends Phase2ChatRoom {
       plan,
       lines: voiced,
       human,
-      history: this.history || []
+      history: this.history || [],
+      // Phase 2 semantic completeness must never overrule the sealed 1996
+      // world inherited from v13. Supplying the room's mirror-date lets the
+      // evaluator prefer period-correct ignorance when a human introduces a
+      // future product or behavior.
+      eraDateKey: typeof this.currentEraDate === "function" ? this.currentEraDate() : ""
     });
     this.noteGenerationContract(evaluation, plan, voiced, human);
     if (!evaluation.enforced || evaluation.ok) return voiced;
@@ -70,7 +75,8 @@ export class ChatRoom extends Phase2ChatRoom {
         invalidValidatedFallbackConsumesLegacyRetry: true,
         missingRequiredHumanReplanResponseDropsEntireTail: true,
         failedHumanReplanUsesProviderIndependentV14Fallback: true,
-        failedHumanReplanUsesOnlyValidatedBuiltInFallback: true
+        failedHumanReplanUsesOnlyValidatedBuiltInFallback: true,
+        semanticCompletenessDefersToSealed1996World: true
       }
     };
   }
