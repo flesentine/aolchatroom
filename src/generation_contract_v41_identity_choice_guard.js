@@ -30,8 +30,11 @@ function canonicalText(value) {
   return clean(value)
     .replace(/[’]/g, "'")
     .replace(/\bdon't\b/gi, "do not")
+    .replace(/\bdont\b/gi, "do not")
     .replace(/\bdoesn't\b/gi, "does not")
+    .replace(/\bdoesnt\b/gi, "does not")
     .replace(/\bdidn't\b/gi, "did not")
+    .replace(/\bdidnt\b/gi, "did not")
     .replace(/\bps\s*([0-9]+)\b/gi, "playstation $1")
     .replace(/\bplaystation\s*([0-9]+)\b/gi, "playstation $1");
 }
@@ -107,7 +110,8 @@ function validateOwnership(evaluation, surface) {
   const clauses = responseClauses(surface);
   const assertions = clauses.map(responseOwnershipAssertion);
 
-  if (ownership.length === 1 && assertions.some(Boolean)) {
+  if (ownership.length === 1) {
+    if (!assertions.some(Boolean)) return evaluation;
     const leadingDenial = polarity[0]?.scope === "ownership" && STANDALONE_NEGATIVE.test(clauses[0] || "");
     if (leadingDenial) return evaluation;
     const expected = requestedOwnershipIdentity(ownership[0]?.clause || "");
@@ -167,7 +171,7 @@ function possessiveHardwarePrice(surface, model) {
 }
 function unsafeReverseTail(surface, model) {
   const modelPattern = phraseRegex(model);
-  const pattern = new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s*$`, "i");
+  const pattern = new RegExp(`${MONEY}\\s+(?:for|of|on)\\s+(?:the|a|an)?\\s*${modelPattern}(?<tail>(?:\\s+[a-z][a-z0-9'-]*)*)\\s**$`, "i");
   return responseClauses(surface).some((clause) => {
     const match = canonicalText(clause).toLowerCase().match(pattern);
     if (!match) return false;
