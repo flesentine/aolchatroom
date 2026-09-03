@@ -61,11 +61,8 @@ function identityMatches(expectedTokens, actualTokens) {
   const expected = comparable(expectedTokens);
   const actual = comparable(actualTokens);
   if (!expected.size || !actual.size) return false;
+  if (expected.size !== actual.size) return false;
   for (const token of expected) if (!actual.has(token)) return false;
-  for (const token of actual) {
-    if (expected.has(token)) continue;
-    if (/^\d+$/.test(token) || IDENTITY_VARIANT.has(token)) return false;
-  }
   return true;
 }
 
