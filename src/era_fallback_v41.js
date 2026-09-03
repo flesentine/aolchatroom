@@ -95,6 +95,16 @@ const DEMONSTRATIVE_NON_NOUN_FOLLOW = new Set([
   "and", "as", "at", "because", "but", "by", "for", "from", "if", "in",
   "of", "on", "or", "than", "to", "versus", "vs", "when", "where", "while", "with"
 ]);
+const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
+  "console", "device", "game", "hardware", "machine", "model", "one",
+  "product", "system", "thing", "unit", "version"
+]);
+const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
+  "cost", "costs", "feel", "feels", "fit", "fits", "happen", "happens",
+  "help", "helps", "look", "looks", "matter", "matters", "mean", "means",
+  "play", "plays", "run", "runs", "seem", "seems", "sound", "sounds",
+  "suck", "sucks", "work", "works"
+]);
 
 function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   const tail = surface.slice(offset + demonstrative.length);
@@ -104,12 +114,17 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   if (!words.length) return false;
 
   const first = words[0].toLowerCase();
-  if (!DEMONSTRATIVE_PRONOUN_FOLLOW.has(first)) return true;
+  if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(first)) return false;
+  if (!DEMONSTRATIVE_PRONOUN_FOLLOW.has(first)) {
+    return !DEMONSTRATIVE_GENERIC_REFERENT.has(first);
+  }
 
   for (const word of words.slice(1)) {
     const normalized = word.toLowerCase();
     if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) continue;
     if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return false;
+    if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return false;
+    if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return false;
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return false;
     return true;
   }
