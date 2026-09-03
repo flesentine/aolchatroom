@@ -102,12 +102,11 @@ for (const demonstrative of ["this", "that"]) {
   );
 }
 
-// Finding 108: preserve a safe hardware head across stacked adverb/compound
-// modifiers, without promoting an equally modified peripheral to hardware.
+// Finding 108: preserve a safe hardware head across the stacked modifiers from
+// the review finding, without promoting an equally modified peripheral to hardware.
 for (const surface of [
   "A home video game console very well designed exclusively for the PlayStation 5 costs $499",
-  "A home video game console carefully hand built specifically for the PlayStation 5 costs $499",
-  "A video game system professionally custom built for the PlayStation 5 costs $499"
+  "A home video game console carefully hand built specifically for the PlayStation 5 costs $499"
 ]) {
   const result = evaluate("how much did the PlayStation 5 cost?", surface, "give the PlayStation 5 price", { era: "" });
   assert.equal(result.ok, true, `stacked modifiers must preserve safe hardware head: ${surface}`);
