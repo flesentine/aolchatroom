@@ -1,35 +1,13 @@
 import worker, { ChatRoom as Phase2ChatRoom } from "./index_v41_generation_contract_base.js";
 import { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
-import { eraWorldViolation } from "./era_world.js";
+import { periodSafeHumanFallbackLines } from "./era_fallback_v41.js";
 import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
 } from "./generation_contract_v41_identity_choice_guard.js";
 
 export default worker;
-
-export function periodSafeHumanFallbackLines(lines, human, eraDateKey) {
-  const rows = Array.isArray(lines) ? lines : [];
-  const violation = eraDateKey && human
-    ? eraWorldViolation(human.text || "", eraDateKey)
-    : null;
-  if (!violation || violation === "empty") return rows;
-
-  // The inherited v14 fallback is intentionally provider-independent, but its
-  // generic topic/question renderer predates the sealed-world semantic bridge.
-  // Preserve its responder/target/source selection while replacing only its
-  // text for a human premise that cannot exist in the room's 1996 world.
-  return rows.map((line) => {
-    if (String(line?.source || "") !== "built-in") return line;
-    return {
-      ...line,
-      text: "what? never heard of that",
-      topic: "general",
-      _v41EraSafeFallback: true
-    };
-  });
-}
 
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
