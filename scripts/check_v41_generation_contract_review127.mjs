@@ -108,4 +108,19 @@ for (const question of [
   assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
 }
 
-console.log("v41 findings 124-127 reporting/self-comparison/demonstrative/long-noun regressions passed");
+// Finding 128: generic demonstrative noun phrases and demonstrative + predicate
+// forms remain anaphoric when no explicit named subject replaces the future referent.
+for (const question of [
+  "do you own a PS5 and is this console any good?",
+  "do you own a PS5 and is this expensive console any good?",
+  "do you own a PS5 and does this matter?",
+  "do you own a PS5 and does this work?"
+]) {
+  const meaning = "say whether this is any good";
+  const primary = evaluate(question, "yeah it is good", meaning);
+  assert.equal(primary.ok, false, `generic/predicate demonstrative must remain tied to PS5: ${question}`);
+  assert.equal(primary.reason, "era-boundary-confident-answer");
+  assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
+}
+
+console.log("v41 findings 124-128 reporting/self-comparison/demonstrative/long-noun regressions passed");
