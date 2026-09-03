@@ -18,7 +18,7 @@ function clean(value, max = 900) {
 
 function normalizeNamedModelPossessives(value) {
   return value.replace(
-    /\b(?:(?:[a-z][a-z0-9-]*'s)\s+)+(?=(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(?:(?:[a-z][a-z0-9-]*'s)\s+)+(?:((?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by)\b)[a-z][a-z0-9-]*)\s+){0,4}(?=(?:playstation|ps)\s*\d+\b)/gi,
     "my "
   );
 }
@@ -63,13 +63,14 @@ function normalizeLongPeripheralRelations(value) {
   return normalized;
 }
 
-function normalizeReview82to87Surface(value) {
+function normalizeReview82to90Surface(value) {
   let surface = clean(value)
     .replace(/[’]/g, "'")
     .replace(/[‐‑‒–—―]/g, "-")
     .replace(/\bplaystation\s*-\s*(\d+)\b/gi, "PlayStation $1")
     .replace(/\bps\s*-\s*(\d+)\b/gi, "PS $1")
-    .replace(/\s+\b(?:while|whereas|alongside)\b\s+/gi, "; ");
+    .replace(/\b((?:playstation|ps)\s*\d+)\s*-\s*(compatible)\b/gi, "$1-$2")
+    .replace(/\s+\b(?:even\s+though|although|even\s+if|while|whereas|alongside)\b\s+/gi, "; ");
   surface = normalizeNamedModelPossessives(surface);
   surface = normalizeLongPeripheralRelations(surface);
   return clean(surface);
@@ -87,7 +88,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
   if (!original?.enforced) return original;
 
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview82to87Surface(surface);
+  const normalized = normalizeReview82to90Surface(surface);
   if (!normalized || normalized === clean(surface)) return original;
 
   const normalizedEvaluation = evaluateWithSurface(args, normalized);
@@ -99,7 +100,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       reason: "missing-price",
       evidence: {
         ...(original.evidence || {}),
-        review82to87NormalizedUnsafePriceBinding: normalized
+        review82to90NormalizedUnsafePriceBinding: normalized
       }
     };
   }
@@ -111,7 +112,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       reason: "recognized-obligations-covered",
       evidence: {
         ...(original.evidence || {}),
-        review85to87NormalizedSafePriceBinding: normalized
+        review85to90NormalizedSafePriceBinding: normalized
       }
     };
   }
