@@ -16,6 +16,7 @@ const ERA_SCOPE_STOPWORDS = new Set([
 ]);
 const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const ERA_CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const ERA_DISCOURSE_MARKER = "(?:that\\s+being\\s+said|that\\s+said|that\\s+aside|having\\s+said\\s+that|besides\\s+that|apart\\s+from\\s+that|other\\s+than\\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)";
 const DEMONSTRATIVE = "(?:this|that|these|those)";
 const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
   "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
@@ -53,6 +54,13 @@ function normalizeReview96to108Surface(value) {
 
 function normalizeEraClauseBoundaries(value) {
   let surface = clean(value, 1800).replace(/[’]/g, "'");
+  // A discourse marker belongs to the clause it introduces. Protect its comma
+  // before the generic comma-splice normalizer so `honestly, was it...` does
+  // not become a standalone `honestly` row that steals the anaphor antecedent.
+  surface = surface.replace(
+    new RegExp(`(${ERA_DISCOURSE_MARKER})\\s*,\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"),
+    "$1 "
+  );
   surface = surface.replace(new RegExp(`,\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
   surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
   return surface;
@@ -83,7 +91,7 @@ function overlapScore(left, right) {
 
 function stripDiscourseAnaphor(value) {
   let clause = clean(value, 500);
-  const prefix = /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)[,;:]?\s+)+/i;
+  const prefix = new RegExp(`^(?:(?:${ERA_DISCOURSE_MARKER})[,;:]?\\s+)+`, "i");
   while (prefix.test(clause)) clause = clause.replace(prefix, "");
   return clause;
 }
