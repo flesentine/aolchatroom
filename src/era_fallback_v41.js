@@ -9,6 +9,14 @@ const SCOPE_STOPWORDS = new Set([
 ]);
 const PRONOUN = "(?:it|that|this|one|they|them|those|these)";
 const CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
+const DEMONSTRATIVE = "(?:this|that|these|those)";
+const DEMONSTRATIVE_PRONOUN_FOLLOW = new Set([
+  "a", "an", "any", "as", "actually", "also", "better", "bad", "cheap", "cool",
+  "even", "expensive", "fine", "fun", "good", "great", "okay", "ok", "really",
+  "still", "so", "terrible", "too", "very", "well", "worse", "worth",
+  "is", "are", "was", "were", "did", "does", "do", "has", "have", "had",
+  "can", "could", "would", "will", "should"
+]);
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -45,20 +53,38 @@ function overlapScore(left, right) {
 }
 
 function stripDiscourseAnaphor(value) {
-  return clean(value, 500).replace(
-    /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that)[,;:]?\s*)/i,
-    ""
-  );
+  let clause = clean(value, 500);
+  const prefix = /^(?:(?:that\s+being\s+said|that\s+said|that\s+aside|having\s+said\s+that|besides\s+that|apart\s+from\s+that|other\s+than\s+that|honestly|frankly|seriously|actually|well|anyway|anyhow|look|okay|ok|so|personally)[,;:]?\s+)+/i;
+  while (prefix.test(clause)) clause = clause.replace(prefix, "");
+  return clause;
+}
+
+function demonstrativeActsAsDeterminer(clause) {
+  const normalized = clean(clause, 500).toLowerCase();
+  const match = normalized.match(new RegExp(`\\b${DEMONSTRATIVE}\\s+([a-z0-9][a-z0-9-]*)\\b`, "i"));
+  if (!match) return false;
+  return !DEMONSTRATIVE_PRONOUN_FOLLOW.has(match[1]);
 }
 
 function clauseIsAnaphoric(value) {
   const clause = stripDiscourseAnaphor(value);
   if (!clause) return false;
   const pronoun = PRONOUN;
-  return new RegExp(`^(?:${pronoun})\\b`, "i").test(clause)
-    || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause)
-    || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause)
-    || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+  const demonstrativeDeterminer = demonstrativeActsAsDeterminer(clause);
+  const directPronoun = new RegExp(`^(?:${pronoun})\\b`, "i").test(clause);
+  const auxiliaryPronoun = new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+${pronoun}\\b`, "i").test(clause);
+  const whPronoun = new RegExp(`^(?:how|what|why|when|where)\\b.*\\b${pronoun}\\b`, "i").test(clause);
+  const youPronoun = new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b${pronoun}\\b`, "i").test(clause);
+
+  if (demonstrativeDeterminer && new RegExp(`\\b${DEMONSTRATIVE}\\b`, "i").test(clause)) {
+    const withoutDemonstratives = clause.replace(new RegExp(`\\b${DEMONSTRATIVE}\\b`, "gi"), " explicit-subject ");
+    return new RegExp(`^(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
+      || new RegExp(`^(?:is|was|were|are|did|does|do|has|have|had|can|could|would|will|should)\\s+(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
+      || new RegExp(`^(?:how|what|why|when|where)\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives)
+      || new RegExp(`^(?:do|did|does|have|has|had|would|could|can|will|should)\\s+you\\b.*\\b(?:it|one|they|them)\\b`, "i").test(withoutDemonstratives);
+  }
+
+  return directPronoun || auxiliaryPronoun || whPronoun || youPronoun;
 }
 
 function groupedRows(humanText, eraDateKey) {
