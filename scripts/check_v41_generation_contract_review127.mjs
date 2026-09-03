@@ -113,6 +113,8 @@ for (const question of [
 for (const question of [
   "do you own a PS5 and is this console any good?",
   "do you own a PS5 and is this expensive console any good?",
+  "do you own a PS5 and is this old console any good?",
+  "do you own a PS5 and is this black system any good?",
   "do you own a PS5 and does this matter?",
   "do you own a PS5 and does this work?"
 ]) {
@@ -123,4 +125,14 @@ for (const question of [
   assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
 }
 
-console.log("v41 findings 124-128 reporting/self-comparison/demonstrative/long-noun regressions passed");
+// Finding 129: common adjective/color/age modifiers do not make a generic
+// demonstrative into a new subject, while a named 1996 subject still resets.
+{
+  const question = "I've never heard of PS5; is this old Neo Geo any good?";
+  const meaning = "say whether the Neo Geo is any good";
+  const primary = evaluate(question, "yeah the Neo Geo is good", meaning);
+  assert.equal(primary.ok, true, "modified named Neo Geo must still reset the prior PS5 referent");
+  assert.equal(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
+}
+
+console.log("v41 findings 124-129 reporting/self-comparison/demonstrative/long-noun regressions passed");
