@@ -15,6 +15,7 @@ const ERA_SCOPE_STOPWORDS = new Set([
   "to", "was", "were", "what", "whether", "with", "you", "your"
 ]);
 const ERA_PRONOUN = "(?:it|that|this|one|they|them|those|these)";
+const ERA_CLAUSE_LEADER = "(?:how|what|why|when|where|who|do|does|did|is|are|was|were|have|has|had|can|could|would|will|should|i|you|he|she|we|they|there)";
 const ERA_IGNORANCE_CLAUSE = /^(?:(?:huh+|what|lol\s+what|uh+\s+what)|what(?:'s|\s+is|\s+are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean(?:\s+by\s+(?:that|this|it))?|what\s+are\s+you\s+talking\s+about|(?:i(?:'ve|\s+have)?\s+)?never\s+heard(?:\s+of)?\s+(?:that|it)(?:\s+before)?|(?:i\s+)?(?:haven't|have\s+not)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?have\s+never\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't|dont)\s+know(?:\s+what\s+(?:that|it)\s+is)?|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)(?:\s+what\s+(?:that|it)\s+is)?|beats\s+me|(?:(?:that|this|it)\s+)?(?:doesn't|does\s+not|doesnt)\s+ring\s+a\s+bell|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|are\s+you\s+from\s+the\s+future|from\s+the\s+future)$/i;
 
 function clean(value, max = 1200) {
@@ -23,7 +24,7 @@ function clean(value, max = 1200) {
 
 function normalizeInternalApostrophePossessives(value) {
   return value.replace(
-    /\b(?:the\s+)?(?:(?:[a-z][a-z0-9-]*(?:'[a-z][a-z0-9-]*)+'(?:s)?)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(?:the\s+)?(?:(?:[a-z][a-z0-9-]*(?:'[a-z][a-z0-9-]*)*'(?:s)?)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
     "my "
   );
 }
@@ -35,16 +36,22 @@ function normalizeSafeHeadCompoundModifiers(value) {
   );
 }
 
-function normalizeReview96to100Surface(value) {
+function normalizeReview96to104Surface(value) {
   let surface = clean(value).replace(/[’]/g, "'");
   surface = normalizeInternalApostrophePossessives(surface);
   surface = normalizeSafeHeadCompoundModifiers(surface);
   return clean(surface);
 }
 
+function normalizeEraClauseBoundaries(value) {
+  let surface = clean(value, 1800).replace(/[’]/g, "'");
+  surface = surface.replace(new RegExp(`,\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  surface = surface.replace(new RegExp(`\\s+(?:plus|also)\\s+(?=${ERA_CLAUSE_LEADER}\\b)`, "gi"), "; ");
+  return surface;
+}
+
 function splitHumanEraClauses(value) {
-  return clean(value, 1800)
-    .replace(/[’]/g, "'")
+  return normalizeEraClauseBoundaries(value)
     .split(/\s*(?:[;!?]+|\.\s+)\s*|\s+(?:even\s+though|even\s+if|although|while|whereas|but|and)\s+/i)
     .map((row) => clean(row, 500))
     .filter(Boolean);
@@ -166,8 +173,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-future-surface",
       evidence: {
         ...(evaluation.evidence || {}),
-        review102EraHumanViolation: humanViolation,
-        review102EraSurfaceViolation: responseViolation
+        review104EraHumanViolation: humanViolation,
+        review104EraSurfaceViolation: responseViolation
       }
     };
   }
@@ -179,8 +186,8 @@ function applyEraHumanBoundary(evaluation, args, surface) {
       reason: "era-boundary-ignorance",
       evidence: {
         ...(evaluation.evidence || {}),
-        review102EraHumanViolation: humanViolation,
-        review102PeriodCorrectIgnorance: true
+        review104EraHumanViolation: humanViolation,
+        review104PeriodCorrectIgnorance: true
       }
     };
   }
@@ -191,14 +198,14 @@ function applyEraHumanBoundary(evaluation, args, surface) {
     reason: "era-boundary-confident-answer",
     evidence: {
       ...(evaluation.evidence || {}),
-      review102EraHumanViolation: humanViolation
+      review104EraHumanViolation: humanViolation
     }
   };
 }
 
 export function evaluatePrimaryHumanVoice(args = {}) {
   const surface = args?.lines?.[0]?.text || "";
-  const normalized = normalizeReview96to100Surface(surface);
+  const normalized = normalizeReview96to104Surface(surface);
   const baseArgs = { ...args, eraDateKey: "" };
 
   if (Array.isArray(args?.lines) && args.lines.length && normalized !== clean(surface)) {
@@ -214,7 +221,7 @@ export function evaluatePrimaryHumanVoice(args = {}) {
       ...evaluation,
       evidence: {
         ...(evaluation.evidence || {}),
-        review96to100NormalizedSurface: normalized
+        review96to104NormalizedSurface: normalized
       }
     };
   }
