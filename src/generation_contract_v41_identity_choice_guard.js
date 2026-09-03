@@ -5,7 +5,11 @@ import {
   humanReplanPrimaryObligation
 } from "./generation_contract_v41_review81_base.js";
 
-const LONG_RELATION_TO_PS = /(?:compatible\s+with|(?:made|designed|built|intended)(?:\s+[a-z][a-z0-9'-]*){0,6}\s+(?:for|to\s+(?:work|use)\s+with)|works?(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|used(?:\s+[a-z][a-z0-9'-]*){0,6}\s+with|for|with)\s+(?=(?:(?:the|a|an|my|your|his|her|our|their|this|that|these|those)\s+)?(?:playstation|ps)\s*\d+\b)/gi;
+const RELATION_WORDS = "(?:\\s+[a-z][a-z0-9'-]*)*?";
+const LONG_RELATION_TO_PS = new RegExp(
+  `(?:compatible\\s+with|(?:made|designed|built|intended)${RELATION_WORDS}\\s+(?:for|to\\s+(?:work|use)\\s+with)|works?${RELATION_WORDS}\\s+with|used${RELATION_WORDS}\\s+with|for|with)\\s+(?=(?:(?:the|a|an|my|your|his|her|our|their|this|that|these|those)\\s+)?(?:playstation|ps)\\s*\\d+\\b)`,
+  "gi"
+);
 const LONG_HEAD_BOUNDARIES = new Set([
   "a", "an", "the", "my", "your", "his", "her", "our", "their",
   "this", "that", "these", "those", "for", "of", "on", "with",
@@ -19,7 +23,7 @@ function clean(value, max = 900) {
 
 function normalizeNamedModelPossessives(value) {
   return value.replace(
-    /\b(?:(?:[a-z][a-z0-9-]*'s)\s+)+(?:((?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by)\b)[a-z][a-z0-9-]*)\s+){0,4}(?=(?:playstation|ps)\s*\d+\b)/gi,
+    /\b(?:(?:[a-z][a-z0-9-]*'s)\s+)+(?:(?!(?:for|with|compatible|designed|made|built|intended|works?|used|on|of|at|by|to|from)\b)[a-z][a-z0-9-]*\s+)*(?=(?:playstation|ps)\s*\d+\b)/gi,
     "my "
   );
 }
