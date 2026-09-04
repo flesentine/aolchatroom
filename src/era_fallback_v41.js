@@ -108,13 +108,17 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
 const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)";
 const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
 const DEMONSTRATIVE_RELATION_PREDICATE_SOURCE =
-  "(?:style|styled|styling|compatible|compatibility|inspired|based|like|themed|shaped|type)";
+  "(?:style|styled|compatible|inspired|based|like|themed|shaped|designed|type)";
+const DEMONSTRATIVE_RELATION_NOMINAL_SOURCE =
+  "(?:styling|compatibility|theme|theming|inspiration|shape|shaping|design|designing|likeness)";
+const DEMONSTRATIVE_RELATION_TERM_SOURCE =
+  `(?:${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}|${DEMONSTRATIVE_RELATION_NOMINAL_SOURCE})`;
 const DEMONSTRATIVE_NAMING_ADVERB_SOURCE =
   "(?:also|better|commonly|formerly|generally|more|often|sometimes|typically|usually|widely)";
 const DEMONSTRATIVE_NAMING_PREFIX_SOURCE =
   `(?:(?:(?:is|are|was|were)\\s+(?:${DEMONSTRATIVE_NAMING_ADVERB_SOURCE}\\s+){0,2})|(?:(?:has|have|had)\\s+(?:${DEMONSTRATIVE_NAMING_ADVERB_SOURCE}\\s+){0,2}been\\s+(?:${DEMONSTRATIVE_NAMING_ADVERB_SOURCE}\\s+){0,2}))?(?:called|named|known\\s+as)\\s+(?:the\\s+)?`;
 const DEMONSTRATIVE_NAMED_RELATION_TAIL_SOURCE =
-  `(?:-${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b|\\s+(?:(?:[a-z0-9]+-){1,3}${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b|(?:[a-z0-9-]+\\s+){0,2}${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b))`;
+  `(?:-${DEMONSTRATIVE_RELATION_TERM_SOURCE}\\b|\\s+(?:(?:[a-z0-9]+-){1,3}${DEMONSTRATIVE_RELATION_TERM_SOURCE}\\b|(?:[a-z0-9-]+\\s+){0,2}${DEMONSTRATIVE_RELATION_TERM_SOURCE}\\b))`;
 const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
   `^\\s*(?:${DEMONSTRATIVE_NAMING_PREFIX_SOURCE}${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)|,\\s*(?:${DEMONSTRATIVE_NAMING_PREFIX_SOURCE}${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)|(?:the\\s+)?${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!${DEMONSTRATIVE_NAMED_RELATION_TAIL_SOURCE})))`,
   "i"
