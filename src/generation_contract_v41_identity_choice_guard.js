@@ -135,13 +135,18 @@ const DEMONSTRATIVE_NON_NOUN_FOLLOW = new Set([
   "of", "on", "or", "than", "to", "versus", "vs", "when", "where", "while", "with"
 ]);
 const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
-  "console", "device", "game", "hardware", "machine", "model", "one",
-  "product", "system", "thing", "unit", "version"
+  "accessory", "console", "controller", "device", "gadget", "game", "handheld",
+  "hardware", "machine", "model", "one", "peripheral", "platform", "product",
+  "system", "thing", "unit", "version"
 ]);
 const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)";
 const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
 const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
   `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:the\\s+)?|(?:the\\s+)?)${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`,
+  "i"
+);
+const DEMONSTRATIVE_NAMED_RELATION_MODIFIER = new RegExp(
+  `${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}(?:-(?:style|styled|compatible|inspired|based|like|themed|shaped|type)\\b|(?:\\s+[a-z0-9-]+){0,2}\\s+(?:style|styled|compatible|inspired|based|like|themed|shaped|type)\\b)`,
   "i"
 );
 
@@ -175,9 +180,11 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
     if (demonstrativeIsGenericReferent(normalized)) {
       const token = tokenMatches[index];
       const afterGeneric = tail.slice(phraseOffset + token.index + word.length);
-      return namedCandidate
-        || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "))
-        || DEMONSTRATIVE_NAMED_AFTER_GENERIC.test(afterGeneric);
+      const consumedSurface = consumed.join(" ");
+      const namedBeforeGeneric = (
+        namedCandidate || DEMONSTRATIVE_NAMED_REFERENT.test(consumedSurface)
+      ) && !DEMONSTRATIVE_NAMED_RELATION_MODIFIER.test(consumedSurface);
+      return namedBeforeGeneric || DEMONSTRATIVE_NAMED_AFTER_GENERIC.test(afterGeneric);
     }
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
@@ -223,9 +230,9 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against)|relative\\s+to|in\\s+(?:contrast|relation)\\s+(?:to|with)|as\\s+opposed\\s+to)\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = new RegExp(
-    `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b`,
+    `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|(?:has|have|had)\\s+${BOUNDED_CLAUSE_MODIFIERS}been)\\b`,
     "i"
   );
   let match;
