@@ -25,6 +25,7 @@ let pageUnloading = false;
 let capture = null;
 let capturePersistTimer = null;
 const captureMessageKeys = new Set();
+const renderedMessageKeys = new Set();
 const debug = new URLSearchParams(location.search).get("debug") === "1";
 const CAPTURE_KEY = "aol96-chat-capture-v1";
 const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
@@ -41,6 +42,22 @@ function cleanName(value) {
 
 function captureMessageKey(item) {
   return [item?.at || "", item?.from || "", item?.kind || "", item?.text || ""].join("|");
+}
+
+function renderedMessageKey(item) {
+  const at = Number(item?.at || 0);
+  if (!Number.isFinite(at) || at <= 0) return "";
+  return JSON.stringify([
+    at,
+    item?.from || "",
+    item?.kind || "",
+    item?.text || "",
+    item?.source || "",
+    item?.intent || "",
+    item?.target || "room",
+    item?.topic || "general",
+    item?.threadId || ""
+  ]);
 }
 
 function startOrResumeCapture(name) {
@@ -184,6 +201,9 @@ function exportCapture() {
 }
 
 function addLine(item) {
+  const messageKey = renderedMessageKey(item);
+  if (messageKey && renderedMessageKeys.has(messageKey)) return false;
+
   const row = document.createElement("div");
   row.className = `line ${item.kind || ""}`;
   if (item.kind === "system") {
@@ -202,9 +222,20 @@ function addLine(item) {
       row.append(meta);
     }
   }
+  if (messageKey) {
+    row.dataset.messageKey = messageKey;
+    renderedMessageKeys.add(messageKey);
+  }
+
   transcript.append(row);
-  while (transcript.children.length > 220) transcript.firstElementChild.remove();
+  while (transcript.children.length > 220) {
+    const oldest = transcript.firstElementChild;
+    const oldestKey = oldest?.dataset?.messageKey || "";
+    if (oldestKey) renderedMessageKeys.delete(oldestKey);
+    oldest?.remove();
+  }
   transcript.scrollTop = transcript.scrollHeight;
+  return true;
 }
 
 function setUsers(users = []) {
@@ -333,6 +364,7 @@ function connect(options = {}) {
 
     if (data.type === "hello") {
       transcript.replaceChildren();
+      renderedMessageKeys.clear();
       const captureFloor = capture ? capture.startedAt - 10000 : Date.now() - 10000;
       for (const item of data.history || []) {
         addLine(item);
