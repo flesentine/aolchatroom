@@ -104,7 +104,18 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
   "console", "device", "game", "hardware", "machine", "model", "one",
   "product", "system", "thing", "unit", "version"
 ]);
-const DEMONSTRATIVE_NAMED_REFERENT = /\b(?:neo\s+geo|sega\s+saturn|saturn|super\s+nintendo|nintendo\s+64|n64|game\s+boy|virtual\s+boy|atari\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)\b/i;
+const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)";
+const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
+const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
+  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:the\\s+)?|(?:the\\s+)?)${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`,
+  "i"
+);
+
+function demonstrativeIsGenericReferent(value) {
+  const normalized = String(value || "").toLowerCase();
+  if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return true;
+  return normalized.endsWith("s") && DEMONSTRATIVE_GENERIC_REFERENT.has(normalized.slice(0, -1));
+}
 const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
   "cost", "costs", "feel", "feels", "fit", "fits", "happen", "happens",
   "help", "helps", "look", "looks", "matter", "matters", "mean", "means",
@@ -116,16 +127,23 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   const tail = surface.slice(offset + demonstrative.length);
   const match = /^\s+((?:[a-z0-9][a-z0-9-]*(?:\s+|(?=[,;.!?]|$))){1,10})/i.exec(tail);
   if (!match) return false;
-  const words = match[1].trim().split(/\s+/).filter(Boolean);
+  const tokenMatches = [...match[1].matchAll(/[a-z0-9][a-z0-9-]*/gi)];
+  const words = tokenMatches.map((token) => token[0]);
   if (!words.length) return false;
 
   let explicitCandidate = false;
   let namedCandidate = false;
   const consumed = [];
-  for (const word of words) {
+  const phraseOffset = tail.indexOf(match[1]);
+  for (let index = 0; index < words.length; index += 1) {
+    const word = words[index];
     const normalized = word.toLowerCase();
-    if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) {
-      return namedCandidate || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "));
+    if (demonstrativeIsGenericReferent(normalized)) {
+      const token = tokenMatches[index];
+      const afterGeneric = tail.slice(phraseOffset + token.index + word.length);
+      return namedCandidate
+        || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "))
+        || DEMONSTRATIVE_NAMED_AFTER_GENERIC.test(afterGeneric);
     }
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
