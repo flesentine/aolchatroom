@@ -135,7 +135,7 @@ const DEMONSTRATIVE_NON_NOUN_FOLLOW = new Set([
   "of", "on", "or", "than", "to", "versus", "vs", "when", "where", "while", "with"
 ]);
 const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
-  "accessory", "console", "controller", "device", "gadget", "game", "handheld",
+  "accessory", "computer", "console", "controller", "device", "gadget", "game", "handheld",
   "hardware", "machine", "model", "one", "peripheral", "platform", "product",
   "system", "thing", "unit", "version"
 ]);
@@ -143,7 +143,7 @@ const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn
 const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
 const DEMONSTRATIVE_RELATION_PREDICATE_SOURCE = "(?:style|styled|compatible|inspired|based|like|themed|shaped|type)";
 const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
-  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:the\\s+)?)${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!\\s+${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b)`,
+  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|(?:the\\s+)?))${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!\\s+${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b)`,
   "i"
 );
 const DEMONSTRATIVE_NAMED_RELATION_MODIFIER = new RegExp(
@@ -232,7 +232,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against)|relative\\s+to|(?:in|by)\\s+contrast\\s+(?:to|with|against)|in\\s+relation\\s+(?:to|with)|as\\s+opposed\\s+to)\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against)|relative\\s+to|(?:in|by)\\s+contrast\\s+(?:to|with|against)|contrasted\\s+(?:with|to|against)|in\\s+relation\\s+(?:to|with)|as\\s+opposed\\s+to)\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = new RegExp(
     `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|(?:has|have|had)\\s+${BOUNDED_CLAUSE_MODIFIERS}been)\\b`,
     "i"
