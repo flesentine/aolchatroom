@@ -155,10 +155,10 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   for (const word of words) {
     const normalized = word.toLowerCase();
     if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return false;
-    if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return false;
+    if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return explicitCandidate;
-    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized)) continue;
+    if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized) || /ly$/.test(normalized)) continue;
     explicitCandidate = true;
   }
   return explicitCandidate;
