@@ -148,9 +148,15 @@ assert.ok(helper.includes("inferSceneMomentumCandidate"), "v41 must be able to a
 
 const v41 = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
 assert.ok(v41.includes('from "./index_v40_scene_continuity.js"'), "v41 must preserve v40 as its direct compatibility baseline");
+const v41Generation = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
+assert.ok(v41Generation.includes('from "./index_v41_scene_coordinator.js"'), "Phase 2A must remain additive above the frozen v41 scene coordinator");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
-assert.ok(wrangler.includes('"main": "src/index_v41_scene_coordinator.js"'));
+assert.ok(
+  wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
+  || wrangler.includes('"main": "src/index_v41_generation_contract.js"'),
+  "production must run v40 through the v41 scene coordinator, directly or through the Phase 2A wrapper"
+);
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
 console.log("v40 scene-continuity and human-participant exclusion regression checks passed");

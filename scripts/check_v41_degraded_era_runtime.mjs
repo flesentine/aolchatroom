@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { wranglerSpawnSpec } from "./wrangler_spawn.mjs";
 
-const port = 9800 + (process.pid % 300);
+const port = 10400 + (process.pid % 300);
 const origin = `http://127.0.0.1:${port}`;
 const logs = [];
 let exited = false;
@@ -25,7 +25,7 @@ const groupKillSupported = process.platform !== "win32";
 const wrangler = wranglerSpawnSpec([
   "dev",
   "--config",
-  "wrangler.scene-ownership-contract.jsonc",
+  "wrangler.degraded-era-contract.jsonc",
   "--port",
   String(port)
 ]);
@@ -56,10 +56,7 @@ async function stopWorker() {
   if (exited) return;
   signalWorker("SIGTERM");
   for (let i = 0; i < 30 && !exited; i += 1) await sleep(50);
-  if (!exited) {
-    signalWorker("SIGKILL");
-    for (let i = 0; i < 10 && !exited; i += 1) await sleep(25);
-  }
+  if (!exited) signalWorker("SIGKILL");
 }
 
 async function waitForWorker() {
@@ -70,7 +67,7 @@ async function waitForWorker() {
       const response = await fetch(`${origin}/health`);
       if (response.ok) {
         const data = await response.json();
-        if (data?.ok && data?.runtime === "workerd" && data?.phase === "1D") return;
+        if (data?.ok && data?.runtime === "workerd" && data?.contract === "degraded-era") return;
       }
     } catch (error) {
       lastError = error?.message || String(error);
@@ -78,7 +75,7 @@ async function waitForWorker() {
     await sleep(100);
   }
   throw new Error([
-    `v41 Phase 1D Worker did not become ready${lastError ? `: ${lastError}` : ""}`,
+    `v41 degraded-era Worker did not become ready${lastError ? `: ${lastError}` : ""}`,
     `wrangler exit code: ${exitCode}`,
     ...logs.slice(-35)
   ].join("\n"));
@@ -90,29 +87,28 @@ async function runContract(name) {
   try { data = await response.json(); } catch {}
   assert.equal(response.ok, true, `${name} HTTP failure: ${JSON.stringify(data)}`);
   assert.equal(data?.ok, true, `${name} contract failure: ${JSON.stringify(data)}`);
-  assert.equal(data?.contract, name);
   console.log(`ok - ${name}`);
+  return data?.detail || {};
 }
-
-const contracts = [
-  "stale-question-split",
-  "fresh-question-ownership",
-  "room-participant-gate",
-  "effective-subject-drift",
-  "human-replan-carry-retirement",
-  "side-line-no-eviction",
-  "recent-only-human-momentum",
-  "lifecycle-still-delegated",
-  "status"
-];
 
 try {
   await waitForWorker();
-  for (const name of contracts) await runContract(name);
-  console.log(`v41 Phase 1D real-Worker contracts: ${contracts.length}/${contracts.length} passed`);
+  const era = await runContract("degraded-era-fallback");
+  assert.equal(era.text, "what? never heard of that");
+  assert.equal(era.eraSafe, true);
+
+  const longScope = await runContract("long-current-scope");
+  assert.equal(longScope.trusted, true);
+  assert.ok(Number(longScope.textLength || 0) > 180);
+
+  const responder = await runContract("degraded-responder-fail-closed");
+  assert.equal(responder.failClosed, true);
+  assert.equal(responder.reason, "required-responder-not-first");
+
+  console.log("v41 degraded-provider/identity real-Worker contracts: 3/3 passed");
 } catch (error) {
   console.error(error?.stack || error);
-  if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-45).join("\n"));
+  if (logs.length) console.error("\nwrangler tail:\n" + logs.slice(-50).join("\n"));
   process.exitCode = 1;
 } finally {
   await stopWorker();

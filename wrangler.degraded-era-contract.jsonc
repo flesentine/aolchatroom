@@ -1,0 +1,24 @@
+{
+  "$schema": "./node_modules/wrangler/config-schema.json",
+  "name": "aolchatroom-degraded-era-contract",
+  "main": "test/runtime_degraded_era_worker.js",
+  "compatibility_date": "2026-08-19",
+  "durable_objects": {
+    "bindings": [
+      {
+        "name": "DEGRADED_ERA_ROOMS",
+        "class_name": "RuntimeDegradedEraRoom"
+      }
+    ]
+  },
+  "migrations": [
+    {
+      "tag": "v1",
+      "new_sqlite_classes": ["RuntimeDegradedEraRoom"]
+    }
+  ],
+  "vars": {
+    "SIMULATED_DATE": "November 22, 1996",
+    "DEPLOY_VERSION": "41"
+  }
+}

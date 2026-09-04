@@ -142,6 +142,14 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
   && v40Wrapper.includes('from "./index_v39_world_gate.js"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"')
   && presenceWrapper.includes('from "./index_v39_coherence.js"');
-assert.ok(directV39 || wrappedV39 || wrappedV39World || wrappedByV40 || wrappedByV41, "production must deploy v39 coherence directly or through the additive v39/v40/v41 wrappers");
+const v41GenerationWrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
+const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+  && wrangler.includes('"DEPLOY_VERSION": "41"')
+  && v41GenerationWrapper.includes('from "./index_v41_scene_coordinator.js"')
+  && v41Wrapper.includes('from "./index_v40_scene_continuity.js"')
+  && v40Wrapper.includes('from "./index_v39_world_gate.js"')
+  && worldWrapper.includes('from "./index_v39_presence_fix.js"')
+  && presenceWrapper.includes('from "./index_v39_coherence.js"');
+assert.ok(directV39 || wrappedV39 || wrappedV39World || wrappedByV40 || wrappedByV41 || wrappedByV41Generation, "production must deploy v39 coherence directly or through the additive v39/v40/v41 wrappers");
 
 console.log("v39 conversation-coherence regression checks passed");
