@@ -110,7 +110,7 @@ const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERE
 const DEMONSTRATIVE_RELATION_PREDICATE_SOURCE =
   "(?:style|styled|compatible|inspired|based|like|themed|shaped|designed|type)";
 const DEMONSTRATIVE_RELATION_NOMINAL_SOURCE =
-  "(?:styling|compatibility|theme|theming|inspiration|shape|shaping|design|designing|likeness)";
+  "(?:styling|compatibility|theme|theming|inspiration|basis|shape|shaping|design|designing|likeness)";
 const DEMONSTRATIVE_RELATION_TERM_SOURCE =
   `(?:${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}|${DEMONSTRATIVE_RELATION_NOMINAL_SOURCE})`;
 const DEMONSTRATIVE_NAMING_ADVERB_SOURCE =
