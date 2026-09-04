@@ -213,7 +213,10 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
 }
 
 function maskDemonstrativeDeterminers(clause) {
-  const surface = clean(clause, 500);
+  // Smart punctuation must not change whether a period product name is parsed
+  // as a relation modifier/target. Normalize common dash code points only for
+  // this internal demonstrative parser; displayed/user text remains untouched.
+  const surface = clean(clause, 500).replace(/[‐‑‒–—−]/g, "-");
   return surface.replace(
     new RegExp(`\\b(${DEMONSTRATIVE})\\b`, "gi"),
     (match, demonstrative, offset) => demonstrativeActsAsDeterminerAt(surface, offset, demonstrative)
