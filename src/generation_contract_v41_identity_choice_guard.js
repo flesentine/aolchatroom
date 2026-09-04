@@ -167,7 +167,7 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
     consumed.push(word);
     if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized) || /ly$/.test(normalized)) continue;
     explicitCandidate = true;
-    if (/^[A-Z][A-Za-z0-9-]*$/.test(word) || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "))) {
+    if (DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "))) {
       namedCandidate = true;
     }
   }
