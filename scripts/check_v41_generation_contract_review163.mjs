@@ -69,17 +69,26 @@ for (const question of [
   assertFutureLinked(question);
 }
 
-// Real punctuation/apposition must remain a valid period-name reset. We do not
-// collapse spaced editorial dashes into compounds.
+// Unambiguous naming/apposition remains a valid period-name reset.
 for (const question of [
   "I've never heard of PS5; is this console, Neo Geo, any good?",
-  "I've never heard of PS5; is this console called Neo Geo any good?",
-  "I've never heard of PS5; is this console — Neo Geo — any good?"
+  "I've never heard of PS5; is this console called Neo Geo any good?"
 ]) {
   const meaning = "say whether the named period console is any good";
   const primary = evaluate(question, "yeah it is good", meaning);
   assert.equal(primary.ok, true, `real period-name apposition must remain valid: ${question}`);
   assert.equal(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
+}
+
+// Spaced editorial dashes are not silently collapsed into relation compounds
+// or promoted to naming syntax. Ambiguous scope remains fail-closed.
+{
+  const question = "I've never heard of PS5; is this console — Neo Geo — any good?";
+  const meaning = "say whether this console is any good";
+  const primary = evaluate(question, "yeah it is good", meaning);
+  assert.equal(primary.ok, false, "spaced editorial-dash apposition must remain fail-closed");
+  assert.equal(primary.reason, "era-boundary-confident-answer");
+  assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
 }
 
 console.log("v41 finding 163 Unicode-dash Neo Geo relation regressions passed");
