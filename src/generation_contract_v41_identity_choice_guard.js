@@ -141,18 +141,20 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
 ]);
 const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)";
 const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
+const DEMONSTRATIVE_RELATION_PREDICATE_SOURCE = "(?:style|styled|compatible|inspired|based|like|themed|shaped|type)";
 const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
-  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:the\\s+)?|(?:the\\s+)?)${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`,
+  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:the\\s+)?)${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!\\s+${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b)`,
   "i"
 );
 const DEMONSTRATIVE_NAMED_RELATION_MODIFIER = new RegExp(
-  `${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}(?:-(?:style|styled|compatible|inspired|based|like|themed|shaped|type)\\b|(?:\\s+[a-z0-9-]+){0,2}\\s+(?:style|styled|compatible|inspired|based|like|themed|shaped|type)\\b)`,
+  `${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}(?:-${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b|(?:\\s+[a-z0-9-]+){0,2}\\s+${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b)`,
   "i"
 );
 
 function demonstrativeIsGenericReferent(value) {
   const normalized = String(value || "").toLowerCase();
   if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return true;
+  if (normalized.endsWith("ies") && DEMONSTRATIVE_GENERIC_REFERENT.has(`${normalized.slice(0, -3)}y`)) return true;
   return normalized.endsWith("s") && DEMONSTRATIVE_GENERIC_REFERENT.has(normalized.slice(0, -1));
 }
 const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
@@ -230,7 +232,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against)|relative\\s+to|in\\s+(?:contrast|relation)\\s+(?:to|with)|as\\s+opposed\\s+to)\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against)|relative\\s+to|(?:in|by)\\s+contrast\\s+(?:to|with|against)|in\\s+relation\\s+(?:to|with)|as\\s+opposed\\s+to)\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = new RegExp(
     `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|(?:has|have|had)\\s+${BOUNDED_CLAUSE_MODIFIERS}been)\\b`,
     "i"
