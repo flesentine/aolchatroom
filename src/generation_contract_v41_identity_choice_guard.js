@@ -187,7 +187,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 
   const beforePronoun = tail.slice(0, pronounMatch.index);
   const explicitSubject = new RegExp(
-    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:(?:is|are|was|were|costs?|has|have|had|does|do|did)|(?:will|would|can|could|should|may|might|must)\\s+(?:be|have|cost|work|look|seem|feel|run))\\b`,
+    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:(?:is|are|was|were|costs?|has|have|had|does|do|did)|(?:will|would|can|could|should|may|might|must)\\s+(?:(?:not|still|really|actually|probably|possibly|definitely|certainly|just|even|always|never)\\s+){0,3}(?:be|have|cost|work|look|seem|feel|run))\\b`,
     "i"
   ).test(beforePronoun);
 
