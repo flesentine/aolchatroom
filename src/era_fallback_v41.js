@@ -104,7 +104,7 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
   "console", "device", "game", "hardware", "machine", "model", "one",
   "product", "system", "thing", "unit", "version"
 ]);
-const DEMONSTRATIVE_NAMED_REFERENT = /\\b(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)\\b/i;
+const DEMONSTRATIVE_NAMED_REFERENT = /\b(?:neo\s+geo|sega\s+saturn|saturn|super\s+nintendo|nintendo\s+64|n64|game\s+boy|virtual\s+boy|atari\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)\b/i;
 const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
   "cost", "costs", "feel", "feels", "fit", "fits", "happen", "happens",
   "help", "helps", "look", "looks", "matter", "matters", "mean", "means",
