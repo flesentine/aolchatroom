@@ -142,8 +142,12 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
 const DEMONSTRATIVE_NAMED_REFERENT_SOURCE = "(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)";
 const DEMONSTRATIVE_NAMED_REFERENT = new RegExp(`\\b${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)`, "i");
 const DEMONSTRATIVE_RELATION_PREDICATE_SOURCE = "(?:style|styled|compatible|inspired|based|like|themed|shaped|type)";
+const DEMONSTRATIVE_NAMING_PREFIX_SOURCE =
+  "(?:(?:is|was)\\s+(?:(?:also|better|commonly|formerly|generally|more|often|sometimes|typically|usually|widely)\\s+){0,2})?(?:called|named|known\\s+as)\\s+(?:the\\s+)?";
+const DEMONSTRATIVE_BARE_NAMED_RELATION_TAIL_SOURCE =
+  `\\s+(?:[a-z0-9-]+\\s+){0,2}${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b`;
 const DEMONSTRATIVE_NAMED_AFTER_GENERIC = new RegExp(
-  `^\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|,\\s*(?:(?:called|named|known\\s+as)\\s+(?:the\\s+)?|(?:the\\s+)?))${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!\\s+${DEMONSTRATIVE_RELATION_PREDICATE_SOURCE}\\b)`,
+  `^\\s*(?:${DEMONSTRATIVE_NAMING_PREFIX_SOURCE}${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)|,\\s*(?:${DEMONSTRATIVE_NAMING_PREFIX_SOURCE}${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)|(?:the\\s+)?${DEMONSTRATIVE_NAMED_REFERENT_SOURCE}\\b(?!-)(?!${DEMONSTRATIVE_BARE_NAMED_RELATION_TAIL_SOURCE})))`,
   "i"
 );
 const DEMONSTRATIVE_NAMED_RELATION_MODIFIER = new RegExp(
