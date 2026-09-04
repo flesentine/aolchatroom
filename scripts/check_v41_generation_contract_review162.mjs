@@ -40,6 +40,7 @@ for (const noun of [
   "theme",
   "theming",
   "inspiration",
+  "basis",
   "shape",
   "shaping",
   "design",
