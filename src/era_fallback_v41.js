@@ -35,6 +35,7 @@ const NEGATIVE_AUXILIARY = new Map([
   ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
   ["won't", "will not"], ["shouldn't", "should not"]
 ]);
+const BOUNDED_CLAUSE_MODIFIERS = "(?:(?:(?:not|still|just|even|always|never|maybe|perhaps|very|quite|rather|almost|nearly|too|so|yet)|[a-z]+ly)\\s+){0,4}";
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -103,6 +104,7 @@ const DEMONSTRATIVE_GENERIC_REFERENT = new Set([
   "console", "device", "game", "hardware", "machine", "model", "one",
   "product", "system", "thing", "unit", "version"
 ]);
+const DEMONSTRATIVE_NAMED_REFERENT = /\\b(?:neo\\s+geo|sega\\s+saturn|saturn|super\\s+nintendo|nintendo\\s+64|n64|game\\s+boy|virtual\\s+boy|atari\\s+jaguar|jaguar|3do|playstation|genesis|snes|nes)\\b/i;
 const DEMONSTRATIVE_PREDICATE_FOLLOW = new Set([
   "cost", "costs", "feel", "feels", "fit", "fits", "happen", "happens",
   "help", "helps", "look", "looks", "matter", "matters", "mean", "means",
@@ -118,14 +120,22 @@ function demonstrativeActsAsDeterminerAt(surface, offset, demonstrative) {
   if (!words.length) return false;
 
   let explicitCandidate = false;
+  let namedCandidate = false;
+  const consumed = [];
   for (const word of words) {
     const normalized = word.toLowerCase();
-    if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) return false;
+    if (DEMONSTRATIVE_GENERIC_REFERENT.has(normalized)) {
+      return namedCandidate || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "));
+    }
     if (/^(?:it|one|they|them|this|that|these|those)$/.test(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_PREDICATE_FOLLOW.has(normalized)) return explicitCandidate;
     if (DEMONSTRATIVE_NON_NOUN_FOLLOW.has(normalized)) return explicitCandidate;
+    consumed.push(word);
     if (DEMONSTRATIVE_PRONOUN_FOLLOW.has(normalized) || /ly$/.test(normalized)) continue;
     explicitCandidate = true;
+    if (/^[A-Z][A-Za-z0-9-]*$/.test(word) || DEMONSTRATIVE_NAMED_REFERENT.test(consumed.join(" "))) {
+      namedCandidate = true;
+    }
   }
   return explicitCandidate;
 }
@@ -153,7 +163,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 
   const beforePronoun = tail.slice(0, pronounMatch.index);
   const explicitSubject = new RegExp(
-    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:(?:is|are|was|were|costs?|has|have|had|does|do|did)|(?:will|would|can|could|should|may|might|must)\\s+(?:(?:(?:not|still|just|even|always|never|maybe|perhaps)|[a-z]+ly)\\s+){0,4}(?:be|have|cost|work|look|seem|feel|run))\\b`,
+    `^\\s*(?!(?:${pronoun})\\b)(?:(?:the|a|an|my|your|his|her|our|their|explicit-subject)\\s+)?[a-z0-9][a-z0-9'-]*(?:\\s+[a-z0-9][a-z0-9'-]*){0,9}\\s+(?:(?:is|are|was|were|costs?|has|have|had|does|do|did)|(?:will|would|can|could|should|may|might|must)\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:be|have|cost|work|look|seem|feel|run))\\b`,
     "i"
   ).test(beforePronoun);
 
@@ -161,8 +171,11 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to)|in\\s+comparison\\s+(?:with|to))\\s+(${pronoun})\\b`, "gi");
-  const localSelfTail = /^\s+(?:used\s+to\s+be|was|were|is|are|has\s+been|have\s+been|had\s+been)\b/i;
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|in\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
+  const localSelfTail = new RegExp(
+    `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b`,
+    "i"
+  );
   let match;
   while ((match = comparison.exec(clause))) {
     const tail = clause.slice(comparison.lastIndex);
