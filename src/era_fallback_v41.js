@@ -35,7 +35,7 @@ const NEGATIVE_AUXILIARY = new Map([
   ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
   ["won't", "will not"], ["shouldn't", "should not"]
 ]);
-const BOUNDED_CLAUSE_MODIFIERS = "(?:(?:(?:not|still|just|even|always|never|maybe|perhaps|very|quite|rather|almost|nearly|too|so|yet)|[a-z]+ly)\\s+){0,4}";
+const BOUNDED_CLAUSE_MODIFIERS = "(?:(?:(?:not|still|just|even|always|never|maybe|perhaps|very|quite|rather|almost|nearly|too|so|yet|most|more)|[a-z]+ly)\\s+){0,4}";
 
 function clean(value, max = 1800) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -171,7 +171,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|in\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = new RegExp(
     `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b`,
     "i"
