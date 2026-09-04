@@ -42,7 +42,7 @@ const NEGATIVE_AUXILIARY = new Map([
   ["can't", "can not"], ["couldn't", "could not"], ["wouldn't", "would not"],
   ["won't", "will not"], ["shouldn't", "should not"]
 ]);
-const BOUNDED_CLAUSE_MODIFIERS = "(?:(?:(?:not|still|just|even|always|never|maybe|perhaps|very|quite|rather|almost|nearly|too|so|yet)|[a-z]+ly)\\s+){0,4}";
+const BOUNDED_CLAUSE_MODIFIERS = "(?:(?:(?:not|still|just|even|always|never|maybe|perhaps|very|quite|rather|almost|nearly|too|so|yet|most|more)|[a-z]+ly)\\s+){0,4}";
 const ERA_IGNORANCE_CLAUSE = /^(?:(?:huh+|what|lol\s+what|uh+\s+what)|what(?:'s|\s+is|\s+are)?\s+(?:that|this|it)|what\s+do\s+you\s+mean(?:\s+by\s+(?:that|this|it))?|what\s+are\s+you\s+talking\s+about|(?:i(?:'ve|\s+have)?\s+)?never\s+heard(?:\s+of)?\s+(?:that|it)(?:\s+before)?|(?:i\s+)?(?:haven't|have\s+not)\s+heard\s+of\s+(?:that|it)|(?:i\s+)?have\s+never\s+heard\s+of\s+(?:that|it)|(?:i\s+)?(?:do\s+not|don't|dont)\s+know(?:\s+what\s+(?:that|it)\s+is)?|(?:i\s+)?(?:have\s+)?no\s+(?:idea|clue)(?:\s+what\s+(?:that|it)\s+is)?|beats\s+me|(?:(?:that|this|it)\s+)?(?:doesn't|does\s+not|doesnt)\s+ring\s+a\s+bell|are\s+you\s+(?:joking|kidding|making\s+that\s+up)|(?:that|it)\s+sounds\s+made\s+up|you\s+mean\s+(?:the\s+)?playstation|are\s+you\s+from\s+the\s+future|from\s+the\s+future)$/i;
 
 function clean(value, max = 1200) {
@@ -205,7 +205,7 @@ function embeddedPronounUsesPriorReferent(clause, pronoun) {
 }
 
 function comparisonPronounUsesPriorReferent(clause, pronoun) {
-  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|in\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
+  const comparison = new RegExp(`\\b(?:than|versus|vs\\.?|over|compared\\s+(?:with|to|against)|(?:in|by)\\s+comparison\\s+(?:with|to|against))\\s+(${pronoun})\\b`, "gi");
   const localSelfTail = new RegExp(
     `^\\s+${BOUNDED_CLAUSE_MODIFIERS}(?:used\\s+to\\s+be|was|were|is|are|has\\s+been|have\\s+been|had\\s+been)\\b`,
     "i"
