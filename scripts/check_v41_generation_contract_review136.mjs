@@ -95,7 +95,9 @@ for (const question of [
   "I've never heard of PS5 but I think the Neo Geo home video game console will probably be better than it used to be",
   "I've never heard of PS5 but I think the Neo Geo home video game console will not be better than it used to be",
   "I've never heard of PS5 but I think the Neo Geo home video game console can still be cheaper than it was before",
-  "I've never heard of PS5 but I think the Neo Geo home video game console should really still be easier to find than it used to be"
+  "I've never heard of PS5 but I think the Neo Geo home video game console should really still be easier to find than it used to be",
+  "I've never heard of PS5 but I think the Neo Geo home video game console will clearly probably still be better than it used to be",
+  "I've never heard of PS5 but I think the Neo Geo home video game console will perhaps be better than it used to be"
 ]) {
   const meaning = "say whether the Neo Geo home video game console improved";
   const primary = evaluate(question, "yeah the Neo Geo improved", meaning);
