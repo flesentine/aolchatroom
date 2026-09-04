@@ -89,4 +89,26 @@ for (const question of [
   assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
 }
 
-console.log("v41 findings 134-136 stacked-modifier/comparison/modal-subject regressions passed");
+// Finding 137: bounded negation/adverb modifiers may appear between a modal
+// and the governing predicate without losing the explicit 1996 subject reset.
+for (const question of [
+  "I've never heard of PS5 but I think the Neo Geo home video game console will probably be better than it used to be",
+  "I've never heard of PS5 but I think the Neo Geo home video game console will not be better than it used to be",
+  "I've never heard of PS5 but I think the Neo Geo home video game console can still be cheaper than it was before",
+  "I've never heard of PS5 but I think the Neo Geo home video game console should really still be easier to find than it used to be"
+]) {
+  const meaning = "say whether the Neo Geo home video game console improved";
+  const primary = evaluate(question, "yeah the Neo Geo improved", meaning);
+  assert.equal(primary.ok, true, `modal modifier must preserve local Neo Geo reset: ${question}`);
+  assert.equal(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
+}
+{
+  const question = "I've never heard of PS5 but I think the Neo Geo home video game console will probably be better than it";
+  const meaning = "say whether the Neo Geo home video game console is better than it";
+  const primary = evaluate(question, "yeah the Neo Geo is better", meaning);
+  assert.equal(primary.ok, false, "modal modifier must not erase a bare PS5 comparison pronoun");
+  assert.equal(primary.reason, "era-boundary-confident-answer");
+  assert.notEqual(scopedFallbackEraViolation(question, eraDateKey, meaning), "");
+}
+
+console.log("v41 findings 134-137 stacked-modifier/comparison/modal-subject regressions passed");
