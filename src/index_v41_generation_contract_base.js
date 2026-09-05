@@ -1,4 +1,4 @@
-import v41Worker, { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
+import v41Worker, { ChatRoom as V41ReconnectChatRoom } from "./index_v41_human_reconnect.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
@@ -68,13 +68,15 @@ export default {
         noAdditionalProviderCall: true,
         providerRoutingUnchanged: true,
         phase1DOwnershipPreserved: true,
+        humanReconnectLifecycleAuthority: true,
+        legacyV39ReconnectOverridesBypassedInV41Production: true,
         ...(runtime ? { runtime } : {})
       }
     });
   }
 };
 
-export class ChatRoom extends V41SceneChatRoom {
+export class ChatRoom extends V41ReconnectChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v41GenerationStats = {
