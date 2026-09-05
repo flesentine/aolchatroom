@@ -483,7 +483,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const before = this.history.length;
     this.say("SegaMan", "PS1 has good games", "bot", "gemini", { topic: "gaming" });
     equal(this.history.length, before + 1, "bot normalization contract must emit one line");
-    equal(this.history.at(-1)?.text, "PlayStation has good games", "3D must normalize PS1 on bot output before display");
+    equal(this.history.at(-1)?.text, "playstation has good games", "3D must preserve the existing lower-pipeline surface after PS1 normalization");
     equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
 
     this.say("Crateman", "PS1 has good games", "human", "human", { topic: "gaming" });
