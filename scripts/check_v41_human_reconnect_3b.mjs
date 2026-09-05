@@ -142,6 +142,7 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
 
 const reconnectWrapper = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const coherenceWrapper = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
+const worldDateWrapper = fs.readFileSync(new URL("../src/index_v41_world_date_guard.js", import.meta.url), "utf8");
 const generationBase = fs.readFileSync(new URL("../src/index_v41_generation_contract_base.js", import.meta.url), "utf8");
 const legacyCoherence = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
 const legacyPresence = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
@@ -157,7 +158,8 @@ assert.ok(reconnectWrapper.includes('from "./index_v41_scene_coordinator.js"'));
 assert.ok(reconnectWrapper.includes('from "./index_v38_quality_guard.js"'));
 assert.ok(reconnectWrapper.includes("V38ChatRoom.prototype.system.call"));
 assert.ok(reconnectWrapper.includes("V38ChatRoom.prototype.webSocketClose.call"));
-assert.ok(generationBase.includes('from "./index_v41_coherence_repair.js"'));
+assert.ok(generationBase.includes('from "./index_v41_world_date_guard.js"'));
+assert.ok(worldDateWrapper.includes('from "./index_v41_coherence_repair.js"'));
 assert.ok(coherenceWrapper.includes('from "./index_v41_human_reconnect.js"'));
 assert.ok(legacyCoherence.includes("V39_HUMAN_RECONNECT_GRACE_MS = 5000"));
 assert.ok(legacyPresence.includes("markHumanDisconnectPending"));
