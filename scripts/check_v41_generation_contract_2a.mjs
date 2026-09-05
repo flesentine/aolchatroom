@@ -343,7 +343,11 @@ assert.equal(background.enforced, false);
 assert.equal(background.ok, true);
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
-assert.ok(wrapper.includes('from "./index_v41_scene_coordinator.js"'));
+const coherenceWrapper = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
+const reconnectWrapper = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
+assert.ok(wrapper.includes('from "./index_v41_coherence_repair.js"'));
+assert.ok(coherenceWrapper.includes('from "./index_v41_human_reconnect.js"'));
+assert.ok(reconnectWrapper.includes('from "./index_v41_scene_coordinator.js"'));
 assert.ok(wrapper.includes('from "./index_v14.js"'));
 assert.ok(wrapper.includes("evaluatePrimaryHumanVoice"));
 assert.ok(wrapper.includes("ContinuityFallbackChatRoom.prototype.builtInHumanReply.call"), "Phase 2B must bypass provider-aware built-in suppression");

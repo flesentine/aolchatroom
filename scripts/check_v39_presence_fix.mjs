@@ -86,6 +86,8 @@ const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.
   && v40Wrapper.includes('from "./index_v39_world_gate.js"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"');
 const v41Wrapper = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
+const v41ReconnectRuntime = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
+const v41CoherenceRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
 const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
   && v41Wrapper.includes('from "./index_v40_scene_continuity.js"')
@@ -94,7 +96,14 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
 const v41GenerationWrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
-  && v41GenerationWrapper.includes('from "./index_v41_scene_coordinator.js"')
+  && (
+    v41GenerationWrapper.includes('from "./index_v41_scene_coordinator.js"')
+    || (
+      v41GenerationWrapper.includes('from "./index_v41_coherence_repair.js"')
+      && v41CoherenceRuntime.includes('from "./index_v41_human_reconnect.js"')
+      && v41ReconnectRuntime.includes('from "./index_v41_scene_coordinator.js"')
+    )
+  )
   && v41Wrapper.includes('from "./index_v40_scene_continuity.js"')
   && v40Wrapper.includes('from "./index_v39_world_gate.js"')
   && worldWrapper.includes('from "./index_v39_presence_fix.js"');

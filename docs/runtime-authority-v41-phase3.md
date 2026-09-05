@@ -9,6 +9,7 @@ This phase is **characterization only**. It must not change provider routing, st
 ## Current production chain
 
 `index_v41_generation_contract.js`
+→ `index_v41_coherence_repair.js`
 → `index_v41_human_reconnect.js`
 → `index_v41_scene_coordinator.js`
 → `index_v40_scene_continuity.js`
@@ -28,11 +29,11 @@ This phase is **characterization only**. It must not change provider routing, st
 | Final future-game/public-claim gate + console-label normalization | `index_v39_world_gate.js` | Preserve as the top inherited world gate until extracted behind a named authority. |
 | Logical human identity | `index_v39_presence_fix.js` helpers remain the logical-name source | Preserve pending/superseded attachment semantics while reconnect ownership moves to v41. |
 | Same-name session replacement + transient reconnect lifecycle | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B authority owns replacement, duplicate-enter suppression, 5s grace, pending-close state, transient/committed close decision, and legacy reconnect counters/actions. Frozen v40 keeps the legacy v39 path. |
-| Error-challenge repair | `index_v39_presence_fix.js` | Extract independently from ordinary coherence only after its response contract is frozen. |
+| Error-challenge repair | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C preserves legacy ordering: error-repair lock first, coherence lock second, then Voice; v39 counters remain populated. |
 | Historical relative-date validation/audit | `index_v39_presence_fix.js` | Preserve both live line blocking and retained-history audit behavior. |
 | Legacy quick-background suppression | `index_v39_presence_fix.js` | Keep the inherited v11 quick-background model path disabled while v37 lively ambient remains authoritative. |
-| Clarification target repair | `index_v39_coherence.js` | Separate semantic responsibility; do not bundle with reconnect extraction. |
-| Human coherence Voice lock | `index_v39_coherence.js` | Separate semantic responsibility; preserve exact Director→Voice constraint behavior. |
+| Clarification target repair | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C owns retargeting while preserving explicit screen-name precedence, reply anchoring, focus updates, and v39 diagnostics. |
+| Human coherence Voice lock | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C owns the exact human-trigger/anchor lock while preserving the legacy v39 counter/last-lock diagnostics. |
 | Future-event world gate / audit | `index_v39_coherence.js` | Preserve `futureEventViolation()` blocking, counters, and historical-audit contribution until folded into a dedicated world/date authority. |
 | Background self-dialogue filtering | `index_v39_coherence.js` | Preserve background-only scope. |
 | Bot re-entry cooldown / roster compatibility | `index_v39_coherence.js` | Separate roster responsibility; preserve leave/enter timing and diagnostics. |
@@ -81,7 +82,7 @@ Implemented in v41 production through `index_v41_human_reconnect.js` and `human_
 - final committed disconnect delegation beneath the two legacy v39 reconnect overrides.
 
 ### 3C — coherence/repair authority
-Extract clarification target repair, human coherence Voice lock, and error-challenge repair behind a semantic coherence authority. Preserve response routing and generation contracts.
+Implemented in v41 production through `index_v41_coherence_repair.js` and `coherence_repair_v41.js`, while the legacy v39 implementation remains intact for the frozen v40 baseline. Production now owns clarification retargeting, human coherence locking, and explicit error-challenge repair in one authority. The final Phase 2 Voice wrapper explicitly calls through this authority so 3C is neither skipped nor double-applied.
 
 ### 3D — world/date guard authority
 Consolidate the still-layered historical/public-world responsibilities without changing their order or semantics: v38 era checks, v39 coherence future-event blocking/audit, v39 presence relative-date validation/audit, and v39 world future-game/public-claim gating plus console-label normalization.
