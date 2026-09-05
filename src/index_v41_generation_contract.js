@@ -1,5 +1,5 @@
 import worker, { ChatRoom as Phase2ChatRoom } from "./index_v41_generation_contract_base.js";
-import { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
+import { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_repair.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   periodSafeHumanFallbackLines,
@@ -14,7 +14,7 @@ export default worker;
 
 export class ChatRoom extends Phase2ChatRoom {
   async voiceBrainPlan(plan, active, human = null) {
-    const voiced = await V41SceneChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
+    const voiced = await V41CoherenceChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
     const evaluation = evaluatePrimaryHumanVoice({
       plan,
       lines: voiced,
