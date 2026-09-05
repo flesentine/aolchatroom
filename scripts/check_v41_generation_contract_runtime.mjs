@@ -107,6 +107,9 @@ const contracts = [
   "human-bad-fallback-reject",
   "clarification-reject",
   "background-untouched",
+  "reconnect-authority-quick",
+  "reconnect-same-name-replacement",
+  "reconnect-committed-close",
   "status"
 ];
 
