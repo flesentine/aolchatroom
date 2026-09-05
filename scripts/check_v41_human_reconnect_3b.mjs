@@ -144,6 +144,13 @@ const reconnectWrapper = fs.readFileSync(new URL("../src/index_v41_human_reconne
 const generationBase = fs.readFileSync(new URL("../src/index_v41_generation_contract_base.js", import.meta.url), "utf8");
 const legacyCoherence = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
 const legacyPresence = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
+const v39World = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
+const v40 = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
+const v41Scene = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
+
+function ownsMethod(source, name) {
+  return new RegExp(`^  (?:async )?${name}\\(`, "m").test(source);
+}
 
 assert.ok(reconnectWrapper.includes('from "./index_v41_scene_coordinator.js"'));
 assert.ok(reconnectWrapper.includes('from "./index_v38_quality_guard.js"'));
@@ -153,5 +160,9 @@ assert.ok(generationBase.includes('from "./index_v41_human_reconnect.js"'));
 assert.ok(legacyCoherence.includes("V39_HUMAN_RECONNECT_GRACE_MS = 5000"));
 assert.ok(legacyPresence.includes("markHumanDisconnectPending"));
 assert.ok(legacyPresence.includes("replaceExistingHumanSessions(name, now = Date.now())"));
+for (const [name, source] of [["v39 world", v39World], ["v40 continuity", v40], ["v41 scene", v41Scene]]) {
+  assert.equal(ownsMethod(source, "system"), false, `${name} must not own system() while 3B delegates below the legacy reconnect wrappers`);
+  assert.equal(ownsMethod(source, "webSocketClose"), false, `${name} must not own webSocketClose() while 3B delegates below the legacy reconnect wrappers`);
+}
 
 console.log("v41 Phase 3B human reconnect lifecycle authority checks passed");
