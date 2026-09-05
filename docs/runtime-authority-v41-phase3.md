@@ -24,11 +24,14 @@ This phase is **characterization only**. It must not change provider routing, st
 | Direct-human generation semantic contract / fail-closed recovery | `index_v41_generation_contract.js` | Already authoritative; do not move during wrapper retirement. |
 | Scene lifecycle, ownership, association, momentum authority hook | `index_v41_scene_coordinator.js` + coordinator modules | Already authoritative; legacy wrappers may delegate but must not regain authority. |
 | Ambient momentum prompt/carry compatibility | `index_v40_scene_continuity.js` | Retire only after every live compatibility hook is redirected and runtime-gated. |
-| Final public-world/product gate | `index_v39_world_gate.js` | Preserve as the top inherited world gate until extracted behind a named authority. |
+| Final future-game/public-claim gate + console-label normalization | `index_v39_world_gate.js` | Preserve as the top inherited world gate until extracted behind a named authority. |
 | Logical human identity / duplicate-session replacement | `index_v39_presence_fix.js` | Keep coupled to reconnect semantics until a dedicated human-presence authority exists. |
 | Error-challenge repair | `index_v39_presence_fix.js` | Extract independently from ordinary coherence only after its response contract is frozen. |
+| Historical relative-date validation/audit | `index_v39_presence_fix.js` | Preserve both live line blocking and retained-history audit behavior. |
+| Legacy quick-background suppression | `index_v39_presence_fix.js` | Keep the inherited v11 quick-background model path disabled while v37 lively ambient remains authoritative. |
 | Clarification target repair | `index_v39_coherence.js` | Separate semantic responsibility; do not bundle with reconnect extraction. |
 | Human coherence Voice lock | `index_v39_coherence.js` | Separate semantic responsibility; preserve exact Director→Voice constraint behavior. |
+| Future-event world gate / audit | `index_v39_coherence.js` | Preserve `futureEventViolation()` blocking, counters, and historical-audit contribution until folded into a dedicated world/date authority. |
 | Background self-dialogue filtering | `index_v39_coherence.js` | Preserve background-only scope. |
 | Bot re-entry cooldown / roster compatibility | `index_v39_coherence.js` | Separate roster responsibility; preserve leave/enter timing and diagnostics. |
 | Transient human reconnect grace | `index_v39_coherence.js` with `index_v39_presence_fix.js` participation | First Phase 3 extraction candidate because it is concrete, independently observable, and already covered by server + Chromium reconnect tests. |
@@ -41,13 +44,14 @@ This phase is **characterization only**. It must not change provider routing, st
 
 ## Mixed-responsibility hotspot: index_v39_coherence.js
 
-This wrapper currently owns or participates in at least five unrelated behaviors:
+This wrapper currently owns or participates in at least six unrelated behaviors:
 
 1. clarification target repair;
 2. human coherence Voice constraints;
 3. background self-dialogue filtering;
 4. bot re-entry cooldown / roster behavior;
-5. transient human reconnect grace.
+5. transient human reconnect grace;
+6. future-event world/date blocking and audit.
 
 The file must not be retired as one operation. Each behavior needs a named replacement authority and an executable contract first.
 
@@ -66,10 +70,13 @@ Extract transient reconnect grace and its interaction with logical human presenc
 ### 3C — coherence/repair authority
 Extract clarification target repair, human coherence Voice lock, and error-challenge repair behind a semantic coherence authority. Preserve response routing and generation contracts.
 
-### 3D — bot roster/re-entry authority
+### 3D — world/date guard authority
+Consolidate the still-layered historical/public-world responsibilities without changing their order or semantics: v38 era checks, v39 coherence future-event blocking/audit, v39 presence relative-date validation/audit, and v39 world future-game/public-claim gating plus console-label normalization.
+
+### 3E — bot roster/re-entry authority
 Extract bot leave/enter/re-entry cooldown bookkeeping without changing provider or scheduler behavior.
 
-### 3E — wrapper retirement
+### 3F — wrapper retirement
 Only after all live responsibilities have moved behind explicit authorities and runtime contracts should old version wrappers be shortened or removed.
 
 ## Retirement rule
