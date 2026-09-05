@@ -69,6 +69,7 @@ function room() {
 }
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
+const rosterWrapper = fs.readFileSync(new URL("../src/index_v41_bot_roster_reentry.js", import.meta.url), "utf8");
 const worldDateWrapper = fs.readFileSync(new URL("../src/index_v41_world_date_guard.js", import.meta.url), "utf8");
 const generationBase = fs.readFileSync(new URL("../src/index_v41_generation_contract_base.js", import.meta.url), "utf8");
 const generationFinal = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
@@ -87,7 +88,8 @@ assert.ok(wrapper.includes('from "./index_v41_human_reconnect.js"'));
 assert.ok(wrapper.includes('from "./index_v38_quality_guard.js"'));
 assert.ok(wrapper.includes("V38ChatRoom.prototype.resolveDirectTarget.call"));
 assert.ok(wrapper.includes("V38ChatRoom.prototype.voiceBrainPlan.call"));
-assert.ok(generationBase.includes('from "./index_v41_world_date_guard.js"'));
+assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
+assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
 assert.ok(worldDateWrapper.includes('from "./index_v41_coherence_repair.js"'));
 assert.ok(generationFinal.includes('from "./index_v41_coherence_repair.js"'));
 assert.ok(generationFinal.includes("V41CoherenceChatRoom.prototype.voiceBrainPlan.call"));
