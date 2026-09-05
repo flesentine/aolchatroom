@@ -451,6 +451,61 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractBotRosterCooldownFiltering() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
+    const authority = this.botRosterReentryAuthority();
+
+    const filtered = authority.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
+    equal(filtered.length, 1, "3E should filter an inactive bot still inside re-entry cooldown");
+    equal(filtered[0], "SegaMan", "3E should preserve eligible roster members");
+
+    this.activeBotNames = ["CoolChick17", "SegaMan"];
+    const activePreserved = authority.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
+    equal(activePreserved.length, 2, "3E must not evict a currently active bot merely because retained leave history is still inside cooldown");
+    equal(this.v39ReentryRemaining("CoolChick17", now) > 0, true, "production v39ReentryRemaining must dispatch through 3E");
+    return { filteredInactive: true, activePreserved: true };
+  }
+
+  async contractBotRosterLeaveBookkeeping() {
+    const now = Date.now();
+    this.reset({ bots: ["CoolChick17", "SegaMan"] });
+    const authority = this.botRosterReentryAuthority();
+    let delegated = 0;
+    authority.announceBotLeave("CoolChick17", now, () => {
+      delegated += 1;
+      this.activeBotNames = ["SegaMan"];
+      return true;
+    });
+    equal(delegated, 1, "3E leave bookkeeping must delegate exactly once");
+    equal(this.v39RecentBotLeaves.get("CoolChick17"), now, "3E must remember a successful departure");
+    equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "remembered departure must immediately activate cooldown");
+
+    this.v39RecentBotLeaves.clear();
+    this.history = [{ kind: "system", from: "", text: "CoolChick17 has left the room.", at: now }];
+    equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "retained leave history must independently preserve cooldown");
+    return { rememberedLeave: true, historyFallback: true };
+  }
+
+  async contractBotRosterBlockedReentry() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
+    const before = this.v39Stats.botReentryBlocks;
+    const result = this.announceBotEnter("CoolChick17", now);
+    equal(result, false, "production 3E wrapper must reject re-entry inside cooldown");
+    equal(this.activeBotNames.includes("CoolChick17"), false, "blocked bot must remain absent");
+    equal(this.v39Stats.botReentryBlocks, before + 1, "legacy v39 bot-reentry counter must increment");
+
+    const snapshot = this.v41Snapshot(now);
+    equal(snapshot.botRosterReentry?.authority, "v41-bot-roster-reentry", "status must expose 3E roster authority");
+    equal(snapshot.botRosterReentry?.cooldownMs, 180000, "3E must preserve the 3-minute cooldown");
+    equal(snapshot.policy.botRosterReentryAuthority, true, "status must expose 3E production ownership");
+    equal(snapshot.botRosterReentry?.recentlyDeparted?.some?.((row) => row.name === "CoolChick17"), true, "snapshot must expose blocked recent departure");
+    return { blocked: true, cooldownMs: snapshot.botRosterReentry?.cooldownMs };
+  }
+
   async contractWorldDateGuardOrder() {
     const now = Date.parse("2026-08-31T13:30:00-07:00");
     this.reset({ bots: ["SegaMan"] });
@@ -655,6 +710,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.semanticCompletenessDefersToSealed1996World, true, "status should expose the finding-94 semantic/world bridge");
     equal(snapshot.policy.deterministicFallbackDefersToSealed1996World, true, "status should expose the finding-95 fallback/world bridge");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
+    equal(snapshot.policy.botRosterReentryAuthority, true, "Phase 3E bot roster/re-entry authority must remain active beneath Phase 2");
+    equal(snapshot.botRosterReentry?.cooldownMs, 180000, "Phase 3E must preserve the 3-minute bot re-entry cooldown");
     equal(snapshot.policy.worldDateGuardAuthority, true, "Phase 3D world/date authority must remain active beneath Phase 2");
     equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "Phase 3D snapshot must identify the world/date authority");
     equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "Phase 3B reconnect authority must remain active beneath Phase 2");
@@ -677,6 +734,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
+    if (name === "bot-roster-leave-bookkeeping") return this.contractBotRosterLeaveBookkeeping();
+    if (name === "bot-roster-blocked-reentry") return this.contractBotRosterBlockedReentry();
     if (name === "world-date-guard-order") return this.contractWorldDateGuardOrder();
     if (name === "world-date-console-normalization") return this.contractWorldDateConsoleNormalization();
     if (name === "world-date-historical-audit") return this.contractWorldDateHistoricalAudit();
