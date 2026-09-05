@@ -69,15 +69,40 @@ assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("auditedPublicClaimViolation(text"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 assert.ok(v38.includes("lineViolation("));
+assert.ok(v38.includes("hardEraViolation(text, now)"));
+assert.ok(v38.includes("detectRoomTopicFatigue(now = Date.now())"));
+assert.ok(v38.includes("applyRoomTopicFatigue(now = Date.now())"));
+assert.ok(v38.includes("filterFatiguedBackgroundLines(lines, cooling)"));
+assert.ok(v38.includes("auditEraHistory(this.history || [], floor)"));
+assert.ok(v38.includes("v38Snapshot(now = Date.now())"));
 
 // Older v37 wrappers remain live for infrastructure/provider/director/ambient duties.
-assert.ok(v37Hotfix.includes("providerPoolDegraded"));
+assert.ok(v37Hotfix.includes("hardReadyProviders(now = Date.now())"));
+assert.ok(v37Hotfix.includes("softReadyProviders(now = Date.now())"));
+assert.ok(v37Hotfix.includes("preferredStructuredReadyProviders(now = Date.now())"));
+assert.ok(v37Hotfix.includes("effectiveStructuredReadyProviders(now = Date.now())"));
+assert.ok(v37Hotfix.includes("providerPoolDegraded(now = Date.now())"));
+assert.ok(v37Hotfix.includes("queueV37DegradedFallback(now = Date.now(), forceSoon = false)"));
+assert.ok(v37Hotfix.includes("queueV37CapacitySheddingAmbient(now = Date.now(), forceSoon = false)"));
+assert.ok(v37Hotfix.includes("requestV37ProductionTurn(source, forceSoon = false)"));
+assert.ok(v37Hotfix.includes("this.v37ProductionTurnGate.request(source, Boolean(forceSoon))"));
+assert.ok(v37Hotfix.includes("noteProviderFailure(provider, status = 0, response = null, detail ="));
+assert.ok(v37Hotfix.includes("isWorkersAiDailyQuotaExhaustion(provider, detail)"));
+assert.ok(v37Hotfix.includes("isRequestLocalProviderFailure(status)"));
+assert.ok(v37Hotfix.includes("stripInternalChatMetadata(original)"));
+assert.ok(v37Hotfix.includes("maybeRunV37Shadow(now = Date.now())"));
+assert.ok(v37Hotfix.includes("v37ProviderFailoverSnapshot(now = Date.now())"));
 assert.ok(v37HumanOnly.includes("providerCapacityConstrained"));
 assert.ok(v37Providers.includes("orderedReadyProviders"));
 assert.ok(v37Director.includes("generateHumanReplan"));
 assert.ok(v37Lively.includes("generateBackgroundPlan"));
 
 // v41 must remain the authority for the responsibilities already consolidated.
+assert.ok(v40.includes("currentAmbientMomentum(now = Date.now())"));
+assert.ok(v40.includes("sceneMomentumPrompt(momentum)"));
+assert.ok(v40.includes("selectCarryIndices"));
+assert.ok(v40.includes("v40ObservationStats.backgroundQueueAttempts"));
+assert.ok(v40.includes("v40Snapshot(now = Date.now())"));
 assert.ok(v41Scene.includes("sceneLifecycleAuthority()"));
 assert.ok(v41Generation.includes("evaluatePrimaryHumanVoice"));
 assert.ok(v41Generation.includes("evaluateHumanReplanPrimaryResponse"));
