@@ -23,7 +23,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | --- | --- | --- |
 | Direct-human generation semantic contract / fail-closed recovery | `index_v41_generation_contract.js` | Already authoritative; do not move during wrapper retirement. |
 | Scene lifecycle, ownership, association, momentum authority hook | `index_v41_scene_coordinator.js` + coordinator modules | Already authoritative; legacy wrappers may delegate but must not regain authority. |
-| Ambient momentum prompt/carry compatibility | `index_v40_scene_continuity.js` | Retire only after every live compatibility hook is redirected and runtime-gated. |
+| Ambient momentum prompt/carry compatibility | `index_v40_scene_continuity.js` | Preserve anti-churn prompt behavior, momentum snapshot, post-queue carry annotation, legacy counters, and Phase 0 observation counters until every compatibility hook is redirected and runtime-gated. |
 | Final future-game/public-claim gate + console-label normalization | `index_v39_world_gate.js` | Preserve as the top inherited world gate until extracted behind a named authority. |
 | Logical human identity / duplicate-session replacement | `index_v39_presence_fix.js` | Keep coupled to reconnect semantics until a dedicated human-presence authority exists. |
 | Error-challenge repair | `index_v39_presence_fix.js` | Extract independently from ordinary coherence only after its response contract is frozen. |
@@ -35,12 +35,22 @@ This phase is **characterization only**. It must not change provider routing, st
 | Background self-dialogue filtering | `index_v39_coherence.js` | Preserve background-only scope. |
 | Bot re-entry cooldown / roster compatibility | `index_v39_coherence.js` | Separate roster responsibility; preserve leave/enter timing and diagnostics. |
 | Transient human reconnect grace | `index_v39_coherence.js` with `index_v39_presence_fix.js` participation | First Phase 3 extraction candidate because it is concrete, independently observable, and already covered by server + Chromium reconnect tests. |
-| Room-topic fatigue / v38 era gate | `index_v38_quality_guard.js` | Keep intact until its close/gate duties are separately characterized. |
-| Production singleflight / provider-degraded infrastructure | `index_v37_hotfix.js` | Infrastructure authority; defer retirement until late Phase 3. |
+| v38 hard-era gate / audit | `index_v38_quality_guard.js` | Preserve generated-line blocking, violation counters, and retained-history audit. |
+| Room-topic fatigue / cooling / background filtering | `index_v38_quality_guard.js` | Preserve cooldown bookkeeping, prompt guidance, background-line filtering, and coordinator-delegated scene closes. |
+| Provider readiness classification / capacity state | `index_v37_hotfix.js` + provider wrappers | Preserve hard/soft readiness, structured-ready selection, constrained/degraded decisions, and emergency Workers-AI eligibility. |
+| Degraded/capacity-shedding built-in fallback | `index_v37_hotfix.js` (human degraded path is further guarded by v41) | Preserve provider-independent fallback, human priority, ambient shedding, retry-status reporting, and v41 Phase 2B fail-closed interception. |
+| Production-turn singleflight / replay coalescing | `index_v37_hotfix.js` | Preserve one base turn at a time, bounded replay, tick/alarm accounting, and force-soon propagation. |
+| Provider failure classification / cooldown policy | `index_v37_hotfix.js` + inherited provider state | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
+| Internal chat metadata stripping | `index_v37_hotfix.js` | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
+| Legacy live-model shadow pause | `index_v37_hotfix.js` | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
 | Provider capacity decision | `index_v37_human_only.js` | Still live despite superseded ambient generation. |
 | Provider ordering / implementations | `index_v37_free_providers.js` | Frozen routing boundary unless a dedicated provider phase explicitly changes it. |
 | Direct-human Director | `index_v37_human_director.js` | Still authoritative below the v41 generation contract. |
 | Routine ambient generation | `index_v37_lively_ambient.js` | Still authoritative below v41 scene coordination. |
+
+## Cross-cutting observability surfaces
+
+The old wrappers also expose live status/snapshot/audit/debug surfaces (for example v37/v38/v39/v40 status routes and merged realism/provider snapshots). Wrapper retirement must preserve the diagnostic data used by tests and operational review even when the behavioral authority moves elsewhere.
 
 ## Mixed-responsibility hotspot: index_v39_coherence.js
 
