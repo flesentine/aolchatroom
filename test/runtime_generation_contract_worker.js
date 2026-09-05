@@ -28,6 +28,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.contractBypassDirector = false;
     this.contractBrainPlan = null;
     this.contractBuiltIn = null;
+    this.contractClients = [];
   }
 
   orderedReadyProviders() {
@@ -104,6 +105,15 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const character = getCharacter(name);
     ensure(character, `missing contract character ${name}`);
     return [character];
+  }
+
+  acceptContractHuman(name) {
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    server.serializeAttachment({ name, joinedAt: Date.now() });
+    this.ctx.acceptWebSocket(server);
+    this.contractClients.push(client);
+    return server;
   }
 
   async contractSemanticReject() {
@@ -441,6 +451,70 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractReconnectAuthorityQuick() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    equal(this.humanNames().length, 1, "accepted socket should count as one logical human");
+
+    this.webSocketClose(oldSocket, 1006, "network changed", false);
+    ensure(oldSocket.deserializeAttachment().v39DisconnectPending, "3B close must mark the old socket pending immediately");
+    equal(this.humanNames().length, 0, "pending old socket must immediately leave logical presence");
+    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "3B authority must own the pending grace token");
+
+    this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    const result = this.system("Crateman has entered the room.");
+    equal(result, false, "quick reconnect must suppress duplicate enter");
+    equal(this.history.length, before, "quick reconnect must not add a system enter line");
+    equal(this.humanNames().length, 1, "replacement socket must restore exactly one logical human");
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "quick reconnect must clear the pending close");
+    equal(this.v39Stats.transientHumanReconnects, 1, "legacy transient reconnect counter must be preserved");
+
+    const snapshot = this.v41Snapshot(Date.now());
+    equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "status must expose 3B reconnect authority");
+    equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "status must expose v39 reconnect bypass");
+    equal(snapshot.humanReconnectLifecycle?.authority, "v41-human-reconnect-lifecycle", "snapshot must identify the 3B authority");
+    return { quickReconnect: true, logicalHumans: 1, transient: this.v39Stats.transientHumanReconnects };
+  }
+
+  async contractReconnectSameNameReplacement() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    equal(this.replaceExistingHumanSessions("Crateman", Date.now()), 1, "new session must supersede one active same-name socket");
+    ensure(oldSocket.deserializeAttachment().v39Superseded, "old same-name socket must be marked superseded");
+    equal(this.v39PresenceFixStats.humanSessionReplacements, 1, "legacy replacement counter must be preserved");
+
+    this.webSocketClose(oldSocket, 4001, "replaced by newer session", true);
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "superseded close must not enter reconnect grace");
+    ensure(this.v39PresenceFixStats.supersededCloseCallbacksIgnored >= 1, "superseded close callback must be ignored");
+
+    this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    const result = this.system("Crateman has entered the room.");
+    equal(result, false, "same-name replacement must suppress duplicate enter");
+    equal(this.history.length, before, "replacement must not create a duplicate enter system line");
+    equal(this.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed, 1, "legacy duplicate-enter counter must be preserved");
+    return { replaced: true, duplicateEnterSuppressed: true };
+  }
+
+  async contractReconnectCommittedClose() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    this.webSocketClose(oldSocket, 1006, "gone", false);
+    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "committed-close contract must begin inside grace");
+
+    await new Promise((resolve) => setTimeout(resolve, 5200));
+
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "expired grace token must be removed");
+    equal(this.v39Stats.humanDisconnectsCommitted, 1, "expired disconnect must commit exactly once");
+    const leaveLines = this.history.slice(before).filter((row) =>
+      row?.kind === "system" && row?.text === "Crateman has left the room."
+    );
+    equal(leaveLines.length, 1, "expired disconnect must emit exactly one leave line");
+    return { committed: true, leaveLines: leaveLines.length };
+  }
+
   contractStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.phase, "2B", "production snapshot should expose Phase 2B");
@@ -452,6 +526,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.semanticCompletenessDefersToSealed1996World, true, "status should expose the finding-94 semantic/world bridge");
     equal(snapshot.policy.deterministicFallbackDefersToSealed1996World, true, "status should expose the finding-95 fallback/world bridge");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
+    equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "Phase 3B reconnect authority must remain active beneath Phase 2");
+    equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "production v41 must bypass the two legacy reconnect overrides");
+    equal(snapshot.humanReconnectLifecycle?.graceMs, 5000, "Phase 3B must preserve the 5-second reconnect grace");
     equal(snapshot.policy.noAdditionalProviderCall, true, "Phase 2 must not add a judge-model call");
     return { phase: snapshot.phase, pass: snapshot.pass };
   }
@@ -469,6 +546,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "reconnect-authority-quick") return this.contractReconnectAuthorityQuick();
+    if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
+    if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
     if (name === "status") return this.contractStatus();
     throw new Error(`unknown generation contract: ${name}`);
   }
