@@ -16,6 +16,8 @@ const v39Presence = read("src/index_v39_presence_fix.js");
 const v39World = read("src/index_v39_world_gate.js");
 const v40 = read("src/index_v40_scene_continuity.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
+const v41Reconnect = read("src/index_v41_human_reconnect.js");
+const v41Coherence = read("src/index_v41_coherence_repair.js");
 const v41Generation = read("src/index_v41_generation_contract.js");
 const wrangler = read("wrangler.jsonc");
 
@@ -24,7 +26,9 @@ assert.ok(wrangler.includes('"main": "src/index_v41_generation_contract.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
 // The inherited chain remains explicit. Phase 3A is characterization-only.
-assert.ok(v41Generation.includes('from "./index_v41_scene_coordinator.js"'));
+assert.ok(v41Generation.includes('from "./index_v41_coherence_repair.js"'));
+assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'));
+assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'));
 assert.ok(v41Scene.includes('from "./index_v40_scene_continuity.js"'));
 assert.ok(v40.includes('from "./index_v39_world_gate.js"'));
 assert.ok(v39World.includes('from "./index_v39_presence_fix.js"'));
