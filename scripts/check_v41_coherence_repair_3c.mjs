@@ -39,7 +39,7 @@ function room() {
   const r = room();
   const now = Date.now();
   const anchor = { kind: "bot", from: "SegaMan", text: "saturn is definitely a video", target: "Crateman", messageId: "m-anchor", at: now - 1000 };
-  const human = { kind: "human", from: "Crateman", text: "that makes no sense, you just said it was a video", replyTo: "m-anchor", messageId: "m-human", at: now };
+  const human = { kind: "human", from: "Crateman", text: "you got that wrong, you just said it was a video", replyTo: "m-anchor", messageId: "m-human", at: now };
   r.history = [anchor, human];
   const a = new CoherenceRepairAuthority(r);
   let delegated = null;
