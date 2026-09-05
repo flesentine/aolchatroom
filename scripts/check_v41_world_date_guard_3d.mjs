@@ -88,6 +88,7 @@ function room() {
 }
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_world_date_guard.js", import.meta.url), "utf8");
+const rosterWrapper = fs.readFileSync(new URL("../src/index_v41_bot_roster_reentry.js", import.meta.url), "utf8");
 const generationBase = fs.readFileSync(new URL("../src/index_v41_generation_contract_base.js", import.meta.url), "utf8");
 const v38 = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
 const v39Coherence = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
@@ -109,7 +110,8 @@ assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.lineViolation.call"));
 assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.noteViolation.call"));
 assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.historicalAudit.call"));
 assert.ok(wrapper.includes("PresenceFixedChatRoom.prototype.say.call"));
-assert.ok(generationBase.includes('from "./index_v41_world_date_guard.js"'));
+assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
+assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
 
 for (const [name, source] of [
   ["v40", v40],
