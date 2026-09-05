@@ -451,6 +451,71 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractCoherenceTargetRepair() {
+    const now = Date.now();
+    this.reset({
+      bots: ["MoonChild", "RaveChick", "SegaMan"],
+      history: [
+        { kind: "bot", from: "MoonChild", text: "aint heard it yet, is it seriously that bad", target: "room", messageId: "m1", at: now - 18000 },
+        { kind: "bot", from: "RaveChick", text: "haha yeah we had that at our hotel last week ;)", target: "room", messageId: "m2", at: now - 5000 }
+      ]
+    });
+    this.pendingHumanReplyTo?.clear?.();
+    const target = this.resolveDirectTarget("had what at your hotel?", "Crateman");
+    equal(target, "RaveChick", "3C should preserve clarification target repair");
+    equal(this.pendingHumanReplyTo?.get?.("Crateman"), "m2", "3C repair should preserve reply anchor");
+    equal(this.v39Stats.clarificationTargetRepairs, 1, "legacy clarification counter should increment");
+    equal(this.v39LastTargetRepair?.repairedTarget, "RaveChick", "legacy last-target diagnostic should be preserved");
+
+    const explicit = this.resolveDirectTarget("SegaMan, had what at your hotel?", "Crateman");
+    equal(explicit, "SegaMan", "explicit bot mention must outrank semantic repair");
+    equal(this.v39Stats.clarificationTargetRepairs, 1, "explicit target must not increment repair counter");
+    return { repaired: target, explicit };
+  }
+
+  async contractCoherenceVoiceLock() {
+    const now = Date.now();
+    const anchor = { kind: "bot", from: "JennJenn", target: "Crateman", text: "the hotel night shift was nuts", messageId: "m-hotel-lock", at: now - 1000 };
+    const human = { kind: "human", from: "Crateman", target: "JennJenn", text: "what do you mean by hotel?", replyTo: "m-hotel-lock", messageId: "m-human-lock", at: now };
+    this.reset({ history: [anchor, human], bots: ["JennJenn"] });
+    this.contractVoiceText = "i meant the hotel night shift was chaotic";
+    const plan = {
+      provider: "gemini",
+      reason: "v37-human-director",
+      subject: "hotel clarification",
+      goal: "clarify the hotel wording",
+      moves: [{ speaker: "JennJenn", target: "Crateman", intent: "clarify", topic: "general", meaning: "explain what she meant about the hotel night shift" }]
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("JennJenn"), human);
+    equal(voiced.length, 1, "3C coherence-locked Voice should survive a grounded clarification");
+    equal(this.v39Stats.coherenceVoiceLocks, 1, "legacy coherence-lock counter should increment");
+    equal(this.v39LastCoherenceLock?.mode, "clarify", "legacy lock mode should remain clarify");
+    equal(this.v39LastCoherenceLock?.anchorFrom, "JennJenn", "exact reply anchor should be retained");
+    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 0, "normal clarification must not count as error challenge");
+    return { locked: true, mode: this.v39LastCoherenceLock?.mode };
+  }
+
+  async contractExplicitErrorChallengeRepair() {
+    const now = Date.now();
+    const anchor = { kind: "bot", from: "SegaMan", target: "Crateman", text: "saturn is definitely a video", messageId: "m-bad-claim", at: now - 1000 };
+    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "that makes no sense, you just said it was a video", replyTo: "m-bad-claim", messageId: "m-error-challenge", at: now };
+    this.reset({ history: [anchor, human], bots: ["SegaMan"] });
+    this.contractVoiceText = "yeah youre right, i mixed that up";
+    const plan = {
+      provider: "gemini",
+      reason: "v37-human-director",
+      subject: "error challenge",
+      goal: "respond to the human challenge",
+      moves: [{ speaker: "SegaMan", target: "Crateman", intent: "clarify", topic: "gaming", meaning: "acknowledge and correct the mistake" }]
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("SegaMan"), human);
+    equal(voiced.length, 1, "3C explicit error repair should produce one accepted response");
+    equal(this.v39Stats.coherenceVoiceLocks, 1, "challenge should still pass through coherence lock");
+    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 1, "legacy explicit-error repair counter should increment");
+    equal(this.v39LastCoherenceLock?.mode, "challenge", "challenge mode should remain visible in legacy diagnostics");
+    return { repaired: true, mode: this.v39LastCoherenceLock?.mode };
+  }
+
   async contractReconnectAuthorityQuick() {
     this.reset();
     const oldSocket = this.acceptContractHuman("Crateman");
@@ -546,6 +611,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
+    if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
+    if (name === "explicit-error-challenge-repair") return this.contractExplicitErrorChallengeRepair();
     if (name === "reconnect-authority-quick") return this.contractReconnectAuthorityQuick();
     if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
     if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
