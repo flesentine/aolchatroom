@@ -451,6 +451,70 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractWorldDateGuardOrder() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({ bots: ["SegaMan"] });
+
+    const cases = [
+      ["oh it was goldeneye for the n64", "future-game-product"],
+      ["independence day got released last friday <g>", "historical-date-mismatch"],
+      ["phoenix lights man yeah in ninety seven", "future-era-event"],
+      ["playstation 4 looks better", "future-era-technology"]
+    ];
+
+    for (const [text, expectedKind] of cases) {
+      const violation = this.lineViolation(text, now, "gaming movies news", "SegaMan");
+      equal(violation?.kind, expectedKind, `3D must preserve guard precedence for ${text}`);
+      this.noteViolation(violation, "pre-display", "SegaMan");
+    }
+
+    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 1, "future-game counter must remain legacy-compatible");
+    equal(this.v39CaptureFixStats.historicalDateClaimsBlocked, 1, "relative-date counter must remain legacy-compatible");
+    equal(this.v39Stats.futureEventLinesBlocked, 1, "future-event counter must remain legacy-compatible");
+    equal(this.v38QualityStats.eraLinesBlocked, 1, "hard-era counter must remain legacy-compatible");
+
+    const safe = this.lineViolation("playstation rules", now, "", "SegaMan");
+    equal(safe, null, "period-safe PlayStation wording must still pass");
+    return { ordered: true, kinds: cases.map((row) => row[1]) };
+  }
+
+  async contractWorldDateConsoleNormalization() {
+    this.reset({ bots: ["SegaMan"] });
+    const before = this.history.length;
+    this.say("SegaMan", "PS1 has good games", "bot", "gemini", { topic: "gaming" });
+    equal(this.history.length, before + 1, "bot normalization contract must emit one line");
+    equal(this.history.at(-1)?.text, "playstation has good games", "3D must preserve the existing lower-pipeline surface after PS1 normalization");
+    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
+
+    this.say("Crateman", "PS1 has good games", "human", "human", { topic: "gaming" });
+    equal(this.history.at(-1)?.text, "PS1 has good games", "human text must never be rewritten by console normalization");
+    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "human text must not affect normalization counter");
+    return { normalizedBotOnly: true };
+  }
+
+  async contractWorldDateHistoricalAudit() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({
+      bots: ["SegaMan"],
+      history: [
+        { kind: "bot", from: "SegaMan", text: "playstation 4 looks better", topic: "gaming", at: now - 4000 },
+        { kind: "bot", from: "SegaMan", text: "phoenix lights man yeah in ninety seven", topic: "general", at: now - 3000 },
+        { kind: "bot", from: "SegaMan", text: "independence day got released last friday <g>", topic: "movies", at: now - 2000 },
+        { kind: "bot", from: "SegaMan", text: "oh it was goldeneye for the n64", topic: "gaming", at: now - 1000 }
+      ]
+    });
+    const audit = this.historicalAudit(true);
+    ensure(Number(audit.v38EraViolations || 0) >= 1, "3D combined audit must preserve v38 era violations");
+    ensure(Number(audit.v39FutureEventViolations || 0) >= 1, "3D combined audit must preserve v39 future-event violations");
+    ensure(Number(audit.v39HistoricalDateViolations || 0) >= 1, "3D combined audit must preserve v39 relative-date violations");
+    ensure(Number(audit.v39FutureGameProductViolations || 0) >= 1, "3D combined audit must preserve v39 future-game violations");
+    ensure(Number(audit.blockers || 0) >= 4, "3D combined audit must accumulate layered blockers");
+    const snapshot = this.v41Snapshot(now);
+    equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "status must expose 3D world/date authority");
+    equal(snapshot.policy.layeredWorldDateOrderPreserved, true, "status must expose preserved guard ordering");
+    return { audit: true, blockers: audit.blockers };
+  }
+
   async contractCoherenceTargetRepair() {
     const now = Date.now();
     this.reset({
@@ -591,6 +655,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.policy.semanticCompletenessDefersToSealed1996World, true, "status should expose the finding-94 semantic/world bridge");
     equal(snapshot.policy.deterministicFallbackDefersToSealed1996World, true, "status should expose the finding-95 fallback/world bridge");
     equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
+    equal(snapshot.policy.worldDateGuardAuthority, true, "Phase 3D world/date authority must remain active beneath Phase 2");
+    equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "Phase 3D snapshot must identify the world/date authority");
     equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "Phase 3B reconnect authority must remain active beneath Phase 2");
     equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "production v41 must bypass the two legacy reconnect overrides");
     equal(snapshot.humanReconnectLifecycle?.graceMs, 5000, "Phase 3B must preserve the 5-second reconnect grace");
@@ -611,6 +677,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "world-date-guard-order") return this.contractWorldDateGuardOrder();
+    if (name === "world-date-console-normalization") return this.contractWorldDateConsoleNormalization();
+    if (name === "world-date-historical-audit") return this.contractWorldDateHistoricalAudit();
     if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
     if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
     if (name === "explicit-error-challenge-repair") return this.contractExplicitErrorChallengeRepair();

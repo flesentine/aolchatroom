@@ -1,4 +1,4 @@
-import v41Worker, { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_repair.js";
+import v41Worker, { ChatRoom as V41WorldDateChatRoom } from "./index_v41_world_date_guard.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
@@ -76,7 +76,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V41CoherenceChatRoom {
+export class ChatRoom extends V41WorldDateChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v41GenerationStats = {
