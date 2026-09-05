@@ -36,6 +36,9 @@ assert.ok(v39Coherence.includes("resolveDirectTarget(text, sender ="));
 assert.ok(v39Coherence.includes("inferClarificationTarget("));
 assert.ok(v39Coherence.includes("async voiceBrainPlan(plan, active, human = null)"));
 assert.ok(v39Coherence.includes("withCoherenceConstraint(plan, this.history || [], human)"));
+assert.ok(v39Coherence.includes("futureEventViolation(text, now)"));
+assert.ok(v39Coherence.includes('violation?.kind === "future-era-event"'));
+assert.ok(v39Coherence.includes("historicalAudit(includeAll = false)"));
 assert.ok(v39Coherence.includes("queueScenePlan(lines, reason ="));
 assert.ok(v39Coherence.includes('if (reason !== "background") return super.queueScenePlan'));
 assert.ok(v39Coherence.includes("v39ReentryRemaining(name, now = Date.now())"));
@@ -51,11 +54,20 @@ assert.ok(v39Coherence.includes('action: "v39-transient-human-reconnect"'));
 assert.ok(v39Presence.includes("humanNames()"));
 assert.ok(v39Presence.includes("activeHumanConnectionCount(name)"));
 assert.ok(v39Presence.includes("replaceExistingHumanSessions(name, now = Date.now())"));
+assert.ok(v39Presence.includes("async generateGroqBatch()"));
+assert.ok(v39Presence.includes("legacyQuickBackgroundCallsSuppressed"));
+assert.ok(v39Presence.includes("historicalDateMismatch(text, now)"));
+assert.ok(v39Presence.includes("auditHistoricalDateClaims(this.history || [], floor)"));
+assert.ok(v39Presence.includes("isExplicitErrorChallenge(human?.text || \"\")"));
+assert.ok(v39Presence.includes("applyErrorChallengePlan(plan, human)"));
 assert.ok(v39Presence.includes("webSocketClose(ws, code = 1005, reason ="));
 assert.ok(v39Presence.includes("return super.webSocketClose(ws, code, reason, wasClean)"));
 
 // World and quality gates remain live above/below that hotspot.
 assert.ok(v39World.includes("lineViolation("));
+assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
+assert.ok(v39World.includes("auditedPublicClaimViolation(text"));
+assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 assert.ok(v38.includes("lineViolation("));
 
 // Older v37 wrappers remain live for infrastructure/provider/director/ambient duties.
