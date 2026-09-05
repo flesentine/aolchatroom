@@ -498,7 +498,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractExplicitErrorChallengeRepair() {
     const now = Date.now();
     const anchor = { kind: "bot", from: "SegaMan", target: "Crateman", text: "saturn is definitely a video", messageId: "m-bad-claim", at: now - 1000 };
-    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "that makes no sense, you just said it was a video", replyTo: "m-bad-claim", messageId: "m-error-challenge", at: now };
+    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "you got that wrong, you just said it was a video", replyTo: "m-bad-claim", messageId: "m-error-challenge", at: now };
     this.reset({ history: [anchor, human], bots: ["SegaMan"] });
     this.contractVoiceText = "yeah youre right, i mixed that up";
     const plan = {
