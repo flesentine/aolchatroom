@@ -1,4 +1,4 @@
-import v41Worker, { ChatRoom as V41ReconnectChatRoom } from "./index_v41_human_reconnect.js";
+import v41Worker, { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_repair.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
@@ -76,7 +76,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V41ReconnectChatRoom {
+export class ChatRoom extends V41CoherenceChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v41GenerationStats = {
