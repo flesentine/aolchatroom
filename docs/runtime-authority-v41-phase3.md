@@ -9,6 +9,7 @@ This phase is **characterization only**. It must not change provider routing, st
 ## Current production chain
 
 `index_v41_generation_contract.js`
+→ `index_v41_world_date_guard.js`
 → `index_v41_coherence_repair.js`
 → `index_v41_human_reconnect.js`
 → `index_v41_scene_coordinator.js`
@@ -85,7 +86,7 @@ Implemented in v41 production through `index_v41_human_reconnect.js` and `human_
 Implemented in v41 production through `index_v41_coherence_repair.js` and `coherence_repair_v41.js`, while the legacy v39 implementation remains intact for the frozen v40 baseline. Production now owns clarification retargeting, human coherence locking, and explicit error-challenge repair in one authority. The final Phase 2 Voice wrapper explicitly calls through this authority so 3C is neither skipped nor double-applied.
 
 ### 3D — world/date guard authority
-Consolidate the still-layered historical/public-world responsibilities without changing their order or semantics: v38 era checks, v39 coherence future-event blocking/audit, v39 presence relative-date validation/audit, and v39 world future-game/public-claim gating plus console-label normalization.
+Implemented in v41 production through `index_v41_world_date_guard.js` and `world_date_guard_v41.js`, while frozen v40 keeps the original layered v38/v39 path. The authority preserves the exact production order: future-game/product gate → audited public-claim gate → relative-date validation → future-event gate → hard-era technology gate → older baseline. It also owns bot-only PS1 label normalization, legacy v38/v39 violation counters, and the combined historical-audit surface.
 
 ### 3E — bot roster/re-entry authority
 Extract bot leave/enter/re-entry cooldown bookkeeping without changing provider or scheduler behavior.
