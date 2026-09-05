@@ -9,6 +9,7 @@ This phase is **characterization only**. It must not change provider routing, st
 ## Current production chain
 
 `index_v41_generation_contract.js`
+→ `index_v41_human_reconnect.js`
 → `index_v41_scene_coordinator.js`
 → `index_v40_scene_continuity.js`
 → `index_v39_world_gate.js`
@@ -25,7 +26,8 @@ This phase is **characterization only**. It must not change provider routing, st
 | Scene lifecycle, ownership, association, momentum authority hook | `index_v41_scene_coordinator.js` + coordinator modules | Already authoritative; legacy wrappers may delegate but must not regain authority. |
 | Ambient momentum prompt/carry compatibility | `index_v40_scene_continuity.js` | Preserve anti-churn prompt behavior, momentum snapshot, post-queue carry annotation, legacy counters, and Phase 0 observation counters until every compatibility hook is redirected and runtime-gated. |
 | Final future-game/public-claim gate + console-label normalization | `index_v39_world_gate.js` | Preserve as the top inherited world gate until extracted behind a named authority. |
-| Logical human identity / duplicate-session replacement | `index_v39_presence_fix.js` | Keep coupled to reconnect semantics until a dedicated human-presence authority exists. |
+| Logical human identity | `index_v39_presence_fix.js` helpers remain the logical-name source | Preserve pending/superseded attachment semantics while reconnect ownership moves to v41. |
+| Same-name session replacement + transient reconnect lifecycle | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B authority owns replacement, duplicate-enter suppression, 5s grace, pending-close state, transient/committed close decision, and legacy reconnect counters/actions. Frozen v40 keeps the legacy v39 path. |
 | Error-challenge repair | `index_v39_presence_fix.js` | Extract independently from ordinary coherence only after its response contract is frozen. |
 | Historical relative-date validation/audit | `index_v39_presence_fix.js` | Preserve both live line blocking and retained-history audit behavior. |
 | Legacy quick-background suppression | `index_v39_presence_fix.js` | Keep the inherited v11 quick-background model path disabled while v37 lively ambient remains authoritative. |
@@ -68,14 +70,15 @@ The file must not be retired as one operation. Each behavior needs a named repla
 ## Phase 3 extraction order
 
 ### 3B — human reconnect lifecycle authority
-Extract transient reconnect grace and its interaction with logical human presence behind one dedicated authority/hook. Preserve:
+Implemented in v41 production through `index_v41_human_reconnect.js` and `human_reconnect_lifecycle_v41.js` while leaving the legacy v39 implementation intact for the frozen v40 baseline. It preserves:
 - the 5-second grace window;
-- duplicate-enter suppression;
-- logical human identity during reconnect;
-- close diagnostics and counters;
-- stale socket isolation;
+- same-name replacement and duplicate-enter suppression;
+- logical human identity through existing pending/superseded attachment semantics;
+- legacy v39 reconnect diagnostics and counters;
+- stale/superseded socket isolation;
 - client auto-reconnect behavior;
-- no fake leave/re-enter pair for a quick reconnect.
+- no fake leave/re-enter pair for a quick reconnect;
+- final committed disconnect delegation beneath the two legacy v39 reconnect overrides.
 
 ### 3C — coherence/repair authority
 Extract clarification target repair, human coherence Voice lock, and error-challenge repair behind a semantic coherence authority. Preserve response routing and generation contracts.
