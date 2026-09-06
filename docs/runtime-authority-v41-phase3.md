@@ -47,7 +47,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Provider failure classification / cooldown policy | `index_v37_hotfix.js` + inherited provider state | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
 | Internal chat metadata stripping | `index_v37_hotfix.js` | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
 | Legacy live-model shadow pause | `index_v37_hotfix.js` | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
-| Provider capacity decision | `index_v37_human_only.js` | Still live despite superseded ambient generation. |
+| Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. |
@@ -121,14 +121,14 @@ The next retirement boundary is the v37 wrapper stack; each remaining v37 provid
 Before shortening the v37 inheritance chain, production freezes the exact remaining ownership boundary:
 
 1. `index_v37_hotfix.js` — provider readiness/capacity baseline, degraded and capacity-shedding fallbacks, production-turn singleflight/replay coalescing, provider failure/cooldown policy, internal metadata hygiene, and paused live-model shadow handling.
-2. `index_v37_human_only.js` — the one-preferred-provider capacity override plus constructor state still consumed by lively ambient. Its adaptive ambient generator and human fallback methods are superseded by later v37 layers but cannot be removed until their residual state/diagnostic dependencies are extracted.
+2. `index_v37_human_only.js` — the one-preferred-provider capacity override, active ambient-character helper, constructor/diagnostic state consumed by lively ambient, and a conditional human fallback used when the Director delegates an unlocked/non-direct packet. Its adaptive ambient prompt/generator/background-plan path is superseded by lively ambient.
 3. `index_v37_free_providers.js` — extended provider configuration, ordering, implementations, source normalization, provider diagnostics, and `/ai-status` augmentation.
 4. `index_v37_human_director.js` — authoritative direct-human Director, structural fallback, pivot scene handling, single-response Voice dispatch, and Director diagnostics.
 5. `index_v37_lively_ambient.js` — authoritative routine ambient generation plus ambient scene exhaustion/closure behavior.
 
 The production chain is therefore intentionally frozen as:
 
-`index_v41_quality_compat.js → index_v41_lively_ambient_compat.js → index_v41_human_director_compat.js → index_v41_free_providers_compat.js → index_v37_human_only.js → index_v37_hotfix.js → index_v37.js`
+`index_v41_quality_compat.js → index_v41_lively_ambient_compat.js → index_v41_human_director_compat.js → index_v41_free_providers_compat.js → index_v41_human_only_compat.js → index_v37_hotfix.js → index_v37.js`
 
 Phase 3G.1 makes no production dispatch change. Its source and real-Worker contracts exist to prevent a future retirement step from conflating provider, Director, ambient, and production-turn ownership. The next extraction must pick one responsibility boundary and provide a named v41 replacement owner before any v37 wrapper is bypassed.
 
@@ -147,9 +147,24 @@ Frozen `index_v37_human_director.js` remains unchanged for the v37-v40 lineage. 
 #### 3G.4 — retire v37 extended free-provider wrapper from v41 production
 V41 production now routes `index_v41_human_director_compat.js → index_v41_free_providers_compat.js → index_v37_human_only.js`. The new v41 provider compatibility owner preserves the complete extended-provider implementation byte-for-byte beneath a v41-only header: provider configuration, preferred/effective ordering, hard/soft readiness integration, provider-specific HTTP implementations, source normalization, provider event telemetry, failover snapshot augmentation, `/ai-status` augmentation, constructor counters, and `v37Snapshot()` diagnostics.
 
-Frozen `index_v37_free_providers.js` remains unchanged for the v37-v40 lineage. The unrelated v41 reconnect/coherence/world-date/roster baseline callbacks now resolve directly through `index_v37_human_only.js`, because the retired provider wrapper does not override those methods. Production therefore no longer inherits, fetches through, or imports `index_v37_free_providers.js`.
+Frozen `index_v37_free_providers.js` remains unchanged for the v37-v40 lineage. The unrelated v41 reconnect/coherence/world-date/roster baseline callbacks resolve below the provider layer, so production no longer inherits, fetches through, or imports `index_v37_free_providers.js`.
 
-The next boundary is `index_v37_human_only.js`, which is mixed-responsibility: its one-preferred-provider capacity override and constructor state are still live, while its older adaptive ambient and human fallback methods are superseded above it. That layer must be split by live responsibility before retirement.
+
+#### 3G.5 — retire v37 human-only wrapper from v41 production
+V41 production now routes `index_v41_free_providers_compat.js → index_v41_human_only_compat.js → index_v37_hotfix.js`. Unlike the prior exact-body retirements, this is a **residual extraction** because the frozen human-only wrapper mixes live and superseded behavior.
+
+The v41 residual owner preserves only the still-live surface:
+- constructor state still consumed by lively ambient and diagnostics (`v37AmbientProviderCursor`, `v37LastAmbientAiAt`, and `v37AdaptiveAmbientStats`);
+- the one-preferred-provider `providerCapacityConstrained()` override;
+- `activeAmbientCharacters()`, still consumed by the lively ambient owner;
+- `generateHumanReplan()` as a delegated safety fallback for human packets that the Director does not claim;
+- the historical human-only status flags and `v37Snapshot()` diagnostics.
+
+It intentionally does **not** copy `ambientAiPrompt()`, `generateAdaptiveAmbientAi()`, or `generateBackgroundPlan()`. Routine background generation is already authoritative in `index_v41_lively_ambient_compat.js`, so restoring those methods would create a second ambient authority.
+
+Frozen `index_v37_human_only.js` remains unchanged for v37-v40. The unrelated v41 reconnect/coherence/world-date/roster baseline callbacks now resolve directly through `index_v37_hotfix.js`, because the retired human-only wrapper does not override those baseline methods.
+
+The next boundary is `index_v37_hotfix.js`. It still owns multiple production-critical responsibilities—singleflight/replay coalescing, degraded/capacity fallback, provider readiness/failure policy, metadata stripping, and paused shadow handling—so it must be characterized and extracted by responsibility rather than retired wholesale.
 
 ## Retirement rule
 
