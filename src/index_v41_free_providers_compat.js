@@ -2,7 +2,7 @@
 // Frozen index_v37_free_providers.js remains unchanged for the v37-v40 lineage.
 // V41 production preserves provider configuration, ordering, implementations, source
 // normalization, failover diagnostics, and /ai-status augmentation here.
-import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v37_human_only.js";
+import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v41_human_only_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
   EXTENDED_ONLY_PROVIDERS,

@@ -12,7 +12,8 @@ function ownsMethod(source, name) {
 }
 
 const hotfix = read("src/index_v37_hotfix.js");
-const humanOnly = read("src/index_v37_human_only.js");
+const humanOnly = read("src/index_v41_human_only_compat.js");
+const frozenHumanOnly = read("src/index_v37_human_only.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
 const frozenFreeProviders = read("src/index_v37_free_providers.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
@@ -26,9 +27,10 @@ assert.ok(livelyAmbient.includes('from "./index_v41_human_director_compat.js"'))
 assert.ok(frozenLivelyAmbient.includes('from "./index_v37_human_director.js"'));
 assert.ok(humanDirector.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(frozenHumanDirector.includes('from "./index_v37_free_providers.js"'));
-assert.ok(freeProviders.includes('from "./index_v37_human_only.js"'));
+assert.ok(freeProviders.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenFreeProviders.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v37_hotfix.js"'));
+assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
 for (const method of [
@@ -58,13 +60,14 @@ for (const method of [
 for (const method of [
   "providerCapacityConstrained",
   "activeAmbientCharacters",
-  "ambientAiPrompt",
-  "generateAdaptiveAmbientAi",
-  "generateBackgroundPlan",
   "generateHumanReplan",
   "v37Snapshot"
 ]) {
-  assert.equal(ownsMethod(humanOnly, method), true, `v37 human-only layer must retain ${method}()`);
+  assert.equal(ownsMethod(humanOnly, method), true, `v41 human-only residual owner must retain ${method}()`);
+}
+for (const supersededMethod of ["ambientAiPrompt", "generateAdaptiveAmbientAi", "generateBackgroundPlan"]) {
+  assert.equal(ownsMethod(humanOnly, supersededMethod), false, `v41 residual owner must omit superseded ${supersededMethod}()`);
+  assert.equal(ownsMethod(frozenHumanOnly, supersededMethod), true, `frozen v37 human-only must retain ${supersededMethod}()`);
 }
 
 for (const method of [
@@ -124,12 +127,13 @@ for (const method of [
 assert.ok(humanOnly.includes("this.v37AmbientProviderCursor = 0"));
 assert.ok(livelyAmbient.includes("this.v37AmbientProviderCursor % preferred.length"));
 assert.ok(
-  ownsMethod(humanOnly, "generateBackgroundPlan") && ownsMethod(livelyAmbient, "generateBackgroundPlan"),
-  "lively ambient must explicitly supersede the older adaptive ambient generation method"
+  ownsMethod(frozenHumanOnly, "generateBackgroundPlan") && ownsMethod(livelyAmbient, "generateBackgroundPlan")
+    && !ownsMethod(humanOnly, "generateBackgroundPlan"),
+  "lively ambient must own production background generation while frozen v37 retains the older adaptive method"
 );
 assert.ok(
   ownsMethod(humanOnly, "generateHumanReplan") && ownsMethod(humanDirector, "generateHumanReplan"),
-  "human Director must explicitly supersede the older human-only fallback wrapper"
+  "human Director must own eligible turns while the residual human-only fallback remains available for delegated packets"
 );
 assert.ok(
   ownsMethod(hotfix, "providerCapacityConstrained") && ownsMethod(humanOnly, "providerCapacityConstrained"),

@@ -1,5 +1,6 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
+import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
 import { getCharacter } from "../src/characters.js";
 
 function ensure(condition, message) {
@@ -643,6 +644,44 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractRetiredV37HumanOnlyCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    equal(this.v37AmbientProviderCursor, 0, "3G.5 must initialize the ambient provider cursor");
+    equal(this.v37LastAmbientAiAt, 0, "3G.5 must initialize the legacy adaptive-ambient timestamp");
+    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5 must initialize adaptive-ambient compatibility counters");
+
+    const active = V41HumanOnlyCompatChatRoom.prototype.activeAmbientCharacters.call(this)
+      .map((character) => character?.name)
+      .filter(Boolean);
+    ensure(active.includes("SegaMan"), "3G.5 active ambient helper must retain SegaMan");
+    ensure(active.includes("MetallicaFan"), "3G.5 active ambient helper must retain MetallicaFan");
+
+    const originalPreferred = this.preferredStructuredReadyProviders;
+    this.preferredStructuredReadyProviders = () => ["gemini"];
+    equal(
+      V41HumanOnlyCompatChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
+      false,
+      "one healthy preferred provider must still clear the human-only capacity constraint"
+    );
+    this.preferredStructuredReadyProviders = originalPreferred;
+
+    const snapshot = V41HumanOnlyCompatChatRoom.prototype.v37Snapshot.call(this);
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "human-only compatibility mode must remain visible");
+    equal(snapshot?.mode?.adaptiveAmbientAi, true, "historical adaptive-ambient compatibility flag must remain visible below lively authority");
+    equal(snapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "delegated human fallback policy must remain visible");
+    ensure(snapshot?.adaptiveAmbientAi, "adaptive-ambient compatibility diagnostics must survive wrapper retirement");
+
+    return {
+      retired: true,
+      residualOwner: true,
+      ambientCharacters: active,
+      singlePreferredProviderClearsConstraint: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1166,6 +1205,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-lively") return this.contractRetiredV37LivelyCompatibility();
     if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
     if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
+    if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
