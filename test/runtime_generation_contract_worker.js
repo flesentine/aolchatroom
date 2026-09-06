@@ -451,6 +451,31 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractRetiredV39WorldDiagnostics() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+
+    ensure(this.v39WorldGateStats && typeof this.v39WorldGateStats === "object", "3F.1 must initialize legacy v39 world-gate counters without the retired wrapper constructor");
+    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 0, "3F.1 world-gate counter baseline must remain zero");
+
+    const v39 = this.v39Snapshot(now);
+    ensure(v39?.worldGateStats, "3F.1 must preserve v39 world-gate snapshot diagnostics");
+    equal(v39.worldGatePolicy?.futureGameProductBoundary, true, "3F.1 must preserve the future-game world policy");
+    equal(v39.worldGatePolicy?.auditedPublicClaimsBlockedBeforeDisplay, true, "3F.1 must preserve audited public-claim policy");
+    equal(v39.worldGatePolicy?.ps1BackLabelNormalizedToPlayStation, true, "3F.1 must preserve console-label normalization policy");
+
+    const v40 = this.v40Snapshot(now);
+    equal(v40?.pass, "scene-continuity-v40", "3F.1 compatibility layer must preserve the legacy v40 snapshot identity");
+    equal(v40?.policy?.legacyV40CounterSemanticsPreserved, true, "3F.1 must preserve legacy v40 counter semantics");
+    equal(v40?.policy?.phase0ObservationCountersAreAdditiveOnly, true, "3F.1 must preserve Phase 0 observation semantics");
+
+    const v41 = this.v41Snapshot(now);
+    equal(v41.policy.worldDateGuardAuthority, true, "3F.1 retirement must leave Phase 3D authoritative");
+    equal(v41.worldDateGuard?.authority, "v41-world-date-guard", "3F.1 retirement must retain the Phase 3D snapshot");
+
+    return { retiredV39World: true, v39DiagnosticsPreserved: true, v40CompatibilityPreserved: true };
+  }
+
   async contractBotRosterCooldownFiltering() {
     const now = Date.now();
     this.reset({ bots: ["SegaMan"] });
@@ -734,6 +759,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
     if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
     if (name === "bot-roster-leave-bookkeeping") return this.contractBotRosterLeaveBookkeeping();
     if (name === "bot-roster-blocked-reentry") return this.contractBotRosterBlockedReentry();

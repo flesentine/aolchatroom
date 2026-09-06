@@ -86,12 +86,14 @@ const v40Runtime = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js
 const wrappedByV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js"')
   && wrangler.includes('"DEPLOY_VERSION": "40"')
   && v40Runtime.includes('from "./index_v39_world_gate.js"');
+const v41CompatRuntime = fs.readFileSync(new URL("../src/index_v41_ambient_continuity_compat.js", import.meta.url), "utf8");
 const v41Runtime = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
 const v41ReconnectRuntime = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41CoherenceRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
 const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
-  && v41Runtime.includes('from "./index_v40_scene_continuity.js"')
+  && v41Runtime.includes('from "./index_v41_ambient_continuity_compat.js"')
+  && v41CompatRuntime.includes('from "./index_v39_presence_fix.js"')
   && v40Runtime.includes('from "./index_v39_world_gate.js"');
 const v41GenerationRuntime = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
@@ -104,7 +106,8 @@ const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generat
       && v41ReconnectRuntime.includes('from "./index_v41_scene_coordinator.js"')
     )
   )
-  && v41Runtime.includes('from "./index_v40_scene_continuity.js"')
+  && v41Runtime.includes('from "./index_v41_ambient_continuity_compat.js"')
+  && v41CompatRuntime.includes('from "./index_v39_presence_fix.js"')
   && v40Runtime.includes('from "./index_v39_world_gate.js"');
 assert.ok(directWorld || wrappedByV40 || wrappedByV41 || wrappedByV41Generation, "production must retain the v39 world gate directly or beneath the additive v40/v41 scene wrappers");
 

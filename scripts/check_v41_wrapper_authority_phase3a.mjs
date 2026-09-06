@@ -15,6 +15,7 @@ const v39Coherence = read("src/index_v39_coherence.js");
 const v39Presence = read("src/index_v39_presence_fix.js");
 const v39World = read("src/index_v39_world_gate.js");
 const v40 = read("src/index_v40_scene_continuity.js");
+const v41AmbientCompat = read("src/index_v41_ambient_continuity_compat.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
@@ -35,8 +36,10 @@ assert.ok(v41Roster.includes('from "./index_v41_world_date_guard.js"'), "Phase 3
 assert.ok(v41WorldDate.includes('from "./index_v41_coherence_repair.js"'), "Phase 3D must remain additive above Phase 3C");
 assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'), "Phase 3C must remain additive above Phase 3B");
 assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'), "Phase 3B must remain additive above scene authority");
-assert.ok(v41Scene.includes('from "./index_v40_scene_continuity.js"'));
-assert.ok(v40.includes('from "./index_v39_world_gate.js"'));
+assert.ok(v41Scene.includes('from "./index_v41_ambient_continuity_compat.js"'), "3F.1 production scene layer must use the v41 ambient compatibility spine");
+assert.ok(v41AmbientCompat.includes('from "./index_v39_presence_fix.js"'), "3F.1 v41 compatibility spine must bypass v39 world");
+assert.ok(!v41AmbientCompat.includes('from "./index_v39_world_gate.js"'), "v39 world must be retired from v41 production inheritance");
+assert.ok(v40.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain the original v39 world wrapper");
 assert.ok(v39World.includes('from "./index_v39_presence_fix.js"'));
 assert.ok(v39Presence.includes('from "./index_v39_coherence.js"'));
 assert.ok(v39Coherence.includes('from "./index_v38_quality_guard.js"'));
@@ -108,11 +111,13 @@ assert.ok(v37Director.includes("generateHumanReplan"));
 assert.ok(v37Lively.includes("generateBackgroundPlan"));
 
 // v41 must remain the authority for the responsibilities already consolidated.
-assert.ok(v40.includes("currentAmbientMomentum(now = Date.now())"));
-assert.ok(v40.includes("sceneMomentumPrompt(momentum)"));
-assert.ok(v40.includes("selectCarryIndices"));
-assert.ok(v40.includes("v40ObservationStats.backgroundQueueAttempts"));
-assert.ok(v40.includes("v40Snapshot(now = Date.now())"));
+for (const source of [v40, v41AmbientCompat]) {
+  assert.ok(source.includes("currentAmbientMomentum(now = Date.now())"));
+  assert.ok(source.includes("sceneMomentumPrompt(momentum)"));
+  assert.ok(source.includes("selectCarryIndices"));
+  assert.ok(source.includes("v40ObservationStats.backgroundQueueAttempts"));
+  assert.ok(source.includes("v40Snapshot(now = Date.now())"));
+}
 assert.ok(v41Scene.includes("sceneLifecycleAuthority()"));
 assert.ok(v41Generation.includes("evaluatePrimaryHumanVoice"));
 assert.ok(v41Generation.includes("evaluateHumanReplanPrimaryResponse"));

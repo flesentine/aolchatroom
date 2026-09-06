@@ -14,8 +14,7 @@ This phase is **characterization only**. It must not change provider routing, st
 → `index_v41_coherence_repair.js`
 → `index_v41_human_reconnect.js`
 → `index_v41_scene_coordinator.js`
-→ `index_v40_scene_continuity.js`
-→ `index_v39_world_gate.js`
+→ `index_v41_ambient_continuity_compat.js`
 → `index_v39_presence_fix.js`
 → `index_v39_coherence.js`
 → `index_v38_quality_guard.js`
@@ -27,7 +26,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | --- | --- | --- |
 | Direct-human generation semantic contract / fail-closed recovery | `index_v41_generation_contract.js` | Already authoritative; do not move during wrapper retirement. |
 | Scene lifecycle, ownership, association, momentum authority hook | `index_v41_scene_coordinator.js` + coordinator modules | Already authoritative; legacy wrappers may delegate but must not regain authority. |
-| Ambient momentum prompt/carry compatibility | `index_v40_scene_continuity.js` | Preserve anti-churn prompt behavior, momentum snapshot, post-queue carry annotation, legacy counters, and Phase 0 observation counters until every compatibility hook is redirected and runtime-gated. |
+| Ambient momentum prompt/carry compatibility | `index_v41_ambient_continuity_compat.js` in v41 production; frozen `index_v40_scene_continuity.js` remains unchanged | 3F.1 copies the exact v40 compatibility behavior into the v41 spine so production can bypass `index_v39_world_gate.js` without changing v40 semantics/counters. |
 | Future-game/public-claim gate + console-label normalization | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v39_world_gate.js` remains for frozen v40 | Phase 3D owns production ordering, counters, normalization, and audit contribution without removing the legacy path. |
 | Logical human identity | `index_v39_presence_fix.js` helpers remain the logical-name source | Preserve pending/superseded attachment semantics while reconnect ownership moves to v41. |
 | Same-name session replacement + transient reconnect lifecycle | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B authority owns replacement, duplicate-enter suppression, 5s grace, pending-close state, transient/committed close decision, and legacy reconnect counters/actions. Frozen v40 keeps the legacy v39 path. |
@@ -93,7 +92,12 @@ Implemented in v41 production through `index_v41_world_date_guard.js` and `world
 Implemented in v41 production through `index_v41_bot_roster_reentry.js` and `bot_roster_reentry_v41.js`, while frozen v40 keeps the legacy v39 implementation. The authority preserves the 3-minute cooldown, retained-history fallback, active-bot roster eligibility, leave bookkeeping only after a real departure, the legacy `botReentryBlocks` counter, and the `v39-bot-reentry-blocked` broadcast. Delegation below v39 preserves the older v29 departure cooldown, v30 roster ranking, v35 presence locks, and base population scheduler.
 
 ### 3F — wrapper retirement
-Only after all live responsibilities have moved behind explicit authorities and runtime contracts should old version wrappers be shortened or removed.
+Retirement proceeds one frozen boundary at a time.
+
+#### 3F.1 — retire v39 world wrapper from v41 production
+V41 production now routes scene continuity through `index_v41_ambient_continuity_compat.js`, which preserves the exact v40 prompt/carry/status behavior while inheriting directly from v39 presence. `index_v39_world_gate.js` remains untouched for the frozen v40 deployment/tests, but it is no longer in the v41 production class/fetch chain. Phase 3D now also preserves the old v39 world-gate API flags, constructor stats, and `v39Snapshot()` diagnostics.
+
+Later 3F retirement steps must separately extract the remaining v39 presence/coherence and v38 compatibility responsibilities before those wrappers can leave the v41 production spine.
 
 ## Retirement rule
 
