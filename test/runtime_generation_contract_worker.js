@@ -453,6 +453,39 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
 
 
+  contractV37StackCharacterization() {
+    const snapshot = this.v37Snapshot();
+
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "v37 hotfix singleflight surface must remain visible");
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "v37 human-only compatibility mode must remain visible");
+    equal(snapshot?.mode?.extendedFreeProviderPool, true, "v37 extended-provider layer must remain visible");
+    equal(snapshot?.mode?.directHumanDirectorAuthoritative, true, "v37 direct-human Director must remain authoritative");
+    equal(snapshot?.mode?.livelyAmbientAi, true, "v37 lively ambient must remain authoritative");
+
+    ensure(snapshot?.productionTurn?.gate, "v37 hotfix production-turn gate diagnostics must survive");
+    ensure(snapshot?.providerFailover, "v37 provider failover diagnostics must survive");
+    ensure(snapshot?.adaptiveAmbientAi, "v37 adaptive ambient compatibility diagnostics must survive");
+    ensure(snapshot?.extendedFreeProviders, "v37 extended provider diagnostics must survive");
+    ensure(snapshot?.humanDirector, "v37 human Director diagnostics must survive");
+    ensure(snapshot?.livelyAmbientAi, "v37 lively ambient diagnostics must survive");
+
+    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "human-only constructor state used by lively ambient must exist");
+    ensure(typeof this.providerCapacityConstrained === "function", "live v37 capacity policy must remain callable");
+    ensure(typeof this.callProvider === "function", "live v37 extended provider dispatch must remain callable");
+    ensure(typeof this.generateHumanReplan === "function", "live v37 human Director path must remain callable");
+    ensure(typeof this.generateBackgroundPlan === "function", "live v37 lively ambient path must remain callable");
+
+    return {
+      characterized: true,
+      layers: ["hotfix", "human-only", "free-providers", "human-director", "lively-ambient"],
+      productionTurnGate: true,
+      providerFailover: true,
+      humanDirector: true,
+      livelyAmbient: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -972,6 +1005,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "v37-stack-characterization") return this.contractV37StackCharacterization();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
