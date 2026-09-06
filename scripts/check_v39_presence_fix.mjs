@@ -89,6 +89,7 @@ const v41CompatRuntime = fs.readFileSync(new URL("../src/index_v41_ambient_conti
 const v41PresenceCompatRuntime = fs.readFileSync(new URL("../src/index_v41_presence_compat.js", import.meta.url), "utf8");
 const v41CoherenceCompatRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_compat.js", import.meta.url), "utf8");
 const v41QualityCompatRuntime = fs.readFileSync(new URL("../src/index_v41_quality_compat.js", import.meta.url), "utf8");
+const v41LivelyCompatRuntime = fs.readFileSync(new URL("../src/index_v41_lively_ambient_compat.js", import.meta.url), "utf8");
 const v41Wrapper = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
 const v41ReconnectRuntime = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41CoherenceRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
@@ -98,7 +99,8 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
   && v41CompatRuntime.includes('from "./index_v41_presence_compat.js"')
   && v41PresenceCompatRuntime.includes('from "./index_v41_coherence_compat.js"')
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
-  && v41QualityCompatRuntime.includes('from "./index_v37_lively_ambient.js"');
+  && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
+  && v41LivelyCompatRuntime.includes('from "./index_v37_human_director.js"');
 const v41GenerationWrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
@@ -114,7 +116,8 @@ const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generat
   && v41CompatRuntime.includes('from "./index_v41_presence_compat.js"')
   && v41PresenceCompatRuntime.includes('from "./index_v41_coherence_compat.js"')
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
-  && v41QualityCompatRuntime.includes('from "./index_v37_lively_ambient.js"');
+  && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
+  && v41LivelyCompatRuntime.includes('from "./index_v37_human_director.js"');
 assert.ok(directPresence || wrappedPresence || wrappedByV40 || wrappedByV41 || wrappedByV41Generation, "production must retain v39 presence/capture semantics directly, on frozen v40, or through the v41 presence compatibility layer");
 
 console.log("v39 presence + capture-derived provider/coherence/history regression checks passed");
