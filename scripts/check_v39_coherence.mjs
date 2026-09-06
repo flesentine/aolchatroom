@@ -152,7 +152,7 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
   && v41LivelyCompatRuntime.includes('from "./index_v41_human_director_compat.js"')
-  && v41HumanDirectorCompatRuntime.includes('from "./index_v37_free_providers.js"');
+  && v41HumanDirectorCompatRuntime.includes('from "./index_v41_free_providers_compat.js"');
 const v41GenerationWrapper = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
@@ -170,7 +170,7 @@ const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generat
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
   && v41LivelyCompatRuntime.includes('from "./index_v41_human_director_compat.js"')
-  && v41HumanDirectorCompatRuntime.includes('from "./index_v37_free_providers.js"');
+  && v41HumanDirectorCompatRuntime.includes('from "./index_v41_free_providers_compat.js"');
 assert.ok(directV39 || wrappedV39 || wrappedV39World || wrappedByV40 || wrappedByV41 || wrappedByV41Generation, "production must deploy v39 coherence directly or through the additive v39/v40/v41 wrappers");
 
 console.log("v39 conversation-coherence regression checks passed");
