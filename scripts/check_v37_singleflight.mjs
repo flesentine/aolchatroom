@@ -181,7 +181,7 @@ const wrappedV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.j
   && v41CoherenceCompatEntrypoint.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatEntrypoint.includes('from "./index_v41_lively_ambient_compat.js"')
   && v41LivelyCompatEntrypoint.includes('from "./index_v41_human_director_compat.js"')
-  && v41HumanDirectorCompatEntrypoint.includes('from "./index_v37_free_providers.js"')
+  && v41HumanDirectorCompatEntrypoint.includes('from "./index_v41_free_providers_compat.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
 const v41ReconnectEntrypoint = fs.existsSync(v41ReconnectUrl) ? fs.readFileSync(v41ReconnectUrl, "utf8") : "";
@@ -203,7 +203,7 @@ const wrappedV41Generation = wrangler.includes('"main": "src/index_v41_generatio
   && v41CoherenceCompatEntrypoint.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatEntrypoint.includes('from "./index_v41_lively_ambient_compat.js"')
   && v41LivelyCompatEntrypoint.includes('from "./index_v41_human_director_compat.js"')
-  && v41HumanDirectorCompatEntrypoint.includes('from "./index_v37_free_providers.js"')
+  && v41HumanDirectorCompatEntrypoint.includes('from "./index_v41_free_providers_compat.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
 assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence || wrappedV39World || wrappedV40 || wrappedV41 || wrappedV41Generation, "production must deploy v37 lively ambient through an explicit v37/v38/v41 compatibility chain");
