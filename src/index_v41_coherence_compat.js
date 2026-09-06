@@ -3,7 +3,7 @@
 // V41 production preserves the still-live v39 compatibility surface here while
 // Phase 3B/3C/3D/3E remain authoritative for extracted reconnect, repair,
 // world/date, and roster behavior.
-import v38Worker, { ChatRoom as V38ChatRoom } from "./index_v38_quality_guard.js";
+import qualityWorker, { ChatRoom as V41QualityCompatChatRoom } from "./index_v41_quality_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
   V39_BOT_REENTRY_COOLDOWN_MS,
@@ -38,7 +38,7 @@ export default {
       return env.CHAT_ROOMS.get(id).fetch(new Request("https://room.internal/v39-status"));
     }
 
-    const response = await v38Worker.fetch(request, env);
+    const response = await qualityWorker.fetch(request, env);
     if (!["/api/health", "/api/everything", "/api/full-status"].includes(url.pathname)) return response;
     const data = await json(response);
     if (!data) return response;
@@ -70,7 +70,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V38ChatRoom {
+export class ChatRoom extends V41QualityCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v39RecentBotLeaves = new Map();

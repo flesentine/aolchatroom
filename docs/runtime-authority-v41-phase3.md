@@ -40,7 +40,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Bot re-entry cooldown / roster compatibility | `index_v41_bot_roster_reentry.js` + `bot_roster_reentry_v41.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | Phase 3E owns the 3-minute cooldown, desired-roster filtering, successful-leave bookkeeping, blocked-enter diagnostics, and active-bot exemption while preserving all older v29/v30/v35 roster behavior beneath it. |
 | Transient human reconnect grace | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B owns the full reconnect lifecycle; 3F.2 removes the old presence wrapper participation from the v41 spine while frozen v40 retains it. |
 | Hard-era technology gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v40 | Phase 3D preserves generated-line blocking, v38 counters, and retained-history audit behavior. |
-| Room-topic fatigue / cooling / background filtering | `index_v38_quality_guard.js` | Preserve cooldown bookkeeping, prompt guidance, background-line filtering, and coordinator-delegated scene closes. |
+| Room-topic fatigue / cooling / background filtering | `index_v41_quality_compat.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v38-v40 | 3F.4 preserves cooldown bookkeeping, prompt guidance, background-line filtering, coordinator-delegated scene closes, and v38 diagnostics while production bypasses the v38 wrapper. |
 | Provider readiness classification / capacity state | `index_v37_hotfix.js` + provider wrappers | Preserve hard/soft readiness, structured-ready selection, constrained/degraded decisions, and emergency Workers-AI eligibility. |
 | Degraded/capacity-shedding built-in fallback | `index_v37_hotfix.js` (human degraded path is further guarded by v41) | Preserve provider-independent fallback, human priority, ambient shedding, retry-status reporting, and v41 Phase 2B fail-closed interception. |
 | Production-turn singleflight / replay coalescing | `index_v37_hotfix.js` | Preserve one base turn at a time, bounded replay, tick/alarm accounting, and force-soon propagation. |
@@ -107,7 +107,12 @@ V41 production now routes `index_v41_presence_compat.js → index_v41_coherence_
 
 The extracted v39 overrides for reconnect lifecycle, clarification/coherence repair, future-event/world-date enforcement, historical audit, and bot roster/re-entry remain owned by Phases 3B/3C/3D/3E and are not copied into the compatibility layer. Frozen `index_v39_coherence.js` and the v39/v40 chain remain unchanged.
 
-Later 3F retirement steps must separately extract the remaining v38 compatibility responsibilities before that wrapper can leave the v41 production spine.
+#### 3F.4 — retire v38 quality wrapper from v41 production
+V41 production now routes `index_v41_coherence_compat.js → index_v41_quality_compat.js → index_v37_lively_ambient.js`. The new compatibility layer preserves the v38 constructor state, room-topic fatigue detection/cooling, background-only topic filtering, ambient prompt guidance, coordinator-delegated fatigue scene closes, `/api/v38-status` and `/v38-status`, `v38Snapshot()`, the v37 merged snapshot field, and debug/status feature flags.
+
+The v38 hard-era generated-line override, violation counter hook, and historical-audit override are not copied. Phase 3D remains authoritative for those behaviors and preserves the legacy v38 era counter/audit surfaces. Frozen `index_v38_quality_guard.js` remains unchanged for the v38-v40 path.
+
+The next retirement boundary is the v37 wrapper stack; each remaining v37 provider/director/ambient responsibility must be characterized before any further inheritance shortening.
 
 ## Retirement rule
 

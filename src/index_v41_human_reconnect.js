@@ -1,5 +1,5 @@
 import worker, { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
-import { ChatRoom as V38ChatRoom } from "./index_v38_quality_guard.js";
+import { ChatRoom as V37LivelyChatRoom } from "./index_v37_lively_ambient.js";
 import { HumanReconnectLifecycleAuthority } from "./human_reconnect_lifecycle_v41.js";
 
 export default worker;
@@ -21,7 +21,7 @@ export class ChatRoom extends V41SceneChatRoom {
   system(text, ...args) {
     return this.humanReconnectCoordinator.system(
       text,
-      () => V38ChatRoom.prototype.system.call(this, text, ...args)
+      () => V37LivelyChatRoom.prototype.system.call(this, text, ...args)
     );
   }
 
@@ -31,7 +31,7 @@ export class ChatRoom extends V41SceneChatRoom {
       code,
       reason,
       wasClean,
-      () => V38ChatRoom.prototype.webSocketClose.call(this, ws, code, reason, wasClean)
+      () => V37LivelyChatRoom.prototype.webSocketClose.call(this, ws, code, reason, wasClean)
     );
   }
 

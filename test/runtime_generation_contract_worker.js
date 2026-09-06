@@ -452,6 +452,102 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+
+  async contractRetiredV38QualityCompatibility() {
+    const now = Date.now();
+    const history = [];
+    for (let i = 0; i < 8; i += 1) {
+      history.push({
+        kind: "bot",
+        from: i % 2 ? "SegaMan" : "MetallicaFan",
+        topic: "gaming",
+        text: i % 2 ? "saturn again" : "playstation vs n64 again",
+        sceneId: `game-${i % 3}`,
+        at: now - 40000 + i * 1000
+      });
+    }
+    for (let i = 0; i < 4; i += 1) {
+      history.push({
+        kind: "bot",
+        from: "CoolChick17",
+        topic: "school",
+        text: "homework tonight",
+        sceneId: `school-${i}`,
+        at: now - 30000 + i * 1000
+      });
+    }
+    this.reset({ history, bots: ["SegaMan", "MetallicaFan", "CoolChick17"] });
+
+    ensure(this.v38TopicCooling instanceof Map, "3F.4 must initialize the v38 topic-cooling map without the retired quality constructor");
+    ensure(this.v38QualityStats && typeof this.v38QualityStats === "object", "3F.4 must initialize legacy v38 quality counters");
+    this.v38TopicCooling.clear();
+
+    const detected = this.detectRoomTopicFatigue(now);
+    equal(detected.topics.some((row) => row.topic === "gaming"), true, "3F.4 must preserve room-wide gaming fatigue detection");
+
+    const originalSceneLifecycleAuthority = this.sceneLifecycleAuthority;
+    let closeCalls = 0;
+    let delegatedTopics = [];
+    this.sceneLifecycleAuthority = () => ({
+      closeTopicFatigueScenes: (rows) => {
+        closeCalls += 1;
+        delegatedTopics = rows.map((row) => row.topic);
+        return [{ sceneId: "fatigue-scene", topic: "gaming", turns: 9 }];
+      }
+    });
+    const beforeActivations = this.v38QualityStats.topicFatigueActivations;
+    const beforeCloses = this.v38QualityStats.topicFatigueSceneCloses;
+    this.applyRoomTopicFatigue(now);
+    this.sceneLifecycleAuthority = originalSceneLifecycleAuthority;
+
+    equal(closeCalls, 1, "3F.4 topic fatigue must continue delegating scene closure to the v41 coordinator");
+    equal(delegatedTopics.includes("gaming"), true, "3F.4 coordinator delegation must receive the fatigued gaming topic");
+    equal(this.v38QualityStats.topicFatigueActivations, beforeActivations + 1, "3F.4 must preserve topic-fatigue activation accounting");
+    equal(this.v38QualityStats.topicFatigueSceneCloses, beforeCloses + 1, "3F.4 must preserve delegated fatigue-close accounting");
+    equal(this.activeV38TopicCooling(now).some((row) => row.topic === "gaming"), true, "3F.4 must preserve the three-minute topic cooling map");
+
+    const beforeBlocked = this.v38QualityStats.fatiguedBackgroundLinesBlocked;
+    const beforeFiltered = this.v38QualityStats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn again" },
+      { speaker: "CoolChick17", target: "room", intent: "ambient", topic: "school", text: "anyone finish homework" }
+    ], "background");
+    equal(this.v38QualityStats.fatiguedBackgroundLinesBlocked, beforeBlocked + 1, "3F.4 must filter fatigued topics from background plans");
+    equal(this.v38QualityStats.backgroundPlansFiltered, beforeFiltered + 1, "3F.4 must preserve filtered-background-plan accounting");
+    ensure(!(this.aiQueue || []).some((row) => row?.text === "saturn again"), "3F.4 fatigued gaming line must not reach the inherited queue");
+    ensure((this.aiQueue || []).some((row) => row?.text === "anyone finish homework"), "3F.4 non-fatigued background line must survive");
+
+    const blockedAfterBackground = this.v38QualityStats.fatiguedBackgroundLinesBlocked;
+    const filteredAfterBackground = this.v38QualityStats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "MetallicaFan", target: "Crateman", intent: "reply", topic: "gaming", text: "human path stays authoritative" }
+    ], "human-replan");
+    equal(this.v38QualityStats.fatiguedBackgroundLinesBlocked, blockedAfterBackground, "3F.4 topic filtering must remain background-only");
+    equal(this.v38QualityStats.backgroundPlansFiltered, filteredAfterBackground, "3F.4 human replans must not increment the topic-filter counter");
+
+    const snapshot = this.v38Snapshot(now);
+    equal(snapshot.pass, "quality-guard-v38", "3F.4 must preserve v38 snapshot identity");
+    equal(snapshot.policy?.backgroundTopicCoolingOnly, true, "3F.4 snapshot must preserve background-only cooling policy");
+    equal(snapshot.policy?.directHumanPlansNeverFilteredForTopicFatigue, true, "3F.4 snapshot must preserve human-plan exemption");
+    equal(snapshot.activeTopicCooling.some((row) => row.topic === "gaming"), true, "3F.4 snapshot must expose active cooling");
+    equal(snapshot.detectedTopicFatigue.topics.some((row) => row.topic === "gaming"), true, "3F.4 snapshot must expose detected fatigue");
+
+    const statusResponse = await this.fetch(new Request("https://room.internal/v38-status"));
+    equal(statusResponse.status, 200, "3F.4 must preserve the internal v38 status endpoint");
+    const status = await statusResponse.json();
+    equal(status?.pass, "quality-guard-v38", "3F.4 status must retain legacy v38 pass identity");
+    equal(status?.diagnostics?.policy?.backgroundTopicCoolingOnly, true, "3F.4 status must retain topic-cooling diagnostics");
+
+    return {
+      retiredV38Quality: true,
+      detectedGamingFatigue: true,
+      coordinatorCloseDelegated: true,
+      backgroundFiltered: true,
+      humanReplanExempt: true,
+      statusPreserved: true
+    };
+  }
+
   async contractRetiredV39CoherenceCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
@@ -876,6 +972,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
     if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();

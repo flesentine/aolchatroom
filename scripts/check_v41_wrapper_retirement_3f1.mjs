@@ -9,6 +9,7 @@ const scene = read("src/index_v41_scene_coordinator.js");
 const compat = read("src/index_v41_ambient_continuity_compat.js");
 const presenceCompat = read("src/index_v41_presence_compat.js");
 const coherenceCompat = read("src/index_v41_coherence_compat.js");
+const qualityCompat = read("src/index_v41_quality_compat.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
 const frozenV40 = read("src/index_v40_scene_continuity.js");
 const frozenV39World = read("src/index_v39_world_gate.js");
@@ -22,7 +23,8 @@ assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(!scene.includes('from "./index_v40_scene_continuity.js"'));
 assert.ok(compat.includes('from "./index_v41_presence_compat.js"'));
 assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
-assert.ok(coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
+assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
+assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
 assert.ok(!compat.includes('from "./index_v39_world_gate.js"'));
 assert.ok(compat.includes('const PASS = "scene-continuity-v40"'));
 assert.ok(compat.includes("currentAmbientMomentum(now = Date.now())"));
@@ -46,7 +48,7 @@ assert.ok(worldDate.includes("futureGameProductBoundary: true"));
 assert.ok(worldDate.includes("auditedPublicClaimsBlockedPreDisplay: true"));
 assert.ok(worldDate.includes("periodConsoleLabelNormalization: true"));
 
-const v41ProductionSpine = [generationBase, roster, worldDate, coherence, reconnect, scene, compat, presenceCompat, coherenceCompat].join("\n");
+const v41ProductionSpine = [generationBase, roster, worldDate, coherence, reconnect, scene, compat, presenceCompat, coherenceCompat, qualityCompat].join("\n");
 assert.equal(
   v41ProductionSpine.includes('from "./index_v39_world_gate.js"'),
   false,

@@ -9,6 +9,7 @@ const scene = read("src/index_v41_scene_coordinator.js");
 const ambient = read("src/index_v41_ambient_continuity_compat.js");
 const presenceCompat = read("src/index_v41_presence_compat.js");
 const coherenceCompat = read("src/index_v41_coherence_compat.js");
+const qualityCompat = read("src/index_v41_quality_compat.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
 const frozenV40 = read("src/index_v40_scene_continuity.js");
 const frozenV39World = read("src/index_v39_world_gate.js");
@@ -23,7 +24,8 @@ assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(ambient.includes('from "./index_v41_presence_compat.js"'));
 assert.ok(!ambient.includes('from "./index_v39_presence_fix.js"'));
 assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
-assert.ok(coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
+assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
+assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
 assert.ok(!presenceCompat.includes('from "./index_v39_coherence.js"'));
 assert.ok(!presenceCompat.includes('from "./index_v39_presence_fix.js"'));
 
@@ -88,7 +90,8 @@ const v41ProductionSpine = [
   scene,
   ambient,
   presenceCompat,
-  coherenceCompat
+  coherenceCompat,
+  qualityCompat
 ].join("\n");
 assert.equal(v41ProductionSpine.includes('from "./index_v39_world_gate.js"'), false);
 assert.equal(v41ProductionSpine.includes('from "./index_v39_presence_fix.js"'), false);
