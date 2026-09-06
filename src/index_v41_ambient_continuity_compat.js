@@ -1,8 +1,8 @@
 // Phase 3F.1 production-only compatibility layer.
 // Frozen index_v40_scene_continuity.js remains unchanged and continues to inherit
 // index_v39_world_gate.js. V41 production preserves v40 behavior here while
-// bypassing the retired v39 world wrapper; Phase 3D owns that behavior now.
-import presenceWorker, { ChatRoom as PresenceFixedChatRoom } from "./index_v39_presence_fix.js";
+// bypassing the retired v39 world and presence wrappers; Phase 3D owns world/date behavior and the v41 presence compatibility layer owns the remaining logical-human/capture surface.
+import presenceWorker, { ChatRoom as V41PresenceCompatChatRoom } from "./index_v41_presence_compat.js";
 import {
   V40_MAX_SCENE_TURNS,
   V40_MOMENTUM_WINDOW_MS,
@@ -67,7 +67,7 @@ export default {
   }
 };
 
-export class ChatRoom extends PresenceFixedChatRoom {
+export class ChatRoom extends V41PresenceCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v40Stats = {
