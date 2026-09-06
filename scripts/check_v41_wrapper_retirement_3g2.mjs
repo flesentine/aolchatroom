@@ -28,7 +28,7 @@ const coherenceCompat = read("src/index_v41_coherence_compat.js");
 assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
 assert.ok(livelyCompat.includes('from "./index_v41_human_director_compat.js"'));
-assert.ok(humanDirectorCompat.includes('from "./index_v37_free_providers.js"'));
+assert.ok(humanDirectorCompat.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(frozenLively.includes('from "./index_v37_human_director.js"'));
 
 const v41ProductionSpine = [
