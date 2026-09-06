@@ -21,6 +21,8 @@ const v41CoherenceCompat = read("src/index_v41_coherence_compat.js");
 const v41QualityCompat = read("src/index_v41_quality_compat.js");
 const v41LivelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const v41HumanDirectorCompat = read("src/index_v41_human_director_compat.js");
+const v41FreeProvidersCompat = read("src/index_v41_free_providers_compat.js");
+const v41HumanOnlyCompat = read("src/index_v41_human_only_compat.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
@@ -48,6 +50,8 @@ assert.ok(v41CoherenceCompat.includes('from "./index_v41_quality_compat.js"'), "
 assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'), "3G.2 quality compatibility must bypass the retired v37 lively wrapper");
 assert.ok(v41LivelyCompat.includes('from "./index_v41_human_director_compat.js"'), "3G.3 lively compatibility must use the v41 human Director compatibility layer");
 assert.ok(v41HumanDirectorCompat.includes('from "./index_v41_free_providers_compat.js"'), "3G.4 human Director compatibility must route through the v41 provider compatibility owner");
+assert.ok(v41FreeProvidersCompat.includes('from "./index_v41_human_only_compat.js"'), "3G.5 provider compatibility must route through the residual v41 human-only owner");
+assert.ok(v41HumanOnlyCompat.includes('from "./index_v37_hotfix.js"'), "3G.5 residual human-only owner must preserve the v37 hotfix baseline");
 assert.ok(!v41CoherenceCompat.includes('from "./index_v38_quality_guard.js"'), "v38 quality must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_coherence.js"'), "v39 coherence must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_presence_fix.js"'), "v39 presence must be retired from v41 production inheritance");
