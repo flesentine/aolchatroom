@@ -35,19 +35,25 @@ for (const method of [
   assert.ok(presenceCompat.includes(method), `presence compatibility must preserve ${method}`);
 }
 
+function ownsMethod(source, name) {
+  return source.split("\n").some((line) =>
+    line.startsWith(`  ${name}(`) || line.startsWith(`  async ${name}(`)
+  );
+}
+
 for (const retiredOverride of [
-  "lineViolation(text",
-  "noteViolation(violation",
-  "async voiceBrainPlan(",
-  "system(text",
-  "webSocketClose(ws",
-  "historicalAudit(includeAll",
-  "replaceExistingHumanSessions(name"
+  "lineViolation",
+  "noteViolation",
+  "voiceBrainPlan",
+  "system",
+  "webSocketClose",
+  "historicalAudit",
+  "replaceExistingHumanSessions"
 ]) {
   assert.equal(
-    presenceCompat.includes(retiredOverride),
+    ownsMethod(presenceCompat, retiredOverride),
     false,
-    `3F.2 must not copy extracted override ${retiredOverride}`
+    `3F.2 must not copy extracted override ${retiredOverride}()`
   );
 }
 
