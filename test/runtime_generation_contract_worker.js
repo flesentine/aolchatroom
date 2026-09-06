@@ -486,6 +486,51 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  async contractRetiredV37LivelyCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+    const beforeHumanSkips = Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0);
+    const beforePauses = Number(this.v37LivelyAmbientStats?.naturalPauses || 0);
+
+    this.pendingHumans.push({
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "hold on",
+      at: Date.now()
+    });
+
+    const plan = await this.generateBackgroundPlan();
+    equal(plan.length, 0, "lively ambient must yield to a pending human without a provider call");
+    equal(
+      Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0),
+      beforeHumanSkips + 1,
+      "lively ambient human-priority skip counter must survive wrapper retirement"
+    );
+    equal(
+      Number(this.v37LivelyAmbientStats?.naturalPauses || 0),
+      beforePauses + 1,
+      "lively ambient natural-pause counter must survive wrapper retirement"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.livelyAmbientAi, true, "v37 lively ambient authoritative mode must remain visible");
+    equal(snapshot?.mode?.ambientLivelySingleCallAuthoritative, true, "single-call lively ambient authority flag must remain visible");
+    ensure(snapshot?.livelyAmbientAi, "lively ambient diagnostics must survive wrapper retirement");
+    equal(
+      snapshot?.livelyAmbientAi?.humanPrioritySkips,
+      Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0),
+      "lively ambient snapshot must reflect live compatibility-owner counters"
+    );
+
+    return {
+      retired: true,
+      pendingHumanYield: true,
+      livelyAmbientAuthoritative: true,
+      humanPrioritySkips: snapshot?.livelyAmbientAi?.humanPrioritySkips
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1006,6 +1051,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
     if (name === "v37-stack-characterization") return this.contractV37StackCharacterization();
+    if (name === "wrapper-retirement-v37-lively") return this.contractRetiredV37LivelyCompatibility();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();

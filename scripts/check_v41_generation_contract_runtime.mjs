@@ -108,6 +108,7 @@ const contracts = [
   "clarification-reject",
   "background-untouched",
   "v37-stack-characterization",
+  "wrapper-retirement-v37-lively",
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",

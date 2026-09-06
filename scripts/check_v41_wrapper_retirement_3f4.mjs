@@ -27,7 +27,7 @@ const presence = read("src/index_v41_presence_compat.js");
 
 assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
 assert.ok(!coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
-assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!qualityCompat.includes('from "./index_v38_quality_guard.js"'));
 
 assert.ok(qualityCompat.includes('const PASS = "quality-guard-v38"'));
@@ -70,9 +70,9 @@ for (const extractedOverride of ["lineViolation", "noteViolation", "historicalAu
   );
 }
 
-assert.ok(worldDate.includes("V37LivelyChatRoom.prototype.lineViolation.call"));
-assert.ok(worldDate.includes("V37LivelyChatRoom.prototype.noteViolation.call"));
-assert.ok(worldDate.includes("V37LivelyChatRoom.prototype.historicalAudit.call"));
+assert.ok(worldDate.includes("V37HumanDirectorChatRoom.prototype.lineViolation.call"));
+assert.ok(worldDate.includes("V37HumanDirectorChatRoom.prototype.noteViolation.call"));
+assert.ok(worldDate.includes("V37HumanDirectorChatRoom.prototype.historicalAudit.call"));
 assert.ok(worldDate.includes("legacyV38V39WorldDateOverridesBypassedInV41Production: true"));
 assert.ok(worldDate.includes("legacyV38V39WorldDateCountersPreserved: true"));
 

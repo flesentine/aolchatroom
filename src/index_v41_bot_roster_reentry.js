@@ -1,5 +1,5 @@
 import worker, { ChatRoom as V41WorldDateChatRoom } from "./index_v41_world_date_guard.js";
-import { ChatRoom as V37LivelyChatRoom } from "./index_v37_lively_ambient.js";
+import { ChatRoom as V37HumanDirectorChatRoom } from "./index_v37_human_director.js";
 import { BotRosterReentryAuthority } from "./bot_roster_reentry_v41.js";
 
 export default worker;
@@ -21,7 +21,7 @@ export class ChatRoom extends V41WorldDateChatRoom {
   desiredRoster(now = Date.now()) {
     return this.botRosterReentryCoordinator.desiredRoster(
       now,
-      () => V37LivelyChatRoom.prototype.desiredRoster.call(this, now)
+      () => V37HumanDirectorChatRoom.prototype.desiredRoster.call(this, now)
     );
   }
 
@@ -29,7 +29,7 @@ export class ChatRoom extends V41WorldDateChatRoom {
     return this.botRosterReentryCoordinator.announceBotLeave(
       name,
       now,
-      () => V37LivelyChatRoom.prototype.announceBotLeave.call(this, name, now)
+      () => V37HumanDirectorChatRoom.prototype.announceBotLeave.call(this, name, now)
     );
   }
 
@@ -37,7 +37,7 @@ export class ChatRoom extends V41WorldDateChatRoom {
     return this.botRosterReentryCoordinator.announceBotEnter(
       name,
       now,
-      () => V37LivelyChatRoom.prototype.announceBotEnter.call(this, name, now)
+      () => V37HumanDirectorChatRoom.prototype.announceBotEnter.call(this, name, now)
     );
   }
 
