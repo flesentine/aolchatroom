@@ -20,6 +20,7 @@ const v41PresenceCompat = read("src/index_v41_presence_compat.js");
 const v41CoherenceCompat = read("src/index_v41_coherence_compat.js");
 const v41QualityCompat = read("src/index_v41_quality_compat.js");
 const v41LivelyCompat = read("src/index_v41_lively_ambient_compat.js");
+const v41HumanDirectorCompat = read("src/index_v41_human_director_compat.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
@@ -45,7 +46,8 @@ assert.ok(v41AmbientCompat.includes('from "./index_v41_presence_compat.js"'), "3
 assert.ok(v41PresenceCompat.includes('from "./index_v41_coherence_compat.js"'), "3F.3 presence compatibility must use the v41 coherence compatibility layer");
 assert.ok(v41CoherenceCompat.includes('from "./index_v41_quality_compat.js"'), "3F.4 coherence compatibility must use the v41 quality compatibility layer");
 assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'), "3G.2 quality compatibility must bypass the retired v37 lively wrapper");
-assert.ok(v41LivelyCompat.includes('from "./index_v37_human_director.js"'), "3G.2 lively compatibility must preserve the v37 human Director beneath it");
+assert.ok(v41LivelyCompat.includes('from "./index_v41_human_director_compat.js"'), "3G.3 lively compatibility must use the v41 human Director compatibility layer");
+assert.ok(v41HumanDirectorCompat.includes('from "./index_v37_free_providers.js"'), "3G.3 human Director compatibility must preserve the v37 provider layer beneath it");
 assert.ok(!v41CoherenceCompat.includes('from "./index_v38_quality_guard.js"'), "v38 quality must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_coherence.js"'), "v39 coherence must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_presence_fix.js"'), "v39 presence must be retired from v41 production inheritance");

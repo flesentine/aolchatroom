@@ -14,6 +14,7 @@ function ownsMethod(source, name) {
 const qualityCompat = read("src/index_v41_quality_compat.js");
 const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const frozenLively = read("src/index_v37_lively_ambient.js");
+const humanDirectorCompat = read("src/index_v41_human_director_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
@@ -26,7 +27,8 @@ const coherenceCompat = read("src/index_v41_coherence_compat.js");
 
 assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
-assert.ok(livelyCompat.includes('from "./index_v37_human_director.js"'));
+assert.ok(livelyCompat.includes('from "./index_v41_human_director_compat.js"'));
+assert.ok(humanDirectorCompat.includes('from "./index_v37_free_providers.js"'));
 assert.ok(frozenLively.includes('from "./index_v37_human_director.js"'));
 
 const v41ProductionSpine = [
@@ -77,7 +79,8 @@ for (const marker of [
 }
 
 const headerLines = 4;
-const compatBody = livelyCompat.split("\n").slice(headerLines).join("\n");
+const compatBody = livelyCompat.split("\n").slice(headerLines).join("\n")
+  .replace('from "./index_v41_human_director_compat.js"', 'from "./index_v37_human_director.js"');
 assert.equal(
   compatBody,
   frozenLively,

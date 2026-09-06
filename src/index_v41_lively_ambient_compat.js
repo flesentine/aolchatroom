@@ -2,7 +2,7 @@
 // Frozen index_v37_lively_ambient.js remains unchanged for the v37-v40 lineage.
 // V41 production preserves the authoritative lively ambient behavior here while
 // bypassing the old v37 wrapper as an inheritance/fetch boundary.
-import humanDirectorWorker, { ChatRoom as HumanDirectorChatRoom } from "./index_v37_human_director.js";
+import humanDirectorWorker, { ChatRoom as HumanDirectorChatRoom } from "./index_v41_human_director_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { PROVIDER_LABELS_V37 } from "./free_provider_pool_v37.js";
 import { simulatedDateTimeLabel } from "./social.js";

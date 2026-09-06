@@ -531,6 +531,52 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractRetiredV37HumanDirectorCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const repaired = this.repairedHumanTrigger({
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "you mean the saturn?",
+      replyTo: "m-prior",
+      at: Date.now()
+    });
+    equal(repaired.from, "Crateman", "Director compatibility owner must preserve repaired human sender");
+    equal(repaired.target, "SegaMan", "Director compatibility owner must preserve repaired human target");
+
+    equal(
+      this.directHumanDirectorEligible({ obligation: { locked: true, speaker: "SegaMan", target: "Crateman" } }),
+      true,
+      "locked direct-human obligation must remain Director-eligible"
+    );
+    equal(
+      this.directHumanDirectorEligible({ obligation: { locked: false, speaker: "SegaMan", target: "Crateman" } }),
+      false,
+      "unlocked obligation must remain Director-ineligible"
+    );
+
+    equal(
+      this.sceneForMessage({ _v37ForceNewScene: true, target: "Crateman", text: "fresh pivot" }, Date.now()),
+      null,
+      "Director replace/pivot marker must still force a fresh scene"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.directHumanDirectorAuthoritative, true, "direct-human Director must remain authoritative");
+    equal(snapshot?.mode?.legacyBrainGetsSecondVoteOnDirectHuman, false, "legacy planner must remain excluded from a second direct-human vote");
+    ensure(snapshot?.humanDirector, "human Director diagnostics must survive wrapper retirement");
+    ensure(this.v37HumanDirectorStats, "human Director counters must initialize on the replacement owner");
+
+    return {
+      retired: true,
+      directHumanDirectorAuthoritative: true,
+      freshPivotScene: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1052,6 +1098,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "background-untouched") return this.contractBackgroundUntouched();
     if (name === "v37-stack-characterization") return this.contractV37StackCharacterization();
     if (name === "wrapper-retirement-v37-lively") return this.contractRetiredV37LivelyCompatibility();
+    if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
