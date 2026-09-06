@@ -70,9 +70,9 @@ for (const extractedOverride of ["lineViolation", "noteViolation", "historicalAu
   );
 }
 
-assert.ok(worldDate.includes("V37HumanOnlyChatRoom.prototype.lineViolation.call"));
-assert.ok(worldDate.includes("V37HumanOnlyChatRoom.prototype.noteViolation.call"));
-assert.ok(worldDate.includes("V37HumanOnlyChatRoom.prototype.historicalAudit.call"));
+assert.ok(worldDate.includes("V37HotfixChatRoom.prototype.lineViolation.call"));
+assert.ok(worldDate.includes("V37HotfixChatRoom.prototype.noteViolation.call"));
+assert.ok(worldDate.includes("V37HotfixChatRoom.prototype.historicalAudit.call"));
 assert.ok(worldDate.includes("legacyV38V39WorldDateOverridesBypassedInV41Production: true"));
 assert.ok(worldDate.includes("legacyV38V39WorldDateCountersPreserved: true"));
 
