@@ -1,4 +1,4 @@
-import v39Worker, { ChatRoom as V39ChatRoom } from "./index_v39_coherence.js";
+import coherenceWorker, { ChatRoom as V41CoherenceCompatChatRoom } from "./index_v41_coherence_compat.js";
 import {
   activeHumanConnectionCount,
   cleanLogicalHumanName,
@@ -12,7 +12,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await v39Worker.fetch(request, env);
+    const response = await coherenceWorker.fetch(request, env);
     const url = new URL(request.url);
     if (!["/api/health", "/api/everything", "/api/full-status"].includes(url.pathname)) return response;
     const data = await json(response);
@@ -32,7 +32,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V39ChatRoom {
+export class ChatRoom extends V41CoherenceCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v39HumanReplacementAt = new Map();
