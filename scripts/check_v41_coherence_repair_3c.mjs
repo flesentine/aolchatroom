@@ -85,10 +85,10 @@ function ownsMethod(source, name) {
 }
 
 assert.ok(wrapper.includes('from "./index_v41_human_reconnect.js"'));
-assert.ok(wrapper.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(wrapper.includes('from "./index_v37_human_director.js"'));
 assert.ok(!wrapper.includes('from "./index_v38_quality_guard.js"'));
-assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.resolveDirectTarget.call"));
-assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.voiceBrainPlan.call"));
+assert.ok(wrapper.includes("V37HumanDirectorChatRoom.prototype.resolveDirectTarget.call"));
+assert.ok(wrapper.includes("V37HumanDirectorChatRoom.prototype.voiceBrainPlan.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
 assert.ok(worldDateWrapper.includes('from "./index_v41_coherence_repair.js"'));
