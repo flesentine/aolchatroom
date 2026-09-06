@@ -489,6 +489,24 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.captureFixPolicy?.relativePublicDateClaimsValidated, true, "3F.2 v39 snapshot must preserve extracted relative-date compatibility flag");
     equal(snapshot.presenceFixStats?.humanSessionReplacements, 0, "3F.2 must preserve presence-fix counter surface");
 
+    const hookOld = this.acceptContractHuman("HookUser");
+    const replacementBefore = this.v39PresenceFixStats.humanSessionReplacements;
+    const hookResponse = await this.fetch(new Request("https://room.internal/ws?name=HookUser", {
+      headers: { Upgrade: "websocket" }
+    }));
+    equal(hookResponse.status, 101, "3F.2 /ws compatibility hook must still delegate into the base WebSocket admission path");
+    ensure(hookOld.deserializeAttachment().v39Superseded, "3F.2 /ws hook must dynamically dispatch same-name replacement through Phase 3B");
+    equal(
+      this.v39PresenceFixStats.humanSessionReplacements,
+      replacementBefore + 1,
+      "3F.2 /ws hook must preserve the legacy replacement counter through the Phase 3B authority"
+    );
+    equal(
+      this.humanNames().filter((name) => name === "HookUser").length,
+      1,
+      "3F.2 /ws replacement must leave exactly one logical HookUser"
+    );
+
     first.close(1000, "contract cleanup");
     second.close(1000, "contract cleanup");
     return {
