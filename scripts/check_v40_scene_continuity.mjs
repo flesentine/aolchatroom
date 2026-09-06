@@ -147,7 +147,10 @@ assert.ok(helper.includes("return participantNames(sceneRows).some"), "human saf
 assert.ok(helper.includes("inferSceneMomentumCandidate"), "v41 must be able to ask v40 for a pre-ownership momentum candidate without changing legacy infer behavior");
 
 const v41 = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
-assert.ok(v41.includes('from "./index_v40_scene_continuity.js"'), "v41 must preserve v40 as its direct compatibility baseline");
+const v41AmbientCompat = fs.readFileSync(new URL("../src/index_v41_ambient_continuity_compat.js", import.meta.url), "utf8");
+assert.ok(v41.includes('from "./index_v41_ambient_continuity_compat.js"'), "3F.1 v41 production must use the v40-compatible retirement spine");
+assert.ok(v41AmbientCompat.includes('from "./index_v39_presence_fix.js"'), "3F.1 v41 compatibility must bypass the retired v39 world wrapper");
+assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain its original v39 world baseline");
 const v41Reconnect = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41Coherence = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
 const v41Generation = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
