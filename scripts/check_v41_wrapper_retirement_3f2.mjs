@@ -8,6 +8,7 @@ function read(path) {
 const scene = read("src/index_v41_scene_coordinator.js");
 const ambient = read("src/index_v41_ambient_continuity_compat.js");
 const presenceCompat = read("src/index_v41_presence_compat.js");
+const coherenceCompat = read("src/index_v41_coherence_compat.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
 const frozenV40 = read("src/index_v40_scene_continuity.js");
 const frozenV39World = read("src/index_v39_world_gate.js");
@@ -21,7 +22,9 @@ const reconnect = read("src/index_v41_human_reconnect.js");
 assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(ambient.includes('from "./index_v41_presence_compat.js"'));
 assert.ok(!ambient.includes('from "./index_v39_presence_fix.js"'));
-assert.ok(presenceCompat.includes('from "./index_v39_coherence.js"'));
+assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
+assert.ok(coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
+assert.ok(!presenceCompat.includes('from "./index_v39_coherence.js"'));
 assert.ok(!presenceCompat.includes('from "./index_v39_presence_fix.js"'));
 
 for (const method of [
@@ -84,9 +87,11 @@ const v41ProductionSpine = [
   reconnect,
   scene,
   ambient,
-  presenceCompat
+  presenceCompat,
+  coherenceCompat
 ].join("\n");
 assert.equal(v41ProductionSpine.includes('from "./index_v39_world_gate.js"'), false);
 assert.equal(v41ProductionSpine.includes('from "./index_v39_presence_fix.js"'), false);
+assert.equal(v41ProductionSpine.includes('from "./index_v39_coherence.js"'), false);
 
 console.log("v41 Phase 3F.2 v39 presence-wrapper retirement checks passed");
