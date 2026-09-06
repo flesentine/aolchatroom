@@ -93,6 +93,7 @@ const generationBase = fs.readFileSync(new URL("../src/index_v41_generation_cont
 const v38 = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.meta.url), "utf8");
 const v39Coherence = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
 const v39Presence = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
+const v41PresenceCompat = fs.readFileSync(new URL("../src/index_v41_presence_compat.js", import.meta.url), "utf8");
 const v39World = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
 const v40 = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
 const v41Scene = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
@@ -105,11 +106,11 @@ function ownsMethod(source, name) {
 
 assert.ok(wrapper.includes('from "./index_v41_coherence_repair.js"'));
 assert.ok(wrapper.includes('from "./index_v37_lively_ambient.js"'));
-assert.ok(wrapper.includes('from "./index_v39_presence_fix.js"'));
+assert.ok(wrapper.includes('from "./index_v41_presence_compat.js"'));
 assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.lineViolation.call"));
 assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.noteViolation.call"));
 assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.historicalAudit.call"));
-assert.ok(wrapper.includes("PresenceFixedChatRoom.prototype.say.call"));
+assert.ok(wrapper.includes("V41PresenceCompatChatRoom.prototype.say.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
 
@@ -127,6 +128,7 @@ for (const [name, source] of [
 assert.ok(v38.includes("hardEraViolation(text, now)"));
 assert.ok(v39Coherence.includes("futureEventViolation(text, now)"));
 assert.ok(v39Presence.includes("historicalDateMismatch(text, now)"));
+assert.ok(v41PresenceCompat.includes('from "./index_v39_coherence.js"'));
 assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 

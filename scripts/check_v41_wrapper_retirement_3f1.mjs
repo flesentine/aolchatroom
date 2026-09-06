@@ -7,6 +7,7 @@ function read(path) {
 
 const scene = read("src/index_v41_scene_coordinator.js");
 const compat = read("src/index_v41_ambient_continuity_compat.js");
+const presenceCompat = read("src/index_v41_presence_compat.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
 const frozenV40 = read("src/index_v40_scene_continuity.js");
 const frozenV39World = read("src/index_v39_world_gate.js");
@@ -18,7 +19,8 @@ const reconnect = read("src/index_v41_human_reconnect.js");
 
 assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(!scene.includes('from "./index_v40_scene_continuity.js"'));
-assert.ok(compat.includes('from "./index_v39_presence_fix.js"'));
+assert.ok(compat.includes('from "./index_v41_presence_compat.js"'));
+assert.ok(presenceCompat.includes('from "./index_v39_coherence.js"'));
 assert.ok(!compat.includes('from "./index_v39_world_gate.js"'));
 assert.ok(compat.includes('const PASS = "scene-continuity-v40"'));
 assert.ok(compat.includes("currentAmbientMomentum(now = Date.now())"));
@@ -35,14 +37,14 @@ assert.ok(presence.includes('from "./index_v39_coherence.js"'));
 assert.ok(worldDate.includes("this.v39WorldGateStats ||= {"));
 assert.ok(worldDate.includes("futureGameProductLinesBlocked: 0"));
 assert.ok(worldDate.includes("v39Snapshot(now = Date.now())"));
-assert.ok(worldDate.includes("PresenceFixedChatRoom.prototype.v39Snapshot.call(this, now)"));
+assert.ok(worldDate.includes("V41PresenceCompatChatRoom.prototype.v39Snapshot.call(this, now)"));
 assert.ok(worldDate.includes("futureGameProductAuditAllRetained"));
 assert.ok(worldDate.includes("worldGatePolicy"));
 assert.ok(worldDate.includes("futureGameProductBoundary: true"));
 assert.ok(worldDate.includes("auditedPublicClaimsBlockedPreDisplay: true"));
 assert.ok(worldDate.includes("periodConsoleLabelNormalization: true"));
 
-const v41ProductionSpine = [generationBase, roster, worldDate, coherence, reconnect, scene, compat].join("\n");
+const v41ProductionSpine = [generationBase, roster, worldDate, coherence, reconnect, scene, compat, presenceCompat].join("\n");
 assert.equal(
   v41ProductionSpine.includes('from "./index_v39_world_gate.js"'),
   false,

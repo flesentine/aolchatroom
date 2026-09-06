@@ -1,6 +1,6 @@
 import worker, { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_repair.js";
 import { ChatRoom as V37LivelyChatRoom } from "./index_v37_lively_ambient.js";
-import { ChatRoom as PresenceFixedChatRoom } from "./index_v39_presence_fix.js";
+import { ChatRoom as V41PresenceCompatChatRoom } from "./index_v41_presence_compat.js";
 import { WorldDateGuardAuthority } from "./world_date_guard_v41.js";
 import { auditFutureGameProductHistory } from "./v39_public_world_gate.js";
 
@@ -68,7 +68,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
       kind,
       source,
       meta,
-      (normalized) => PresenceFixedChatRoom.prototype.say.call(this, from, normalized, kind, source, meta)
+      (normalized) => V41PresenceCompatChatRoom.prototype.say.call(this, from, normalized, kind, source, meta)
     );
   }
 
@@ -80,7 +80,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
   }
 
   v39Snapshot(now = Date.now()) {
-    const base = PresenceFixedChatRoom.prototype.v39Snapshot.call(this, now);
+    const base = V41PresenceCompatChatRoom.prototype.v39Snapshot.call(this, now);
     return {
       ...base,
       worldGateStats: { ...this.v39WorldGateStats },

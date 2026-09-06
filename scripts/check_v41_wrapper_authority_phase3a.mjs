@@ -16,6 +16,7 @@ const v39Presence = read("src/index_v39_presence_fix.js");
 const v39World = read("src/index_v39_world_gate.js");
 const v40 = read("src/index_v40_scene_continuity.js");
 const v41AmbientCompat = read("src/index_v41_ambient_continuity_compat.js");
+const v41PresenceCompat = read("src/index_v41_presence_compat.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
@@ -37,7 +38,9 @@ assert.ok(v41WorldDate.includes('from "./index_v41_coherence_repair.js"'), "Phas
 assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'), "Phase 3C must remain additive above Phase 3B");
 assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'), "Phase 3B must remain additive above scene authority");
 assert.ok(v41Scene.includes('from "./index_v41_ambient_continuity_compat.js"'), "3F.1 production scene layer must use the v41 ambient compatibility spine");
-assert.ok(v41AmbientCompat.includes('from "./index_v39_presence_fix.js"'), "3F.1 v41 compatibility spine must bypass v39 world");
+assert.ok(v41AmbientCompat.includes('from "./index_v41_presence_compat.js"'), "3F.2 v41 compatibility spine must use the v41 presence compatibility layer");
+assert.ok(v41PresenceCompat.includes('from "./index_v39_coherence.js"'), "3F.2 presence compatibility must bypass the retired v39 presence wrapper");
+assert.ok(!v41PresenceCompat.includes('from "./index_v39_presence_fix.js"'), "v39 presence must be retired from v41 production inheritance");
 assert.ok(!v41AmbientCompat.includes('from "./index_v39_world_gate.js"'), "v39 world must be retired from v41 production inheritance");
 assert.ok(v40.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain the original v39 world wrapper");
 assert.ok(v39World.includes('from "./index_v39_presence_fix.js"'));

@@ -148,8 +148,10 @@ assert.ok(helper.includes("inferSceneMomentumCandidate"), "v41 must be able to a
 
 const v41 = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
 const v41AmbientCompat = fs.readFileSync(new URL("../src/index_v41_ambient_continuity_compat.js", import.meta.url), "utf8");
+const v41PresenceCompat = fs.readFileSync(new URL("../src/index_v41_presence_compat.js", import.meta.url), "utf8");
 assert.ok(v41.includes('from "./index_v41_ambient_continuity_compat.js"'), "3F.1 v41 production must use the v40-compatible retirement spine");
-assert.ok(v41AmbientCompat.includes('from "./index_v39_presence_fix.js"'), "3F.1 v41 compatibility must bypass the retired v39 world wrapper");
+assert.ok(v41AmbientCompat.includes('from "./index_v41_presence_compat.js"'), "3F.2 v41 ambient compatibility must use the presence compatibility layer");
+assert.ok(v41PresenceCompat.includes('from "./index_v39_coherence.js"'), "3F.2 presence compatibility must bypass the retired v39 presence wrapper");
 assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain its original v39 world baseline");
 const v41Reconnect = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41Coherence = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
