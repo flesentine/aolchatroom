@@ -12,7 +12,7 @@ import {
   selectSceneCarryIndices
 } from "./scene_continuity_v40.js";
 
-const PASS = "scene-continuity-v40-v41-compat";
+const PASS = "scene-continuity-v40";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
