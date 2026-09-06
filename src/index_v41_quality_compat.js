@@ -3,7 +3,7 @@
 // V41 production keeps the still-live room-topic fatigue/cooling behavior and
 // v38 diagnostic surface here while Phase 3D remains authoritative for hard-era
 // line validation and historical audit.
-import v37Worker, { ChatRoom as V37LivelyChatRoom } from "./index_v37_lively_ambient.js";
+import livelyWorker, { ChatRoom as V41LivelyAmbientCompatChatRoom } from "./index_v41_lively_ambient_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
   V38_TOPIC_COOLDOWN_MS,
@@ -29,7 +29,7 @@ export default {
       return env.CHAT_ROOMS.get(id).fetch(new Request("https://room.internal/v38-status"));
     }
 
-    const response = await v37Worker.fetch(request, env);
+    const response = await livelyWorker.fetch(request, env);
     if (!["/api/health", "/api/everything", "/api/full-status"].includes(url.pathname)) return response;
     const data = await json(response);
     if (!data) return response;
@@ -52,7 +52,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V37LivelyChatRoom {
+export class ChatRoom extends V41LivelyAmbientCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v38TopicCooling = new Map();
