@@ -451,6 +451,58 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+
+  async contractRetiredV39CoherenceCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v39RecentBotLeaves instanceof Map, "3F.3 must initialize the legacy bot-leave map without the retired coherence constructor");
+    ensure(this.v39PendingHumanDisconnects instanceof Map, "3F.3 must initialize the legacy reconnect map without the retired coherence constructor");
+    ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize legacy v39 counters");
+    equal(this.v39LastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline");
+    equal(this.v39LastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline");
+
+    const beforeBlocked = this.v39Stats.selfDialogueLinesBlocked;
+    const beforeFiltered = this.v39Stats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "SegaMan", target: "SegaMan", intent: "reply", topic: "gaming", text: "yeah SegaMan totally" },
+      { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn is still my pick" },
+      { speaker: "SegaMan", target: "room", intent: "react", topic: "gaming", text: "exactly what i just said" }
+    ], "background");
+
+    equal(this.v39Stats.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 must preserve both v39 self-dialogue rejection modes");
+    equal(this.v39Stats.backgroundPlansFiltered, beforeFiltered + 1, "3F.3 must preserve the legacy filtered-background-plan counter");
+    ensure(
+      !(this.aiQueue || []).some((row) => row?.text === "yeah SegaMan totally" || row?.text === "exactly what i just said"),
+      "3F.3 blocked self-dialogue lines must not reach the inherited queue"
+    );
+    ensure(
+      (this.aiQueue || []).some((row) => row?.text === "saturn is still my pick"),
+      "3F.3 must retain a valid background line from the same filtered plan"
+    );
+
+    const blockedAfterBackground = this.v39Stats.selfDialogueLinesBlocked;
+    const filteredAfterBackground = this.v39Stats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "MetallicaFan", target: "MetallicaFan", intent: "reply", topic: "music", text: "direct path probe" }
+    ], "human-replan");
+    equal(this.v39Stats.selfDialogueLinesBlocked, blockedAfterBackground, "3F.3 self-dialogue filtering must remain background-only");
+    equal(this.v39Stats.backgroundPlansFiltered, filteredAfterBackground, "non-background plans must not increment the v39 filter counter");
+
+    const statusResponse = await this.fetch(new Request("https://room.internal/v39-status"));
+    equal(statusResponse.status, 200, "3F.3 must preserve the internal v39 status endpoint");
+    const status = await statusResponse.json();
+    equal(status?.pass, "conversation-coherence-v39", "3F.3 status must retain the legacy v39 pass identity");
+    equal(status?.diagnostics?.policy?.selfDialogueFilteringBackgroundOnly, true, "3F.3 status must preserve background-only policy diagnostics");
+    equal(status?.diagnostics?.stats?.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 status must expose the preserved self-dialogue counter");
+
+    return {
+      retiredV39Coherence: true,
+      blocked: status?.diagnostics?.stats?.selfDialogueLinesBlocked,
+      backgroundOnly: true,
+      statusPreserved: true
+    };
+  }
+
   async contractRetiredV39PresenceCompatibility() {
     const now = Date.now();
     this.reset();
@@ -824,6 +876,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
     if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
     if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();

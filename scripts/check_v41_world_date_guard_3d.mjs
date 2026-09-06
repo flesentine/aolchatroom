@@ -94,6 +94,7 @@ const v38 = fs.readFileSync(new URL("../src/index_v38_quality_guard.js", import.
 const v39Coherence = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
 const v39Presence = fs.readFileSync(new URL("../src/index_v39_presence_fix.js", import.meta.url), "utf8");
 const v41PresenceCompat = fs.readFileSync(new URL("../src/index_v41_presence_compat.js", import.meta.url), "utf8");
+const v41CoherenceCompat = fs.readFileSync(new URL("../src/index_v41_coherence_compat.js", import.meta.url), "utf8");
 const v39World = fs.readFileSync(new URL("../src/index_v39_world_gate.js", import.meta.url), "utf8");
 const v40 = fs.readFileSync(new URL("../src/index_v40_scene_continuity.js", import.meta.url), "utf8");
 const v41Scene = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
@@ -128,7 +129,8 @@ for (const [name, source] of [
 assert.ok(v38.includes("hardEraViolation(text, now)"));
 assert.ok(v39Coherence.includes("futureEventViolation(text, now)"));
 assert.ok(v39Presence.includes("historicalDateMismatch(text, now)"));
-assert.ok(v41PresenceCompat.includes('from "./index_v39_coherence.js"'));
+assert.ok(v41PresenceCompat.includes('from "./index_v41_coherence_compat.js"'));
+assert.ok(v41CoherenceCompat.includes('from "./index_v38_quality_guard.js"'));
 assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 
