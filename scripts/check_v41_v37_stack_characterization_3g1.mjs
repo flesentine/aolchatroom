@@ -13,7 +13,8 @@ function ownsMethod(source, name) {
 
 const hotfix = read("src/index_v37_hotfix.js");
 const humanOnly = read("src/index_v37_human_only.js");
-const freeProviders = read("src/index_v37_free_providers.js");
+const freeProviders = read("src/index_v41_free_providers_compat.js");
+const frozenFreeProviders = read("src/index_v37_free_providers.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
 const frozenHumanDirector = read("src/index_v37_human_director.js");
 const livelyAmbient = read("src/index_v41_lively_ambient_compat.js");
@@ -23,9 +24,10 @@ const qualityCompat = read("src/index_v41_quality_compat.js");
 assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(livelyAmbient.includes('from "./index_v41_human_director_compat.js"'));
 assert.ok(frozenLivelyAmbient.includes('from "./index_v37_human_director.js"'));
-assert.ok(humanDirector.includes('from "./index_v37_free_providers.js"'));
+assert.ok(humanDirector.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(frozenHumanDirector.includes('from "./index_v37_free_providers.js"'));
 assert.ok(freeProviders.includes('from "./index_v37_human_only.js"'));
+assert.ok(frozenFreeProviders.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
