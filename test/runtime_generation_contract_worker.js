@@ -451,6 +451,53 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return { untouched: true, text: voiced[0]?.text };
   }
 
+  async contractRetiredV39PresenceCompatibility() {
+    const now = Date.now();
+    this.reset();
+
+    ensure(this.v39HumanReplacementAt instanceof Map, "3F.2 must initialize the legacy replacement map without the retired presence constructor");
+    ensure(this.v39PresenceFixStats && typeof this.v39PresenceFixStats === "object", "3F.2 must initialize legacy presence counters");
+    ensure(this.v39CaptureFixStats && typeof this.v39CaptureFixStats === "object", "3F.2 must initialize legacy capture counters");
+
+    const first = this.acceptContractHuman("Crateman");
+    const second = this.acceptContractHuman("Crateman");
+    equal(this.humanNames().length, 1, "3F.2 logical-human helper must dedupe same-name sockets");
+    equal(this.humanNames()[0], "Crateman", "3F.2 logical-human helper must preserve the screen name");
+    equal(this.activeHumanConnectionCount("Crateman"), 2, "3F.2 active connection count must still see both active sockets");
+
+    const secondAttachment = second.deserializeAttachment();
+    second.serializeAttachment({ ...secondAttachment, v39DisconnectPending: true, v39DisconnectPendingAt: now });
+    equal(this.activeHumanConnectionCount("Crateman"), 1, "pending socket must be excluded from active logical connection count");
+    equal(this.humanNames().length, 1, "one remaining active same-name socket must preserve one logical human");
+
+    const beforeQuick = this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed;
+    const quick = await this.generateGroqBatch();
+    equal(Array.isArray(quick), true, "3F.2 quick-background compatibility must return an array");
+    equal(quick.length, 0, "3F.2 must keep legacy quick-background provider path disabled");
+    equal(
+      this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed,
+      beforeQuick + 1,
+      "3F.2 must preserve the legacy quick-background suppression counter"
+    );
+
+    const snapshot = this.v39Snapshot(now);
+    equal(snapshot.humanPresenceIdentity?.logicalHumanCount, 1, "3F.2 v39 snapshot must preserve logical-human diagnostics");
+    equal(snapshot.humanPresenceIdentity?.rawSocketCount >= 2, true, "3F.2 v39 snapshot must expose raw socket count");
+    equal(snapshot.humanPresenceIdentity?.pendingCloseSocketCount >= 1, true, "3F.2 v39 snapshot must expose pending-close sockets");
+    equal(snapshot.captureFixPolicy?.legacyQuickBackgroundDisabled, true, "3F.2 v39 snapshot must preserve quick-background policy");
+    equal(snapshot.captureFixPolicy?.explicitErrorChallengeRepair, true, "3F.2 v39 snapshot must preserve extracted error-repair compatibility flag");
+    equal(snapshot.captureFixPolicy?.relativePublicDateClaimsValidated, true, "3F.2 v39 snapshot must preserve extracted relative-date compatibility flag");
+    equal(snapshot.presenceFixStats?.humanSessionReplacements, 0, "3F.2 must preserve presence-fix counter surface");
+
+    first.close(1000, "contract cleanup");
+    second.close(1000, "contract cleanup");
+    return {
+      retiredV39Presence: true,
+      logicalHumans: snapshot.humanPresenceIdentity?.logicalHumanCount,
+      quickBackgroundSuppressed: true
+    };
+  }
+
   async contractRetiredV39WorldDiagnostics() {
     const now = Date.now();
     this.reset({ bots: ["SegaMan"] });
@@ -759,6 +806,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
     if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
     if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
     if (name === "bot-roster-leave-bookkeeping") return this.contractBotRosterLeaveBookkeeping();
