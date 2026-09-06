@@ -2,12 +2,39 @@ import worker, { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_
 import { ChatRoom as V37LivelyChatRoom } from "./index_v37_lively_ambient.js";
 import { ChatRoom as PresenceFixedChatRoom } from "./index_v39_presence_fix.js";
 import { WorldDateGuardAuthority } from "./world_date_guard_v41.js";
+import { auditFutureGameProductHistory } from "./v39_public_world_gate.js";
 
-export default worker;
+async function json(response) {
+  try { return await response.json(); } catch { return null; }
+}
+
+export default {
+  async fetch(request, env) {
+    const response = await worker.fetch(request, env);
+    const url = new URL(request.url);
+    if (!["/api/health", "/api/everything", "/api/full-status"].includes(url.pathname)) return response;
+    const data = await json(response);
+    if (!data) return response;
+    return Response.json({
+      ...data,
+      v39: {
+        ...(data.v39 || {}),
+        futureGameProductBoundary: true,
+        auditedPublicClaimsBlockedPreDisplay: true,
+        periodConsoleLabelNormalization: true
+      }
+    });
+  }
+};
 
 export class ChatRoom extends V41CoherenceChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
+    this.v39WorldGateStats ||= {
+      futureGameProductLinesBlocked: 0,
+      auditedPublicClaimsBlocked: 0,
+      consoleLabelsNormalized: 0
+    };
     this.worldDateGuardCoordinator = new WorldDateGuardAuthority(this);
   }
 
@@ -50,6 +77,23 @@ export class ChatRoom extends V41CoherenceChatRoom {
       includeAll,
       () => V37LivelyChatRoom.prototype.historicalAudit.call(this, includeAll)
     );
+  }
+
+  v39Snapshot(now = Date.now()) {
+    const base = PresenceFixedChatRoom.prototype.v39Snapshot.call(this, now);
+    return {
+      ...base,
+      worldGateStats: { ...this.v39WorldGateStats },
+      futureGameProductAuditAllRetained: auditFutureGameProductHistory(this.history || [], 0),
+      worldGatePolicy: {
+        futureGameProductBoundary: true,
+        goldenEyeN64NotBefore: "1997-08-25",
+        tonyHawkProSkaterNotBefore: "1999-08-31",
+        auditedPublicClaimsBlockedBeforeDisplay: true,
+        independentAuditAndSurfaceGateShareEvidenceModel: true,
+        ps1BackLabelNormalizedToPlayStation: true
+      }
+    };
   }
 
   v41Snapshot(now = Date.now()) {
