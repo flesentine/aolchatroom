@@ -15,11 +15,11 @@ const hotfix = read("src/index_v37_hotfix.js");
 const humanOnly = read("src/index_v37_human_only.js");
 const freeProviders = read("src/index_v37_free_providers.js");
 const humanDirector = read("src/index_v37_human_director.js");
-const livelyAmbient = read("src/index_v37_lively_ambient.js");
+const livelyAmbient = read("src/index_v41_lively_ambient_compat.js");\nconst frozenLivelyAmbient = read("src/index_v37_lively_ambient.js");
 const qualityCompat = read("src/index_v41_quality_compat.js");
 
-assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
-assert.ok(livelyAmbient.includes('from "./index_v37_human_director.js"'));
+assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
+assert.ok(livelyAmbient.includes('from "./index_v37_human_director.js"'));\nassert.ok(frozenLivelyAmbient.includes('from "./index_v37_human_director.js"'));
 assert.ok(humanDirector.includes('from "./index_v37_free_providers.js"'));
 assert.ok(freeProviders.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v37_hotfix.js"'));
