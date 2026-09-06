@@ -107,11 +107,11 @@ function ownsMethod(source, name) {
 }
 
 assert.ok(wrapper.includes('from "./index_v41_coherence_repair.js"'));
-assert.ok(wrapper.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(wrapper.includes('from "./index_v37_human_director.js"'));
 assert.ok(wrapper.includes('from "./index_v41_presence_compat.js"'));
-assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.lineViolation.call"));
-assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.noteViolation.call"));
-assert.ok(wrapper.includes("V37LivelyChatRoom.prototype.historicalAudit.call"));
+assert.ok(wrapper.includes("V37HumanDirectorChatRoom.prototype.lineViolation.call"));
+assert.ok(wrapper.includes("V37HumanDirectorChatRoom.prototype.noteViolation.call"));
+assert.ok(wrapper.includes("V37HumanDirectorChatRoom.prototype.historicalAudit.call"));
 assert.ok(wrapper.includes("V41PresenceCompatChatRoom.prototype.say.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
@@ -132,7 +132,7 @@ assert.ok(v39Coherence.includes("futureEventViolation(text, now)"));
 assert.ok(v39Presence.includes("historicalDateMismatch(text, now)"));
 assert.ok(v41PresenceCompat.includes('from "./index_v41_coherence_compat.js"'));
 assert.ok(v41CoherenceCompat.includes('from "./index_v41_quality_compat.js"'));
-assert.ok(v41QualityCompat.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 
