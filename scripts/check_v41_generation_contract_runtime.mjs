@@ -107,6 +107,7 @@ const contracts = [
   "human-bad-fallback-reject",
   "clarification-reject",
   "background-untouched",
+  "v37-stack-characterization",
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",

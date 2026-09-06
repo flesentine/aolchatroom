@@ -114,6 +114,24 @@ The v38 hard-era generated-line override, violation counter hook, and historical
 
 The next retirement boundary is the v37 wrapper stack; each remaining v37 provider/director/ambient responsibility must be characterized before any further inheritance shortening.
 
+
+### 3G — v37 wrapper-stack extraction
+
+#### 3G.1 — characterize the live v37 production stack
+Before shortening the v37 inheritance chain, production freezes the exact remaining ownership boundary:
+
+1. `index_v37_hotfix.js` — provider readiness/capacity baseline, degraded and capacity-shedding fallbacks, production-turn singleflight/replay coalescing, provider failure/cooldown policy, internal metadata hygiene, and paused live-model shadow handling.
+2. `index_v37_human_only.js` — the one-preferred-provider capacity override plus constructor state still consumed by lively ambient. Its adaptive ambient generator and human fallback methods are superseded by later v37 layers but cannot be removed until their residual state/diagnostic dependencies are extracted.
+3. `index_v37_free_providers.js` — extended provider configuration, ordering, implementations, source normalization, provider diagnostics, and `/ai-status` augmentation.
+4. `index_v37_human_director.js` — authoritative direct-human Director, structural fallback, pivot scene handling, single-response Voice dispatch, and Director diagnostics.
+5. `index_v37_lively_ambient.js` — authoritative routine ambient generation plus ambient scene exhaustion/closure behavior.
+
+The production chain is therefore intentionally frozen as:
+
+`index_v41_quality_compat.js → index_v37_lively_ambient.js → index_v37_human_director.js → index_v37_free_providers.js → index_v37_human_only.js → index_v37_hotfix.js → index_v37.js`
+
+Phase 3G.1 makes no production dispatch change. Its source and real-Worker contracts exist to prevent a future retirement step from conflating provider, Director, ambient, and production-turn ownership. The next extraction must pick one responsibility boundary and provide a named v41 replacement owner before any v37 wrapper is bypassed.
+
 ## Retirement rule
 
 A wrapper can be retired only when:
