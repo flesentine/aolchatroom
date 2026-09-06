@@ -9,6 +9,7 @@ This phase is **characterization only**. It must not change provider routing, st
 ## Current production chain
 
 `index_v41_generation_contract.js`
+→ `index_v41_bot_roster_reentry.js`
 → `index_v41_world_date_guard.js`
 → `index_v41_coherence_repair.js`
 → `index_v41_human_reconnect.js`
@@ -37,7 +38,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Human coherence Voice lock | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C owns the exact human-trigger/anchor lock while preserving the legacy v39 counter/last-lock diagnostics. |
 | Future-event world gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | Phase 3D preserves `futureEventViolation()` precedence, counters, and historical-audit contribution. |
 | Background self-dialogue filtering | `index_v39_coherence.js` | Preserve background-only scope. |
-| Bot re-entry cooldown / roster compatibility | `index_v39_coherence.js` | Separate roster responsibility; preserve leave/enter timing and diagnostics. |
+| Bot re-entry cooldown / roster compatibility | `index_v41_bot_roster_reentry.js` + `bot_roster_reentry_v41.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | Phase 3E owns the 3-minute cooldown, desired-roster filtering, successful-leave bookkeeping, blocked-enter diagnostics, and active-bot exemption while preserving all older v29/v30/v35 roster behavior beneath it. |
 | Transient human reconnect grace | `index_v39_coherence.js` with `index_v39_presence_fix.js` participation | First Phase 3 extraction candidate because it is concrete, independently observable, and already covered by server + Chromium reconnect tests. |
 | Hard-era technology gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v40 | Phase 3D preserves generated-line blocking, v38 counters, and retained-history audit behavior. |
 | Room-topic fatigue / cooling / background filtering | `index_v38_quality_guard.js` | Preserve cooldown bookkeeping, prompt guidance, background-line filtering, and coordinator-delegated scene closes. |
@@ -89,7 +90,7 @@ Implemented in v41 production through `index_v41_coherence_repair.js` and `coher
 Implemented in v41 production through `index_v41_world_date_guard.js` and `world_date_guard_v41.js`, while frozen v40 keeps the original layered v38/v39 path. The authority preserves the exact production order: future-game/product gate → audited public-claim gate → relative-date validation → future-event gate → hard-era technology gate → older baseline. It also owns bot-only PS1 label normalization, legacy v38/v39 violation counters, and the combined historical-audit surface.
 
 ### 3E — bot roster/re-entry authority
-Extract bot leave/enter/re-entry cooldown bookkeeping without changing provider or scheduler behavior.
+Implemented in v41 production through `index_v41_bot_roster_reentry.js` and `bot_roster_reentry_v41.js`, while frozen v40 keeps the legacy v39 implementation. The authority preserves the 3-minute cooldown, retained-history fallback, active-bot roster eligibility, leave bookkeeping only after a real departure, the legacy `botReentryBlocks` counter, and the `v39-bot-reentry-blocked` broadcast. Delegation below v39 preserves the older v29 departure cooldown, v30 roster ranking, v35 presence locks, and base population scheduler.
 
 ### 3F — wrapper retirement
 Only after all live responsibilities have moved behind explicit authorities and runtime contracts should old version wrappers be shortened or removed.

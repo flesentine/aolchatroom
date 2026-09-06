@@ -1,4 +1,4 @@
-import v41Worker, { ChatRoom as V41WorldDateChatRoom } from "./index_v41_world_date_guard.js";
+import v41Worker, { ChatRoom as V41RosterChatRoom } from "./index_v41_bot_roster_reentry.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   evaluateHumanReplanPrimaryResponse,
@@ -76,7 +76,7 @@ export default {
   }
 };
 
-export class ChatRoom extends V41WorldDateChatRoom {
+export class ChatRoom extends V41RosterChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v41GenerationStats = {

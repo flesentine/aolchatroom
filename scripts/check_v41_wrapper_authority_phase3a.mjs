@@ -18,6 +18,9 @@ const v40 = read("src/index_v40_scene_continuity.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
+const v41WorldDate = read("src/index_v41_world_date_guard.js");
+const v41Roster = read("src/index_v41_bot_roster_reentry.js");
+const v41GenerationBase = read("src/index_v41_generation_contract_base.js");
 const v41Generation = read("src/index_v41_generation_contract.js");
 const wrangler = read("wrangler.jsonc");
 
@@ -26,9 +29,12 @@ assert.ok(wrangler.includes('"main": "src/index_v41_generation_contract.js"'));
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
 // The inherited chain remains explicit. Phase 3A is characterization-only.
-assert.ok(v41Generation.includes('from "./index_v41_coherence_repair.js"'));
-assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'));
-assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'));
+assert.ok(v41Generation.includes('from "./index_v41_coherence_repair.js"'), "final Phase 2 Voice must still call through 3C explicitly");
+assert.ok(v41GenerationBase.includes('from "./index_v41_bot_roster_reentry.js"'), "production base inheritance must enter Phase 3E");
+assert.ok(v41Roster.includes('from "./index_v41_world_date_guard.js"'), "Phase 3E must remain additive above Phase 3D");
+assert.ok(v41WorldDate.includes('from "./index_v41_coherence_repair.js"'), "Phase 3D must remain additive above Phase 3C");
+assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'), "Phase 3C must remain additive above Phase 3B");
+assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'), "Phase 3B must remain additive above scene authority");
 assert.ok(v41Scene.includes('from "./index_v40_scene_continuity.js"'));
 assert.ok(v40.includes('from "./index_v39_world_gate.js"'));
 assert.ok(v39World.includes('from "./index_v39_presence_fix.js"'));
