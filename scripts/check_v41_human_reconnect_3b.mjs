@@ -156,9 +156,10 @@ function ownsMethod(source, name) {
 }
 
 assert.ok(reconnectWrapper.includes('from "./index_v41_scene_coordinator.js"'));
-assert.ok(reconnectWrapper.includes('from "./index_v38_quality_guard.js"'));
-assert.ok(reconnectWrapper.includes("V38ChatRoom.prototype.system.call"));
-assert.ok(reconnectWrapper.includes("V38ChatRoom.prototype.webSocketClose.call"));
+assert.ok(reconnectWrapper.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(!reconnectWrapper.includes('from "./index_v38_quality_guard.js"'));
+assert.ok(reconnectWrapper.includes("V37LivelyChatRoom.prototype.system.call"));
+assert.ok(reconnectWrapper.includes("V37LivelyChatRoom.prototype.webSocketClose.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));
 assert.ok(worldDateWrapper.includes('from "./index_v41_coherence_repair.js"'));
