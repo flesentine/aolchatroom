@@ -1,4 +1,4 @@
-import v40Worker, { ChatRoom as V40ChatRoom } from "./index_v40_scene_continuity.js";
+import v40Worker, { ChatRoom as V40ChatRoom } from "./index_v41_ambient_continuity_compat.js";
 import { SceneOwnershipCoordinator } from "./scene_ownership_coordinator_v41.js";
 
 const PASS = "scene-coordinator-v41-1d";
