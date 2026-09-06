@@ -14,11 +14,39 @@ function ownsMethod(source, name) {
 const qualityCompat = read("src/index_v41_quality_compat.js");
 const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const frozenLively = read("src/index_v37_lively_ambient.js");
+const generationBase = read("src/index_v41_generation_contract_base.js");
+const roster = read("src/index_v41_bot_roster_reentry.js");
+const worldDate = read("src/index_v41_world_date_guard.js");
+const coherence = read("src/index_v41_coherence_repair.js");
+const reconnect = read("src/index_v41_human_reconnect.js");
+const scene = read("src/index_v41_scene_coordinator.js");
+const ambient = read("src/index_v41_ambient_continuity_compat.js");
+const presence = read("src/index_v41_presence_compat.js");
+const coherenceCompat = read("src/index_v41_coherence_compat.js");
 
 assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
 assert.ok(livelyCompat.includes('from "./index_v37_human_director.js"'));
 assert.ok(frozenLively.includes('from "./index_v37_human_director.js"'));
+
+const v41ProductionSpine = [
+  generationBase,
+  roster,
+  worldDate,
+  coherence,
+  reconnect,
+  scene,
+  ambient,
+  presence,
+  coherenceCompat,
+  qualityCompat,
+  livelyCompat
+].join("\n");
+assert.equal(
+  v41ProductionSpine.includes('from "./index_v37_lively_ambient.js"'),
+  false,
+  "3G.2 must remove the retired v37 lively wrapper from every v41 production dependency edge"
+);
 
 for (const method of [
   "sceneIsClosed",
