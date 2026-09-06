@@ -14,7 +14,8 @@ function ownsMethod(source, name) {
 const humanCompat = read("src/index_v41_human_director_compat.js");
 const providerCompat = read("src/index_v41_free_providers_compat.js");
 const frozenProvider = read("src/index_v37_free_providers.js");
-const humanOnly = read("src/index_v37_human_only.js");
+const humanOnly = read("src/index_v41_human_only_compat.js");
+const frozenHumanOnly = read("src/index_v37_human_only.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
@@ -29,9 +30,10 @@ const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 
 assert.ok(humanCompat.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(!humanCompat.includes('from "./index_v37_free_providers.js"'));
-assert.ok(providerCompat.includes('from "./index_v37_human_only.js"'));
+assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenProvider.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v37_hotfix.js"'));
+assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 
 for (const method of [
   "configuredProviders",
@@ -76,7 +78,8 @@ for (const marker of [
 }
 
 const headerLines = 4;
-const compatBody = providerCompat.split("\n").slice(headerLines).join("\n");
+const compatBody = providerCompat.split("\n").slice(headerLines).join("\n")
+  .replace('from "./index_v41_human_only_compat.js"', 'from "./index_v37_human_only.js"');
 assert.equal(
   compatBody,
   frozenProvider,
@@ -106,7 +109,7 @@ assert.equal(
 );
 
 for (const source of [roster, worldDate, coherence, reconnect]) {
-  assert.ok(source.includes('from "./index_v37_human_only.js"'));
+  assert.ok(source.includes('from "./index_v37_hotfix.js"'));
   assert.ok(!source.includes('from "./index_v37_free_providers.js"'));
 }
 
