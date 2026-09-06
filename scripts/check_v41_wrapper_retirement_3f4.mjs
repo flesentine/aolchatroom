@@ -27,7 +27,7 @@ const presence = read("src/index_v41_presence_compat.js");
 
 assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
 assert.ok(!coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
-assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!qualityCompat.includes('from "./index_v38_quality_guard.js"'));
 
 assert.ok(qualityCompat.includes('const PASS = "quality-guard-v38"'));
