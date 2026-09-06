@@ -2,7 +2,7 @@
 // Frozen index_v37_human_director.js remains unchanged for the v37-v40 lineage.
 // V41 production preserves the authoritative direct-human Director behavior here
 // while bypassing the old v37 Director wrapper as an inheritance/fetch boundary.
-import freeProviderWorker, { ChatRoom as FreeProviderChatRoom } from "./index_v37_free_providers.js";
+import freeProviderWorker, { ChatRoom as FreeProviderChatRoom } from "./index_v41_free_providers_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { getCharacter } from "./characters.js";
 import {

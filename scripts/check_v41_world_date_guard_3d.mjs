@@ -107,11 +107,11 @@ function ownsMethod(source, name) {
 }
 
 assert.ok(wrapper.includes('from "./index_v41_coherence_repair.js"'));
-assert.ok(wrapper.includes('from "./index_v37_free_providers.js"'));
+assert.ok(wrapper.includes('from "./index_v37_human_only.js"'));
 assert.ok(wrapper.includes('from "./index_v41_presence_compat.js"'));
-assert.ok(wrapper.includes("V37FreeProviderChatRoom.prototype.lineViolation.call"));
-assert.ok(wrapper.includes("V37FreeProviderChatRoom.prototype.noteViolation.call"));
-assert.ok(wrapper.includes("V37FreeProviderChatRoom.prototype.historicalAudit.call"));
+assert.ok(wrapper.includes("V37HumanOnlyChatRoom.prototype.lineViolation.call"));
+assert.ok(wrapper.includes("V37HumanOnlyChatRoom.prototype.noteViolation.call"));
+assert.ok(wrapper.includes("V37HumanOnlyChatRoom.prototype.historicalAudit.call"));
 assert.ok(wrapper.includes("V41PresenceCompatChatRoom.prototype.say.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 assert.ok(rosterWrapper.includes('from "./index_v41_world_date_guard.js"'));

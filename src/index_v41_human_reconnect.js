@@ -1,5 +1,5 @@
 import worker, { ChatRoom as V41SceneChatRoom } from "./index_v41_scene_coordinator.js";
-import { ChatRoom as V37FreeProviderChatRoom } from "./index_v37_free_providers.js";
+import { ChatRoom as V37HumanOnlyChatRoom } from "./index_v37_human_only.js";
 import { HumanReconnectLifecycleAuthority } from "./human_reconnect_lifecycle_v41.js";
 
 export default worker;
@@ -21,7 +21,7 @@ export class ChatRoom extends V41SceneChatRoom {
   system(text, ...args) {
     return this.humanReconnectCoordinator.system(
       text,
-      () => V37FreeProviderChatRoom.prototype.system.call(this, text, ...args)
+      () => V37HumanOnlyChatRoom.prototype.system.call(this, text, ...args)
     );
   }
 
@@ -31,7 +31,7 @@ export class ChatRoom extends V41SceneChatRoom {
       code,
       reason,
       wasClean,
-      () => V37FreeProviderChatRoom.prototype.webSocketClose.call(this, ws, code, reason, wasClean)
+      () => V37HumanOnlyChatRoom.prototype.webSocketClose.call(this, ws, code, reason, wasClean)
     );
   }
 

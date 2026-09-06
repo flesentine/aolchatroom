@@ -13,6 +13,7 @@ function ownsMethod(source, name) {
 
 const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const humanCompat = read("src/index_v41_human_director_compat.js");
+const providerCompat = read("src/index_v41_free_providers_compat.js");
 const frozenHuman = read("src/index_v37_human_director.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
@@ -27,7 +28,8 @@ const qualityCompat = read("src/index_v41_quality_compat.js");
 
 assert.ok(livelyCompat.includes('from "./index_v41_human_director_compat.js"'));
 assert.ok(!livelyCompat.includes('from "./index_v37_human_director.js"'));
-assert.ok(humanCompat.includes('from "./index_v37_free_providers.js"'));
+assert.ok(humanCompat.includes('from "./index_v41_free_providers_compat.js"'));
+assert.ok(providerCompat.includes('from "./index_v37_human_only.js"'));
 assert.ok(frozenHuman.includes('from "./index_v37_free_providers.js"'));
 
 for (const method of [
@@ -60,7 +62,8 @@ for (const marker of [
 }
 
 const headerLines = 4;
-const compatBody = humanCompat.split("\n").slice(headerLines).join("\n");
+const compatBody = humanCompat.split("\n").slice(headerLines).join("\n")
+  .replace('from "./index_v41_free_providers_compat.js"', 'from "./index_v37_free_providers.js"');
 assert.equal(
   compatBody,
   frozenHuman,
@@ -79,7 +82,8 @@ const v41ProductionSpine = [
   coherenceCompat,
   qualityCompat,
   livelyCompat,
-  humanCompat
+  humanCompat,
+  providerCompat
 ].join("\n");
 assert.equal(
   v41ProductionSpine.includes('from "./index_v37_human_director.js"'),
@@ -88,7 +92,8 @@ assert.equal(
 );
 
 for (const source of [roster, worldDate, coherence, reconnect]) {
-  assert.ok(source.includes('from "./index_v37_free_providers.js"'));
+  assert.ok(source.includes('from "./index_v37_human_only.js"'));
+  assert.ok(!source.includes('from "./index_v37_free_providers.js"'));
   assert.ok(!source.includes('from "./index_v37_human_director.js"'));
 }
 

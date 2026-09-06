@@ -159,7 +159,7 @@ assert.ok(v41PresenceCompat.includes('from "./index_v41_coherence_compat.js"'), 
 assert.ok(v41CoherenceCompat.includes('from "./index_v41_quality_compat.js"'), "3F.4 coherence compatibility must use the v41 quality compatibility layer");
 assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'), "3G.2 quality compatibility must bypass the retired v37 lively wrapper");
 assert.ok(v41LivelyCompat.includes('from "./index_v41_human_director_compat.js"'), "3G.3 lively compatibility must use the v41 human Director compatibility layer");
-assert.ok(v41HumanDirectorCompat.includes('from "./index_v37_free_providers.js"'), "3G.3 human Director compatibility must preserve the v37 provider layer beneath it");
+assert.ok(v41HumanDirectorCompat.includes('from "./index_v41_free_providers_compat.js"'), "3G.4 human Director compatibility must route through the v41 provider compatibility owner");
 assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain its original v39 world baseline");
 const v41Reconnect = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41Coherence = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");

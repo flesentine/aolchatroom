@@ -1,5 +1,5 @@
 import worker, { ChatRoom as V41ReconnectChatRoom } from "./index_v41_human_reconnect.js";
-import { ChatRoom as V37FreeProviderChatRoom } from "./index_v37_free_providers.js";
+import { ChatRoom as V37HumanOnlyChatRoom } from "./index_v37_human_only.js";
 import { CoherenceRepairAuthority } from "./coherence_repair_v41.js";
 
 export default worker;
@@ -18,7 +18,7 @@ export class ChatRoom extends V41ReconnectChatRoom {
     return this.coherenceRepairCoordinator.resolveDirectTarget(
       text,
       sender,
-      () => V37FreeProviderChatRoom.prototype.resolveDirectTarget.call(this, text, sender)
+      () => V37HumanOnlyChatRoom.prototype.resolveDirectTarget.call(this, text, sender)
     );
   }
 
@@ -27,7 +27,7 @@ export class ChatRoom extends V41ReconnectChatRoom {
       plan,
       active,
       human,
-      (nextPlan) => V37FreeProviderChatRoom.prototype.voiceBrainPlan.call(this, nextPlan, active, human)
+      (nextPlan) => V37HumanOnlyChatRoom.prototype.voiceBrainPlan.call(this, nextPlan, active, human)
     );
   }
 

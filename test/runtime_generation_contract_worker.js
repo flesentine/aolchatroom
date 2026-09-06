@@ -1,4 +1,5 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
+import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { getCharacter } from "../src/characters.js";
 
 function ensure(condition, message) {
@@ -577,6 +578,71 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractRetiredV37FreeProviderCompatibility() {
+    this.reset({ bots: ["SegaMan"] });
+    ensure(this.v37ExtendedProviderStats && typeof this.v37ExtendedProviderStats === "object", "3G.4 must initialize extended-provider counters");
+
+    const originalConfigured = this.configuredProviders;
+    const originalHardReady = this.hardReadyProviders;
+    const originalSoftReady = this.softReadyProviders;
+    this.configuredProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+    this.hardReadyProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+    this.softReadyProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+
+    const preferred = V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, Date.now());
+    equal(preferred.length, 1, "routine ambient provider policy must still select exactly one preferred provider");
+    equal(preferred[0], "gemini", "healthy Gemini must remain the routine ambient provider");
+
+    const effective = V41FreeProviderChatRoom.prototype.effectiveStructuredReadyProviders.call(this, Date.now());
+    equal(effective[0], "gemini", "effective provider ordering must still start with Gemini");
+    ensure(effective.includes("mistral"), "effective provider ordering must retain Mistral");
+    ensure(effective.includes("groq"), "effective provider ordering must retain Groq");
+    ensure(effective.includes("openrouter"), "effective provider ordering must retain OpenRouter");
+
+    this.configuredProviders = originalConfigured;
+    this.hardReadyProviders = originalHardReady;
+    this.softReadyProviders = originalSoftReady;
+
+    const beforeCalls = Number(this.v37ExtendedProviderStats.calls || 0);
+    V41FreeProviderChatRoom.prototype.noteExtendedProvider.call(this, "mistral", true);
+    V41FreeProviderChatRoom.prototype.noteExtendedProvider.call(this, "mistral", false);
+    equal(this.v37ExtendedProviderStats.calls, beforeCalls + 2, "extended provider accounting must survive wrapper retirement");
+    ensure(Number(this.v37ExtendedProviderStats.byProvider?.mistral?.successes || 0) >= 1, "Mistral success accounting must survive");
+    ensure(Number(this.v37ExtendedProviderStats.byProvider?.mistral?.failures || 0) >= 1, "Mistral failure accounting must survive");
+
+    const originalMistral = this.callMistralProvider;
+    this.callMistralProvider = async (prompt, maxTokens) => ({ ok: true, provider: "mistral", prompt, maxTokens });
+    return V41FreeProviderChatRoom.prototype.callProvider.call(this, "mistral", "provider-dispatch-probe", 77)
+      .then((result) => {
+        this.callMistralProvider = originalMistral;
+        equal(result?.provider, "mistral", "3G.4 provider dispatch must still route Mistral to its implementation");
+        equal(result?.maxTokens, 77, "provider dispatch must preserve max token budget");
+
+        const before = this.history.length;
+        V41FreeProviderChatRoom.prototype.say.call(this, "SegaMan", "provider metadata probe", "bot", "mistral", { topic: "gaming" });
+        equal(this.history.length, before + 1, "extended-provider source normalization must still emit the bot line");
+        const row = this.history.at(-1);
+        equal(row?.source, "ai", "new provider sources must remain normalized to generic ai for legacy layers");
+        equal(row?.aiProvider, "mistral", "concrete provider metadata must remain attached");
+        equal(row?.provider, "mistral", "provider metadata alias must remain attached");
+
+        const snapshot = this.v37Snapshot();
+        equal(snapshot?.mode?.extendedFreeProviderPool, true, "extended provider mode flag must survive retirement");
+        equal(snapshot?.mode?.cohereTrialProductionDisabledByDefault, true, "Cohere trial production boundary must remain visible");
+        ensure(snapshot?.extendedFreeProviders, "extended provider diagnostics must survive wrapper retirement");
+
+        return {
+          retired: true,
+          preferredProvider: preferred[0],
+          effectiveProviders: effective,
+          providerDispatch: result?.provider,
+          metadataNormalized: true,
+          diagnosticsPreserved: true
+        };
+      });
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1099,6 +1165,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v37-stack-characterization") return this.contractV37StackCharacterization();
     if (name === "wrapper-retirement-v37-lively") return this.contractRetiredV37LivelyCompatibility();
     if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
+    if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
