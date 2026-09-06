@@ -24,7 +24,7 @@ assert.ok(!scene.includes('from "./index_v40_scene_continuity.js"'));
 assert.ok(compat.includes('from "./index_v41_presence_compat.js"'));
 assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
 assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
-assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(qualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'));
 assert.ok(!compat.includes('from "./index_v39_world_gate.js"'));
 assert.ok(compat.includes('const PASS = "scene-continuity-v40"'));
 assert.ok(compat.includes("currentAmbientMomentum(now = Date.now())"));
