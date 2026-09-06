@@ -13,6 +13,7 @@ function ownsMethod(source, name) {
 
 const presenceCompat = read("src/index_v41_presence_compat.js");
 const coherenceCompat = read("src/index_v41_coherence_compat.js");
+const qualityCompat = read("src/index_v41_quality_compat.js");
 const frozenV39Coherence = read("src/index_v39_coherence.js");
 const frozenV39Presence = read("src/index_v39_presence_fix.js");
 const frozenV39World = read("src/index_v39_world_gate.js");
@@ -27,7 +28,9 @@ const ambient = read("src/index_v41_ambient_continuity_compat.js");
 
 assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
 assert.ok(!presenceCompat.includes('from "./index_v39_coherence.js"'));
-assert.ok(coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
+assert.ok(coherenceCompat.includes('from "./index_v41_quality_compat.js"'));
+assert.ok(qualityCompat.includes('from "./index_v37_lively_ambient.js"'));
+assert.ok(!coherenceCompat.includes('from "./index_v38_quality_guard.js"'));
 assert.ok(!coherenceCompat.includes('from "./index_v39_coherence.js"'));
 
 assert.ok(coherenceCompat.includes('const PASS = "conversation-coherence-v39"'));
@@ -87,12 +90,14 @@ const v41ProductionSpine = [
   scene,
   ambient,
   presenceCompat,
-  coherenceCompat
+  coherenceCompat,
+  qualityCompat
 ].join("\n");
 for (const retiredImport of [
   'from "./index_v39_world_gate.js"',
   'from "./index_v39_presence_fix.js"',
-  'from "./index_v39_coherence.js"'
+  'from "./index_v39_coherence.js"',
+  'from "./index_v38_quality_guard.js"'
 ]) {
   assert.equal(
     v41ProductionSpine.includes(retiredImport),
