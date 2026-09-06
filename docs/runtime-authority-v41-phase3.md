@@ -128,9 +128,15 @@ Before shortening the v37 inheritance chain, production freezes the exact remain
 
 The production chain is therefore intentionally frozen as:
 
-`index_v41_quality_compat.js → index_v37_lively_ambient.js → index_v37_human_director.js → index_v37_free_providers.js → index_v37_human_only.js → index_v37_hotfix.js → index_v37.js`
+`index_v41_quality_compat.js → index_v41_lively_ambient_compat.js → index_v37_human_director.js → index_v37_free_providers.js → index_v37_human_only.js → index_v37_hotfix.js → index_v37.js`
 
 Phase 3G.1 makes no production dispatch change. Its source and real-Worker contracts exist to prevent a future retirement step from conflating provider, Director, ambient, and production-turn ownership. The next extraction must pick one responsibility boundary and provide a named v41 replacement owner before any v37 wrapper is bypassed.
+
+
+#### 3G.2 — retire v37 lively-ambient wrapper from v41 production
+V41 production now routes `index_v41_quality_compat.js → index_v41_lively_ambient_compat.js → index_v37_human_director.js`. The new compatibility owner preserves the complete authoritative lively-ambient behavior byte-for-byte beneath a v41-only header: scene closure/continuation protection, exhausted-scene handling, lively prompt construction, provider eligibility/rate gating, one-call ambient burst generation, natural pauses, failure-only built-in fallback, v37 constructor state/counters, status flags, and `v37Snapshot()` diagnostics.
+
+Frozen `index_v37_lively_ambient.js` remains unchanged for the v37-v40 lineage. Production no longer inherits or fetches through that wrapper. The next v37 boundary is the direct-human Director/provider stack; it must be extracted one responsibility at a time rather than copied wholesale.
 
 ## Retirement rule
 
