@@ -106,6 +106,7 @@ const v40Url = new URL("../src/index_v40_scene_continuity.js", import.meta.url);
 const v41CompatUrl = new URL("../src/index_v41_ambient_continuity_compat.js", import.meta.url);
 const v41PresenceCompatUrl = new URL("../src/index_v41_presence_compat.js", import.meta.url);
 const v41CoherenceCompatUrl = new URL("../src/index_v41_coherence_compat.js", import.meta.url);
+const v41QualityCompatUrl = new URL("../src/index_v41_quality_compat.js", import.meta.url);
 const v41Url = new URL("../src/index_v41_scene_coordinator.js", import.meta.url);
 const v41ReconnectUrl = new URL("../src/index_v41_human_reconnect.js", import.meta.url);
 const v41CoherenceUrl = new URL("../src/index_v41_coherence_repair.js", import.meta.url);
@@ -138,12 +139,14 @@ const wrappedV40 = wrangler.includes('"main": "src/index_v40_scene_continuity.js
 const v41CompatEntrypoint = fs.existsSync(v41CompatUrl) ? fs.readFileSync(v41CompatUrl, "utf8") : "";
 const v41PresenceCompatEntrypoint = fs.existsSync(v41PresenceCompatUrl) ? fs.readFileSync(v41PresenceCompatUrl, "utf8") : "";
 const v41CoherenceCompatEntrypoint = fs.existsSync(v41CoherenceCompatUrl) ? fs.readFileSync(v41CoherenceCompatUrl, "utf8") : "";
+const v41QualityCompatEntrypoint = fs.existsSync(v41QualityCompatUrl) ? fs.readFileSync(v41QualityCompatUrl, "utf8") : "";
 const v41Entrypoint = fs.existsSync(v41Url) ? fs.readFileSync(v41Url, "utf8") : "";
 const wrappedV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
   && v41Entrypoint.includes('from "./index_v41_ambient_continuity_compat.js"')
   && v41CompatEntrypoint.includes('from "./index_v41_presence_compat.js"')
   && v41PresenceCompatEntrypoint.includes('from "./index_v41_coherence_compat.js"')
-  && v41CoherenceCompatEntrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v41CoherenceCompatEntrypoint.includes('from "./index_v41_quality_compat.js"')
+  && v41QualityCompatEntrypoint.includes('from "./index_v37_lively_ambient.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
 const v41ReconnectEntrypoint = fs.existsSync(v41ReconnectUrl) ? fs.readFileSync(v41ReconnectUrl, "utf8") : "";
@@ -161,7 +164,8 @@ const wrappedV41Generation = wrangler.includes('"main": "src/index_v41_generatio
   && v41Entrypoint.includes('from "./index_v41_ambient_continuity_compat.js"')
   && v41CompatEntrypoint.includes('from "./index_v41_presence_compat.js"')
   && v41PresenceCompatEntrypoint.includes('from "./index_v41_coherence_compat.js"')
-  && v41CoherenceCompatEntrypoint.includes('from "./index_v38_quality_guard.js"')
+  && v41CoherenceCompatEntrypoint.includes('from "./index_v41_quality_compat.js"')
+  && v41QualityCompatEntrypoint.includes('from "./index_v37_lively_ambient.js"')
   && v39Entrypoint.includes('from "./index_v38_quality_guard.js"')
   && v38Entrypoint.includes('from "./index_v37_lively_ambient.js"');
 assert.ok(directV37 || wrappedV38 || wrappedV39 || wrappedV39Presence || wrappedV39World || wrappedV40 || wrappedV41 || wrappedV41Generation, "production entrypoint must retain human Director through an explicit v37/v38/v41 compatibility chain");
