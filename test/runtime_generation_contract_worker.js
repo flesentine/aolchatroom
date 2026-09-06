@@ -972,7 +972,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
     if (name === "clarification-reject") return this.contractClarificationReject();
     if (name === "background-untouched") return this.contractBackgroundUntouched();
-    if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();\n    if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
+    if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
+    if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
     if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
     if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
