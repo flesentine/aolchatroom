@@ -152,12 +152,14 @@ const v41PresenceCompat = fs.readFileSync(new URL("../src/index_v41_presence_com
 const v41CoherenceCompat = fs.readFileSync(new URL("../src/index_v41_coherence_compat.js", import.meta.url), "utf8");
 const v41QualityCompat = fs.readFileSync(new URL("../src/index_v41_quality_compat.js", import.meta.url), "utf8");
 const v41LivelyCompat = fs.readFileSync(new URL("../src/index_v41_lively_ambient_compat.js", import.meta.url), "utf8");
+const v41HumanDirectorCompat = fs.readFileSync(new URL("../src/index_v41_human_director_compat.js", import.meta.url), "utf8");
 assert.ok(v41.includes('from "./index_v41_ambient_continuity_compat.js"'), "3F.1 v41 production must use the v40-compatible retirement spine");
 assert.ok(v41AmbientCompat.includes('from "./index_v41_presence_compat.js"'), "3F.2 v41 ambient compatibility must use the presence compatibility layer");
 assert.ok(v41PresenceCompat.includes('from "./index_v41_coherence_compat.js"'), "3F.3 presence compatibility must use the v41 coherence compatibility layer");
 assert.ok(v41CoherenceCompat.includes('from "./index_v41_quality_compat.js"'), "3F.4 coherence compatibility must use the v41 quality compatibility layer");
 assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"'), "3G.2 quality compatibility must bypass the retired v37 lively wrapper");
-assert.ok(v41LivelyCompat.includes('from "./index_v37_human_director.js"'), "3G.2 lively compatibility must preserve the v37 human Director beneath it");
+assert.ok(v41LivelyCompat.includes('from "./index_v41_human_director_compat.js"'), "3G.3 lively compatibility must use the v41 human Director compatibility layer");
+assert.ok(v41HumanDirectorCompat.includes('from "./index_v37_free_providers.js"'), "3G.3 human Director compatibility must preserve the v37 provider layer beneath it");
 assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "frozen v40 must retain its original v39 world baseline");
 const v41Reconnect = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41Coherence = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
