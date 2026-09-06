@@ -166,6 +166,22 @@ Frozen `index_v37_human_only.js` remains unchanged for v37-v40. The unrelated v4
 
 The next boundary is `index_v37_hotfix.js`. It still owns multiple production-critical responsibilities—singleflight/replay coalescing, degraded/capacity fallback, provider readiness/failure policy, metadata stripping, and paused shadow handling—so it must be characterized and extracted by responsibility rather than retired wholesale.
 
+
+#### 3G.6 — characterize the remaining v37 hotfix boundary
+After 3G.5, the only v37 wrapper still on the v41 production inheritance spine is `index_v37_hotfix.js`. It is not a single responsibility and must not be retired as one operation.
+
+3G.6 freezes five live authority groups:
+
+1. **Production-turn singleflight / replay coalescing** — `runV37BaseProductionTurn()`, `requestV37ProductionTurn()`, `tick()`, `alarm()`, constructor gate state, bounded two-replay policy, and turn diagnostics.
+2. **Provider readiness / degraded and capacity fallback** — hard/soft readiness, preferred/effective structured readiness, degraded-pool detection, built-in degraded fallback, capacity-shedding ambient fallback, and background-AI suppression while constrained.
+3. **Provider failure / quota / emergency routing** — request-local rejection classification, Workers AI daily quota reset/cooldown state, and emergency Workers AI structured routing.
+4. **Output hygiene** — stripping or dropping internal chat metadata before bot output reaches the visible chat stream.
+5. **Paused shadow isolation** — retaining shadow packets while preventing the old live-model shadow from competing with production provider traffic.
+
+The wrapper also owns the merged status and `v37Snapshot()` diagnostics for these responsibilities. Phase 3G.6 changes no production dispatch. Each authority group must receive its own replacement owner and runtime contract before `index_v37_hotfix.js` can leave the v41 spine.
+
+The preferred extraction order is singleflight first, then provider readiness/degraded fallback, provider failure/emergency routing, output hygiene, and finally shadow pause/diagnostic consolidation.
+
 ## Retirement rule
 
 A wrapper can be retired only when:

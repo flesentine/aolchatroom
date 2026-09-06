@@ -1,6 +1,7 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
+import { ChatRoom as V37HotfixChatRoom } from "../src/index_v37_hotfix.js";
 import { getCharacter } from "../src/characters.js";
 
 function ensure(condition, message) {
@@ -682,6 +683,56 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractV37HotfixCharacterization() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v37ProductionTurnStats && typeof this.v37ProductionTurnStats === "object", "3G.6 must retain production-turn counters");
+    ensure(this.v37ProductionTurnGate && typeof this.v37ProductionTurnGate.snapshot === "function", "3G.6 must retain the coalescing turn gate");
+    equal(this.v37ProductionTurnGate.snapshot().maxReplays, 2, "3G.6 must retain the bounded two-replay singleflight policy");
+    ensure(Number.isFinite(Number(this.v37WorkersDailyQuotaResetAt)), "3G.6 must retain Workers AI daily quota state");
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+    this.providerReady = (provider) => provider !== "groq";
+    this.softReady = (provider) => provider === "gemini";
+
+    const hardReady = V37HotfixChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V37HotfixChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    equal(hardReady.includes("gemini"), true, "3G.6 hard readiness must retain healthy Gemini");
+    equal(hardReady.includes("workers-ai"), true, "3G.6 hard readiness must retain hard-healthy Workers AI");
+    equal(hardReady.includes("groq"), false, "3G.6 hard readiness must exclude cooled Groq");
+    equal(softReady.length, 1, "3G.6 soft readiness must filter hard-ready providers");
+    equal(softReady[0], "gemini", "3G.6 soft readiness must retain only soft-healthy Gemini");
+
+    this.configuredProviders = originalConfigured;
+    this.providerReady = originalReady;
+    this.softReady = originalSoftReady;
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "3G.6 singleflight mode must remain visible");
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.6 output-hygiene mode must remain visible");
+    equal(snapshot?.mode?.providerDegradedModeBuiltInFallback, true, "3G.6 degraded fallback mode must remain visible");
+    ensure(snapshot?.productionTurn?.gate, "3G.6 production-turn gate diagnostics must remain visible");
+    ensure(snapshot?.providerFailover, "3G.6 provider failover diagnostics must remain visible");
+
+    return {
+      characterized: true,
+      maxReplays: this.v37ProductionTurnGate.snapshot().maxReplays,
+      hardReady,
+      softReady,
+      authorities: [
+        "production-turn-singleflight",
+        "provider-readiness-and-degraded-fallback",
+        "provider-failure-and-emergency-routing",
+        "output-hygiene",
+        "paused-shadow"
+      ]
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1206,6 +1257,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
     if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
+    if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
