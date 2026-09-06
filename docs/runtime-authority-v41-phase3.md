@@ -16,7 +16,7 @@ This phase is **characterization only**. It must not change provider routing, st
 → `index_v41_scene_coordinator.js`
 → `index_v41_ambient_continuity_compat.js`
 → `index_v41_presence_compat.js`
-→ `index_v39_coherence.js`
+→ `index_v41_coherence_compat.js`
 → `index_v38_quality_guard.js`
 → v37 and earlier layers.
 
@@ -36,7 +36,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Clarification target repair | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C owns retargeting while preserving explicit screen-name precedence, reply anchoring, focus updates, and v39 diagnostics. |
 | Human coherence Voice lock | `index_v41_coherence_repair.js` + `coherence_repair_v41.js` in v41 production | Phase 3C owns the exact human-trigger/anchor lock while preserving the legacy v39 counter/last-lock diagnostics. |
 | Future-event world gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | Phase 3D preserves `futureEventViolation()` precedence, counters, and historical-audit contribution. |
-| Background self-dialogue filtering | `index_v39_coherence.js` | Preserve background-only scope. |
+| Background self-dialogue filtering | `index_v41_coherence_compat.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | 3F.3 preserves the exact background-only filter, counters, and broadcast action while production bypasses the v39 coherence wrapper. |
 | Bot re-entry cooldown / roster compatibility | `index_v41_bot_roster_reentry.js` + `bot_roster_reentry_v41.js` in v41 production; legacy `index_v39_coherence.js` remains for frozen v40 | Phase 3E owns the 3-minute cooldown, desired-roster filtering, successful-leave bookkeeping, blocked-enter diagnostics, and active-bot exemption while preserving all older v29/v30/v35 roster behavior beneath it. |
 | Transient human reconnect grace | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B owns the full reconnect lifecycle; 3F.2 removes the old presence wrapper participation from the v41 spine while frozen v40 retains it. |
 | Hard-era technology gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v40 | Phase 3D preserves generated-line blocking, v38 counters, and retained-history audit behavior. |
@@ -98,11 +98,16 @@ Retirement proceeds one frozen boundary at a time.
 V41 production now routes scene continuity through `index_v41_ambient_continuity_compat.js`, which preserves the exact v40 prompt/carry/status behavior while inheriting directly from v39 presence. `index_v39_world_gate.js` remains untouched for the frozen v40 deployment/tests, but it is no longer in the v41 production class/fetch chain. Phase 3D now also preserves the old v39 world-gate API flags, constructor stats, and `v39Snapshot()` diagnostics.
 
 #### 3F.2 — retire v39 presence wrapper from v41 production
-V41 production now routes ambient continuity through `index_v41_presence_compat.js`, which inherits directly from `index_v39_coherence.js`. It preserves only the still-live presence compatibility surface: logical-human socket helpers, legacy quick-background suppression, the stats/maps consumed by 3B/3C/3D, the pre-WebSocket same-name replacement dispatch hook, and v39 presence/capture diagnostics plus API flags. Extracted reconnect, error-challenge, and historical-date overrides remain owned by 3B/3C/3D and are not copied into the compatibility layer.
+V41 production now routes ambient continuity through `index_v41_presence_compat.js`, which inherits through `index_v41_coherence_compat.js`. It preserves only the still-live presence compatibility surface: logical-human socket helpers, legacy quick-background suppression, the stats/maps consumed by 3B/3C/3D, the pre-WebSocket same-name replacement dispatch hook, and v39 presence/capture diagnostics plus API flags. Extracted reconnect, error-challenge, and historical-date overrides remain owned by 3B/3C/3D and are not copied into the compatibility layer.
 
 `index_v39_presence_fix.js` remains unchanged in the repository and remains on the frozen v39/v40 path.
 
-Later 3F retirement steps must separately extract the remaining v39 coherence and v38 compatibility responsibilities before those wrappers can leave the v41 production spine.
+#### 3F.3 — retire v39 coherence wrapper from v41 production
+V41 production now routes `index_v41_presence_compat.js → index_v41_coherence_compat.js → index_v38_quality_guard.js`. The new compatibility layer preserves the v39 constructor maps/counters, `/api/v39-status` and `/v39-status` diagnostics, debug-state surface, and the one still-live legacy behavior: background-only self-dialogue filtering with the original counters and `v39-self-dialogue-lines-blocked` broadcast.
+
+The extracted v39 overrides for reconnect lifecycle, clarification/coherence repair, future-event/world-date enforcement, historical audit, and bot roster/re-entry remain owned by Phases 3B/3C/3D/3E and are not copied into the compatibility layer. Frozen `index_v39_coherence.js` and the v39/v40 chain remain unchanged.
+
+Later 3F retirement steps must separately extract the remaining v38 compatibility responsibilities before that wrapper can leave the v41 production spine.
 
 ## Retirement rule
 
