@@ -91,6 +91,7 @@ const v41PresenceCompatRuntime = fs.readFileSync(new URL("../src/index_v41_prese
 const v41CoherenceCompatRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_compat.js", import.meta.url), "utf8");
 const v41QualityCompatRuntime = fs.readFileSync(new URL("../src/index_v41_quality_compat.js", import.meta.url), "utf8");
 const v41LivelyCompatRuntime = fs.readFileSync(new URL("../src/index_v41_lively_ambient_compat.js", import.meta.url), "utf8");
+const v41HumanDirectorCompatRuntime = fs.readFileSync(new URL("../src/index_v41_human_director_compat.js", import.meta.url), "utf8");
 const v41Runtime = fs.readFileSync(new URL("../src/index_v41_scene_coordinator.js", import.meta.url), "utf8");
 const v41ReconnectRuntime = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41CoherenceRuntime = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
@@ -101,7 +102,8 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
   && v41PresenceCompatRuntime.includes('from "./index_v41_coherence_compat.js"')
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
-  && v41LivelyCompatRuntime.includes('from "./index_v37_human_director.js"');
+  && v41LivelyCompatRuntime.includes('from "./index_v41_human_director_compat.js"')
+  && v41HumanDirectorCompatRuntime.includes('from "./index_v37_free_providers.js"');
 const v41GenerationRuntime = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
   && wrangler.includes('"DEPLOY_VERSION": "41"')
@@ -118,7 +120,8 @@ const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generat
   && v41PresenceCompatRuntime.includes('from "./index_v41_coherence_compat.js"')
   && v41CoherenceCompatRuntime.includes('from "./index_v41_quality_compat.js"')
   && v41QualityCompatRuntime.includes('from "./index_v41_lively_ambient_compat.js"')
-  && v41LivelyCompatRuntime.includes('from "./index_v37_human_director.js"');
+  && v41LivelyCompatRuntime.includes('from "./index_v41_human_director_compat.js"')
+  && v41HumanDirectorCompatRuntime.includes('from "./index_v37_free_providers.js"');
 assert.ok(directWorld || wrappedByV40 || wrappedByV41 || wrappedByV41Generation, "production must retain the v39 world gate directly or beneath the additive v40/v41 scene wrappers");
 
 console.log("v39 focused public-world pre-display gate regression checks passed");
