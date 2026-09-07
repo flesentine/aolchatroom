@@ -4,6 +4,7 @@ import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_o
 import { ChatRoom as V41HotfixResidualChatRoom } from "../src/index_v41_hotfix_residual_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
+import { ChatRoom as V41OutputHygieneChatRoom } from "../src/index_v41_output_hygiene_compat.js";
 import { nextUtcDailyQuotaResetAt } from "../src/provider_failover_v37.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
@@ -1026,6 +1027,87 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractV41OutputHygieneExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const beforeStrips = Number(this.v37ProductionTurnStats.internalMetadataStrips || 0);
+    const beforeDrops = Number(this.v37ProductionTurnStats.internalMetadataDroppedLines || 0);
+    const beforeVisible = this.history.length;
+
+    V41FreeProviderChatRoom.prototype.say.call(
+      this,
+      "SegaMan",
+      "hey {t12/gaming} there",
+      "bot",
+      "mistral",
+      { topic: "gaming" }
+    );
+
+    equal(this.history.length, beforeVisible + 1, "3G.10 live free-provider path must still emit sanitized bot output");
+    const visible = this.history.at(-1);
+    equal(String(visible?.text || "").includes("{t12/gaming}"), false, "3G.10 internal metadata must not reach visible bot chat");
+    equal(visible?.source, "ai", "3G.10 must preserve higher extended-provider source normalization");
+    equal(visible?.aiProvider, "mistral", "3G.10 must preserve concrete provider metadata");
+    equal(visible?.provider, "mistral", "3G.10 must preserve provider metadata alias");
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataStrips || 0),
+      beforeStrips + 1,
+      "3G.10 strip telemetry must increment on sanitized bot output"
+    );
+
+    const beforeDropHistory = this.history.length;
+    const dropped = V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "MetallicaFan",
+      "{t9/general}",
+      "bot",
+      "built-in",
+      { topic: "general" }
+    );
+    equal(dropped, false, "3G.10 metadata-only bot output must be dropped");
+    equal(this.history.length, beforeDropHistory, "3G.10 dropped metadata-only bot output must not enter history");
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataDroppedLines || 0),
+      beforeDrops + 1,
+      "3G.10 dropped-line telemetry must increment"
+    );
+
+    const beforeHuman = this.history.length;
+    V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "Crateman",
+      "human {t7/general} text",
+      "human",
+      "human",
+      { topic: "general" }
+    );
+    equal(this.history.length, beforeHuman + 1, "3G.10 human output must continue through the lower pipeline");
+    equal(
+      this.history.at(-1)?.text,
+      "human {t7/general} text",
+      "3G.10 human text must bypass internal-metadata stripping"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataStrips || 0),
+      beforeStrips + 2,
+      "3G.10 metadata-only bot drop must count as a strip while human text must not"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.10 hygiene mode must remain visible");
+    equal(snapshot?.mode?.liveAiShadowPausedForProviderStability, true, "3G.10 must leave paused-shadow mode intact");
+
+    return {
+      extracted: true,
+      liveProviderPathSanitized: true,
+      metadataOnlyDropped: true,
+      humanBypassPreserved: true,
+      providerMetadataPreserved: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1566,6 +1648,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
     if (name === "v41-provider-failover-extraction") return this.contractV41ProviderFailoverExtraction();
+    if (name === "v41-output-hygiene-extraction") return this.contractV41OutputHygieneExtraction();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
