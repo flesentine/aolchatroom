@@ -3,7 +3,7 @@
 // V41 owns provider failure classification, Workers AI daily-quota state,
 // quota cooldown state, and merged failover diagnostics here. Live v41 provider
 // ordering remains owned by the higher Phase 3G.4 free-provider compatibility layer.
-import residualWorker, { ChatRoom as ResidualHotfixChatRoom } from "./index_v41_hotfix_residual_compat.js";
+import hygieneWorker, { ChatRoom as OutputHygieneChatRoom } from "./index_v41_output_hygiene_compat.js";
 import {
   isRequestLocalProviderFailure,
   isWorkersAiDailyQuotaExhaustion,
@@ -16,7 +16,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await residualWorker.fetch(request, env);
+    const response = await hygieneWorker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
       return response;
@@ -35,7 +35,7 @@ export default {
   }
 };
 
-export class ChatRoom extends ResidualHotfixChatRoom {
+export class ChatRoom extends OutputHygieneChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v37WorkersDailyQuotaResetAt = 0;
