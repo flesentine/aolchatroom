@@ -108,7 +108,7 @@ assert.equal(
 );
 
 for (const source of [roster, worldDate, coherence, reconnect]) {
-  assert.ok(source.includes('from "./index_v37_hotfix.js"'));
+  assert.ok(source.includes('from "./index_v37.js"'));
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
