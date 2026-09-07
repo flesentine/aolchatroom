@@ -31,13 +31,14 @@ const frozen = read("src/index_v37_hotfix.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
 const hygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
-const residual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
 
 assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
 assert.ok(hygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(residual.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 assert.ok(hygiene.includes('from "./output_hygiene_v37.js"'));
 
 assert.equal(
@@ -47,17 +48,13 @@ assert.equal(
 );
 
 assert.equal(ownsMethod(hygiene, "say"), true, "3G.10 hygiene owner must own say()");
-assert.equal(ownsMethod(residual, "say"), false, "3G.10 final residual must not retain say()");
-assert.equal(residual.includes("stripInternalChatMetadata"), false, "3G.10 residual must not retain the hygiene helper");
-assert.equal(residual.includes("internalMetadataOutputHygiene: true"), false, "3G.10 residual must not duplicate the hygiene mode flag");
 
 assert.ok(hygiene.includes("stripInternalChatMetadata(original)"));
 assert.ok(hygiene.includes("this.v37ProductionTurnStats.internalMetadataStrips += 1"));
 assert.ok(hygiene.includes("this.v37ProductionTurnStats.internalMetadataDroppedLines += 1"));
 assert.ok(hygiene.includes("internalMetadataOutputHygiene: true"));
-assert.ok(residual.includes("this.v37ProductionTurnStats = {"));
-assert.ok(residual.includes("internalMetadataStrips: 0"));
-assert.ok(residual.includes("internalMetadataDroppedLines: 0"));
+assert.ok(sharedStats.includes("internalMetadataStrips: 0"));
+assert.ok(sharedStats.includes("internalMetadataDroppedLines: 0"));
 assert.ok(pausedShadow.includes("maybeRunV37Shadow(now = Date.now())"));
 assert.ok(pausedShadow.includes('deferReason = "live-model-shadow-paused"'));
 
