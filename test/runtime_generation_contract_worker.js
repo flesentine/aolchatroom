@@ -844,6 +844,60 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  async contractV41ProviderReadinessExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+    this.providerReady = (provider) => provider !== "groq";
+    this.softReady = (provider) => provider === "gemini";
+
+    const hardReady = V41ProviderReadinessChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V41ProviderReadinessChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    const preferred = V41ProviderReadinessChatRoom.prototype.preferredStructuredReadyProviders.call(this, Date.now());
+    const effective = V41ProviderReadinessChatRoom.prototype.effectiveStructuredReadyProviders.call(this, Date.now());
+    const constrained = V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now());
+    const degraded = V41ProviderReadinessChatRoom.prototype.providerPoolDegraded.call(this, Date.now());
+
+    equal(hardReady.includes("gemini"), true, "3G.8 hard readiness must retain Gemini");
+    equal(hardReady.includes("workers-ai"), true, "3G.8 hard readiness must retain hard-ready Workers AI");
+    equal(hardReady.includes("groq"), false, "3G.8 hard readiness must exclude cooled Groq");
+    equal(softReady.length, 1, "3G.8 soft readiness must filter the hard-ready set");
+    equal(softReady[0], "gemini", "3G.8 soft readiness must retain Gemini");
+    equal(preferred.length, 1, "3G.8 preferred readiness must contain one healthy preferred provider");
+    equal(preferred[0], "gemini", "3G.8 preferred readiness must preserve Gemini priority");
+    equal(effective[0], "gemini", "3G.8 effective structured routing must preserve Gemini");
+    equal(constrained, true, "3G.8 one preferred provider must remain capacity-constrained at the hotfix baseline");
+    equal(degraded, false, "3G.8 a healthy effective provider must not activate degraded mode");
+
+    this.configuredProviders = originalConfigured;
+    this.providerReady = originalReady;
+    this.softReady = originalSoftReady;
+
+    const originalCapacity = this.providerCapacityConstrained;
+    const beforeSuppressed = Number(this.v37ProductionTurnStats.backgroundAiPlansSuppressed || 0);
+    this.providerCapacityConstrained = () => true;
+    const refill = await V41ProviderReadinessChatRoom.prototype.refillSceneAi.call(this, Date.now(), false);
+    this.providerCapacityConstrained = originalCapacity;
+    equal(refill, false, "3G.8 constrained capacity must suppress background AI refill");
+    equal(
+      Number(this.v37ProductionTurnStats.backgroundAiPlansSuppressed || 0),
+      beforeSuppressed + 1,
+      "3G.8 constrained refill suppression telemetry must survive extraction"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.providerDegradedModeBuiltInFallback, true, "3G.8 degraded fallback mode must remain visible");
+    equal(snapshot?.mode?.effectiveStructuredProviderReadiness, true, "3G.8 effective readiness mode must remain visible");
+    equal(snapshot?.mode?.humanPriorityProviderBudget, true, "3G.8 human-priority capacity policy must remain visible");
+    equal(snapshot?.mode?.ambientAiCapacityShedding, true, "3G.8 ambient capacity shedding mode must remain visible");
+
+    return { extracted: true, hardReady, softReady, preferred, effective, constrained, degraded, backgroundSuppressed: true };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1370,6 +1424,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
+    if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
