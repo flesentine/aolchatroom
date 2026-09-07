@@ -46,8 +46,7 @@ for (const signature of [
   "hardReadyProviders(now = Date.now()) {",
   "softReadyProviders(now = Date.now()) {",
   "preferredStructuredReadyProviders(now = Date.now()) {",
-  "providerCapacityConstrained(now = Date.now()) {",
-  "effectiveStructuredReadyProviders(now = Date.now()) {",
+  "effectiveStructuredReadyProviders(now = Date.now()) {"
   "providerPoolDegraded(now = Date.now()) {",
   "queueV37DegradedFallback(now = Date.now(), forceSoon = false) {",
   "queueV37CapacitySheddingAmbient(now = Date.now(), forceSoon = false) {",
@@ -58,6 +57,19 @@ for (const signature of [
     extractMethod(frozen, signature),
     `3G.8 extracted readiness/degraded method must remain byte-for-byte equivalent: ${signature}`
   );
+}
+
+const liveCapacity = extractMethod(readiness, "providerCapacityConstrained(now = Date.now()) {");
+assert.ok(liveCapacity.includes("const preferred = this.preferredStructuredReadyProviders?.(now) || []"));
+assert.ok(liveCapacity.includes("if (preferred.length >= 1) return false"), "3G.14 must preserve the one-preferred-provider live override");
+for (const marker of [
+  "return providerBudgetConstrained({",
+  "configuredProviders: this.configuredProviders?.() || []",
+  "hardReadyProviders: this.hardReadyProviders(now)",
+  "softReadyProviders: this.softReadyProviders(now)",
+  "minimumPreferredReady: 2"
+]) {
+  assert.ok(liveCapacity.includes(marker), `3G.8 frozen capacity baseline must remain as the 3G.14 fallback: ${marker}`);
 }
 
 for (const marker of [
