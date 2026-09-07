@@ -36,7 +36,6 @@ assert.ok(hotfix.includes('from "./index_v37.js"'));
 
 for (const method of [
   "providerCapacityConstrained",
-  "activeAmbientCharacters",
   "generateHumanReplan",
   "v37Snapshot"
 ]) {
@@ -61,7 +60,6 @@ for (const retiredMethod of [
 }
 
 for (const marker of [
-  "this.v37AmbientProviderCursor = 0",
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
   "if (preferred.length >= 1) return false",
@@ -75,13 +73,18 @@ for (const marker of [
   assert.ok(humanOnlyCompat.includes(marker), `3G.5 must preserve marker: ${marker}`);
 }
 
+assert.equal(ownsMethod(humanOnlyCompat, "activeAmbientCharacters"), false, "3G.13 human-only residual must release activeAmbientCharacters()");
+assert.equal(humanOnlyCompat.includes("this.v37AmbientProviderCursor = 0"), false, "3G.13 human-only residual must release the lively provider cursor");
+assert.equal(humanOnlyCompat.includes('from "./characters.js"'), false, "3G.13 human-only residual must release the character lookup dependency");
+assert.equal(ownsMethod(livelyCompat, "activeAmbientCharacters"), true, "3G.13 lively ambient must own activeAmbientCharacters()");
+assert.ok(livelyCompat.includes("this.v37AmbientProviderCursor = 0"), "3G.13 lively ambient must initialize its own provider cursor");
 assert.ok(
   livelyCompat.includes("this.v37AmbientProviderCursor % preferred.length"),
-  "lively ambient must still consume the residual provider cursor initialized by 3G.5"
+  "lively ambient must consume its locally owned provider cursor"
 );
 assert.ok(
   livelyCompat.includes("this.activeAmbientCharacters?.()"),
-  "lively ambient must still consume the residual active-ambient-character helper"
+  "lively ambient must consume its locally owned active-character helper"
 );
 
 const v41ProductionSpine = [
@@ -112,4 +115,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 v37 human-only residual wrapper retirement checks passed");
+console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.13 lively-support consolidation");
