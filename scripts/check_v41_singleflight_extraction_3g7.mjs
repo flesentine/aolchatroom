@@ -31,6 +31,7 @@ const productionTurn = read("src/index_v41_production_turn_compat.js");
 const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
+const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
@@ -51,7 +52,8 @@ assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
-assert.ok(outputHygiene.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
+assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
 assert.ok(!residual.includes('from "./index_v37_hotfix.js"'));
@@ -90,9 +92,9 @@ assert.equal(
   "3G.10 output-hygiene say() must remain byte-for-byte equivalent"
 );
 assert.equal(
-  extractMethod(residual, "maybeRunV37Shadow(now = Date.now()) {"),
+  extractMethod(pausedShadow, "maybeRunV37Shadow(now = Date.now()) {"),
   extractMethod(frozen, "maybeRunV37Shadow(now = Date.now()) {"),
-  "3G.10 final residual shadow method must remain byte-for-byte equivalent"
+  "3G.11 paused-shadow method must remain byte-for-byte equivalent"
 );
 
 for (const marker of [
@@ -140,6 +142,7 @@ const v41ProductionSpine = [
   providerReadiness,
   providerFailover,
   outputHygiene,
+  pausedShadow,
   residual
 ].join("\n");
 
