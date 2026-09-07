@@ -81,10 +81,9 @@ for (const marker of [
 
 for (const marker of [
   "noteProviderFailure(provider, status = 0",
-  "orderedReadyProviders(now = Date.now())",
   "requestLocalProviderFailuresDoNotTripGlobalCooldown: true"
 ]) {
-  assert.ok(failover.includes(marker), `3G.9 failover owner must retain later provider authority: ${marker}`);
+  assert.ok(failover.includes(marker), `3G.9 failover owner must retain later provider-failure authority: ${marker}`);
 }
 for (const marker of [
   "stripInternalChatMetadata(original)",
