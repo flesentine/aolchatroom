@@ -8,7 +8,7 @@ function read(path) {
 function extractMethod(source, signature) {
   const start = source.indexOf(`  ${signature}`);
   assert.ok(start >= 0, `missing method ${signature}`);
-  const brace = source.indexOf("{", start);
+  const brace = start + signature.lastIndexOf("{");
   let depth = 0;
   for (let i = brace; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -30,6 +30,7 @@ const frozen = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
 const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const providerFailover = read("src/index_v41_provider_failover_compat.js");
+const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
@@ -49,7 +50,8 @@ const providers = read("src/index_v41_free_providers_compat.js");
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
-assert.ok(providerFailover.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
+assert.ok(outputHygiene.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
 assert.ok(!residual.includes('from "./index_v37_hotfix.js"'));
@@ -82,16 +84,16 @@ for (const signature of [
     `3G.9 failover method must remain byte-for-byte equivalent: ${signature}`
   );
 }
-for (const signature of [
-  "maybeRunV37Shadow(now = Date.now()) {",
-  'say(from, text, kind = "bot", source = "built-in", meta = {}) {'
-]) {
-  assert.equal(
-    extractMethod(residual, signature),
-    extractMethod(frozen, signature),
-    `3G.9 final residual method must remain byte-for-byte equivalent: ${signature}`
-  );
-}
+assert.equal(
+  extractMethod(outputHygiene, 'say(from, text, kind = "bot", source = "built-in", meta = {}) {'),
+  extractMethod(frozen, 'say(from, text, kind = "bot", source = "built-in", meta = {}) {'),
+  "3G.10 output-hygiene say() must remain byte-for-byte equivalent"
+);
+assert.equal(
+  extractMethod(residual, "maybeRunV37Shadow(now = Date.now()) {"),
+  extractMethod(frozen, "maybeRunV37Shadow(now = Date.now()) {"),
+  "3G.10 final residual shadow method must remain byte-for-byte equivalent"
+);
 
 for (const marker of [
   "this.v37ProductionTurnStats = {",
@@ -137,6 +139,7 @@ const v41ProductionSpine = [
   productionTurn,
   providerReadiness,
   providerFailover,
+  outputHygiene,
   residual
 ].join("\n");
 

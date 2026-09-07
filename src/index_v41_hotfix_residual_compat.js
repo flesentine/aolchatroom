@@ -1,9 +1,8 @@
 // Phase 3G.7 production-only residual owner.
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
-// V41 keeps output-hygiene, paused shadow, shared stats, and residual diagnostics here;
-// production-turn, provider-readiness, and provider-failover authorities are extracted above.
+// V41 keeps paused shadow, shared stats, and residual diagnostics here;
+// production-turn, provider-readiness, provider-failover, and output hygiene are extracted above.
 import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
-import { stripInternalChatMetadata } from "./output_hygiene_v37.js";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -25,8 +24,7 @@ export default {
         ...(data.v37 || {}),
         liveAiShadowPausedForProviderStability: true,
         liveAiShadowResumedAfterSingleFlightValidation: false,
-        shadowPacketsStillRecordedWhileModelPaused: true,
-        internalMetadataOutputHygiene: true
+        shadowPacketsStillRecordedWhileModelPaused: true
       }
     });
   }
@@ -75,18 +73,6 @@ export class ChatRoom extends V37ChatRoom {
     }
   }
 
-  say(from, text, kind = "bot", source = "built-in", meta = {}) {
-    const original = String(text || "");
-    if (kind !== "bot") return super.say(from, original, kind, source, meta);
-
-    const sanitized = stripInternalChatMetadata(original);
-    if (sanitized !== original) this.v37ProductionTurnStats.internalMetadataStrips += 1;
-    if (!sanitized) {
-      this.v37ProductionTurnStats.internalMetadataDroppedLines += 1;
-      return false;
-    }
-    return super.say(from, sanitized, kind, source, meta);
-  }
 
   v37Snapshot() {
     const base = super.v37Snapshot();
@@ -96,8 +82,7 @@ export class ChatRoom extends V37ChatRoom {
         ...(base.mode || {}),
         liveAiShadowPausedForProviderStability: true,
         liveAiShadowResumedAfterSingleFlightValidation: false,
-        shadowPacketsStillRecordedWhileModelPaused: true,
-        internalMetadataOutputHygiene: true
+        shadowPacketsStillRecordedWhileModelPaused: true
       }
     };
   }

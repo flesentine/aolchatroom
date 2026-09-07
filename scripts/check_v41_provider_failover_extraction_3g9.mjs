@@ -8,7 +8,7 @@ function read(path) {
 function extractMethod(source, signature) {
   const start = source.indexOf(`  ${signature}`);
   assert.ok(start >= 0, `missing method ${signature}`);
-  const brace = source.indexOf("{", start);
+  const brace = start + signature.lastIndexOf("{");
   let depth = 0;
   for (let i = brace; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
@@ -31,11 +31,13 @@ const productionTurn = read("src/index_v41_production_turn_compat.js");
 const readiness = read("src/index_v41_provider_readiness_compat.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
+const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(readiness.includes('from "./index_v41_provider_failover_compat.js"'));
-assert.ok(failover.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
+assert.ok(outputHygiene.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 
 for (const signature of [
@@ -82,14 +84,12 @@ for (const marker of [
   assert.equal(residual.includes(marker), false, `3G.9 final residual must not duplicate marker: ${marker}`);
 }
 
-for (const marker of [
-  "this.v37ProductionTurnStats = {",
-  "stripInternalChatMetadata(original)",
-  'deferReason = "live-model-shadow-paused"',
-  "internalMetadataOutputHygiene: true",
-  "liveAiShadowPausedForProviderStability: true"
-]) {
-  assert.ok(residual.includes(marker), `3G.9 must leave hygiene/shadow residual untouched: ${marker}`);
+assert.ok(residual.includes("this.v37ProductionTurnStats = {"), "3G.10 must keep shared stats in the residual");
+for (const marker of ["stripInternalChatMetadata(original)", "internalMetadataOutputHygiene: true"]) {
+  assert.ok(outputHygiene.includes(marker), `3G.10 must preserve output hygiene: ${marker}`);
+}
+for (const marker of ['deferReason = "live-model-shadow-paused"', "liveAiShadowPausedForProviderStability: true"]) {
+  assert.ok(residual.includes(marker), `3G.10 must leave shadow residual untouched: ${marker}`);
 }
 
 console.log("v41 Phase 3G.9 provider failure/quota extraction checks passed; live ordering remains with 3G.4 free-provider authority");
