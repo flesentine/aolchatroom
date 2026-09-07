@@ -46,7 +46,7 @@ for (const signature of [
   "hardReadyProviders(now = Date.now()) {",
   "softReadyProviders(now = Date.now()) {",
   "preferredStructuredReadyProviders(now = Date.now()) {",
-  "effectiveStructuredReadyProviders(now = Date.now()) {"
+  "effectiveStructuredReadyProviders(now = Date.now()) {",
   "providerPoolDegraded(now = Date.now()) {",
   "queueV37DegradedFallback(now = Date.now(), forceSoon = false) {",
   "queueV37CapacitySheddingAmbient(now = Date.now(), forceSoon = false) {",
