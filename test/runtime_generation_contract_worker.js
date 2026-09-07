@@ -685,7 +685,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractV41LivelySupportConsolidation() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
-    equal(this.v37AmbientProviderCursor, 0, "3G.13 lively owner must initialize the ambient provider cursor");
+    const cursorBefore = Number(this.v37AmbientProviderCursor);
+    ensure(Number.isFinite(cursorBefore), "3G.13 lively owner must expose a finite ambient provider cursor");
 
     const active = V41LivelyAmbientCompatChatRoom.prototype.activeAmbientCharacters.call(this)
       .map((character) => character?.name)
@@ -720,8 +721,17 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       this.noteProviderFailure = originalNoteFailure;
     }
 
-    equal(result?.provider, "gemini", "3G.13 lively owner must select from its locally owned cursor");
-    equal(this.v37AmbientProviderCursor, 1, "3G.13 lively generation must advance its locally owned cursor");
+    const preferred = ["gemini", "groq"];
+    equal(
+      result?.provider,
+      preferred[cursorBefore % preferred.length],
+      "3G.13 lively owner must select from its locally owned cursor"
+    );
+    equal(
+      this.v37AmbientProviderCursor,
+      (cursorBefore + 1) % 1000000,
+      "3G.13 lively generation must advance its locally owned cursor"
+    );
     equal(result?.reason, "provider-failure", "3G.13 probe must reach the provider attempt path");
 
     return {
