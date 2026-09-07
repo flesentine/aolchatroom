@@ -30,6 +30,29 @@ const frozenHumanOnly = read("src/index_v37_human_only.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const lively = read("src/index_v41_lively_ambient_compat.js");
 
+const productionOwnerPaths = [
+  "src/index_v41_generation_contract_base.js",
+  "src/index_v41_bot_roster_reentry.js",
+  "src/index_v41_world_date_guard.js",
+  "src/index_v41_coherence_repair.js",
+  "src/index_v41_human_reconnect.js",
+  "src/index_v41_scene_coordinator.js",
+  "src/index_v41_ambient_continuity_compat.js",
+  "src/index_v41_presence_compat.js",
+  "src/index_v41_coherence_compat.js",
+  "src/index_v41_quality_compat.js",
+  "src/index_v41_lively_ambient_compat.js",
+  "src/index_v41_human_director_compat.js",
+  "src/index_v41_free_providers_compat.js",
+  "src/index_v41_human_only_compat.js",
+  "src/index_v41_production_turn_compat.js",
+  "src/index_v41_provider_readiness_compat.js",
+  "src/index_v41_provider_failover_compat.js",
+  "src/index_v41_output_hygiene_compat.js",
+  "src/index_v41_paused_shadow_compat.js"
+];
+const productionOwners = productionOwnerPaths.map((path) => [path, read(path)]);
+
 assert.equal(
   extractMethod(lively, "activeAmbientCharacters() {"),
   extractMethod(frozenHumanOnly, "activeAmbientCharacters() {"),
@@ -50,6 +73,24 @@ assert.equal(
 assert.ok(lively.includes("this.v37AmbientProviderCursor % preferred.length"));
 assert.ok(lively.includes("this.v37AmbientProviderCursor = (this.v37AmbientProviderCursor + 1) % 1000000"));
 assert.ok(lively.includes("this.activeAmbientCharacters?.()"));
+
+const cursorInitializers = productionOwners
+  .filter(([, source]) => source.includes("this.v37AmbientProviderCursor = 0"))
+  .map(([path]) => path);
+assert.deepEqual(
+  cursorInitializers,
+  ["src/index_v41_lively_ambient_compat.js"],
+  "3G.13 lively ambient must be the only v41 production owner that initializes the provider cursor"
+);
+
+const activeCharacterOwners = productionOwners
+  .filter(([, source]) => ownsMethod(source, "activeAmbientCharacters"))
+  .map(([path]) => path);
+assert.deepEqual(
+  activeCharacterOwners,
+  ["src/index_v41_lively_ambient_compat.js"],
+  "3G.13 lively ambient must be the only v41 production owner of activeAmbientCharacters()"
+);
 
 for (const method of ["providerCapacityConstrained", "generateHumanReplan", "v37Snapshot"]) {
   assert.equal(ownsMethod(humanOnly, method), true, `human-only residual must retain ${method}()`);
