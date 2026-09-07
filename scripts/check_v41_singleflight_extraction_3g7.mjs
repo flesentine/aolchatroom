@@ -32,7 +32,7 @@ const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
-const residual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
@@ -53,10 +53,10 @@ assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.j
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
 assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(residual.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
-assert.ok(!residual.includes('from "./index_v37_hotfix.js"'));
 
 for (const signature of [
   "async runV37BaseProductionTurn(source, forceSoon = false) {",
@@ -73,7 +73,6 @@ for (const signature of [
 
 for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "tick", "alarm"]) {
   assert.equal(ownsMethod(providerReadiness, method), false, `readiness owner must not retain ${method}()`);
-  assert.equal(ownsMethod(residual, method), false, `residual hotfix owner must not retain ${method}()`);
 }
 
 for (const signature of [
@@ -108,7 +107,7 @@ for (const marker of [
   "degradedModeTicks: 0",
   "capacitySheddingAmbientQueued: 0"
 ]) {
-  assert.ok(residual.includes(marker), `shared hotfix diagnostics must remain in residual owner: ${marker}`);
+  assert.ok(sharedStats.includes(marker), `shared hotfix diagnostics must remain in the stats factory: ${marker.replace(": 0", "")}`);
 }
 
 assert.ok(productionTurn.includes("this.v37ProductionTurnGate = new CoalescingTurnGate({"));
@@ -119,9 +118,6 @@ assert.ok(productionTurn.includes("onDeferred: () => { this.v37ProductionTurnSta
 assert.ok(productionTurn.includes("productionTurnSingleFlight: true"));
 assert.ok(productionTurn.includes("productionTurnReplayCoalescing: true"));
 assert.ok(productionTurn.includes("productionTurn: {"));
-assert.ok(!residual.includes("productionTurnSingleFlight: true"));
-assert.ok(!residual.includes("productionTurnReplayCoalescing: true"));
-assert.ok(!residual.includes("productionTurn: {"));
 
 const v41ProductionSpine = [
   generationBase,
@@ -143,7 +139,7 @@ const v41ProductionSpine = [
   providerFailover,
   outputHygiene,
   pausedShadow,
-  residual
+  sharedStats
 ].join("\n");
 
 assert.equal(
