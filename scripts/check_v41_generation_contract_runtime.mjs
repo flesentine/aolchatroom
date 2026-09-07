@@ -112,6 +112,7 @@ const contracts = [
   "wrapper-retirement-v37-human-director",
   "wrapper-retirement-v37-free-providers",
   "wrapper-retirement-v37-human-only",
+  "v37-hotfix-characterization",
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",
