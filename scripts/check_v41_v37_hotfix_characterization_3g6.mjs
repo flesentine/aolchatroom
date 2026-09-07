@@ -17,6 +17,7 @@ const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnlyCompat = read("src/index_v41_human_only_compat.js");
+const freeProvidersCompat = read("src/index_v41_free_providers_compat.js");
 const turnGate = read("src/production_turn_gate.js");
 const failover = read("src/provider_failover_v37.js");
 const hygiene = read("src/output_hygiene_v37.js");
@@ -64,6 +65,7 @@ for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(frozenHotfix, method), true, `frozen v37 hotfix must retain ${method}()`);
 }
 assert.equal(ownsMethod(providerFailover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not claim live provider ordering");
+assert.equal(ownsMethod(freeProvidersCompat, "orderedReadyProviders"), true, "3G.4 free-provider compatibility must remain the live v41 provider ordering owner");
 assert.equal(ownsMethod(frozenHotfix, "orderedReadyProviders"), true, "frozen v37 hotfix must retain its superseded lower ordering implementation");
 
 for (const method of ["maybeRunV37Shadow", "say", "v37Snapshot"]) {
