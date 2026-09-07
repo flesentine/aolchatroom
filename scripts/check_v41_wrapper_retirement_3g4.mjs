@@ -32,7 +32,7 @@ assert.ok(humanCompat.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(!humanCompat.includes('from "./index_v37_free_providers.js"'));
 assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenProvider.includes('from "./index_v37_human_only.js"'));
-assert.ok(humanOnly.includes('from "./index_v37_hotfix.js"'));
+assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 
 for (const method of [
