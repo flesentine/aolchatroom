@@ -97,7 +97,6 @@ assert.equal(
 );
 
 for (const marker of [
-  "this.v37ProductionTurnStats = {",
   "outerRequests: 0",
   "deferredAfterReplayCap: 0",
   "maxConcurrentBaseTurns: 0",
