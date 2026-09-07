@@ -61,7 +61,12 @@ for (const [name, source] of [
   ["failover", failover],
   ["hygiene", hygiene]
 ]) {
-  assert.equal(source.includes("createV37ProductionTurnStats"), false, `3G.12 ${name} owner must consume shared stats without reinitializing them`);
+  assert.equal(source.includes("createV37ProductionTurnStats"), false, `3G.12 ${name} owner must consume shared stats without importing the factory`);
+  assert.equal(
+    /this\.v37ProductionTurnStats\s*=/.test(source),
+    false,
+    `3G.12 ${name} owner must not reinitialize shared production-turn stats`
+  );
   assert.equal(source.includes("index_v41_hotfix_residual_compat.js"), false, `3G.12 ${name} owner must not reference the retired residual`);
 }
 
