@@ -30,6 +30,7 @@ const frozen = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
 const readiness = read("src/index_v41_provider_readiness_compat.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
+const freeProviders = read("src/index_v41_free_providers_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
@@ -39,7 +40,6 @@ assert.ok(residual.includes('from "./index_v37.js"'));
 
 for (const signature of [
   'noteProviderFailure(provider, status = 0, response = null, detail = "") {',
-  "orderedReadyProviders(now = Date.now()) {",
   "v37ProviderFailoverSnapshot(now = Date.now()) {"
 ]) {
   assert.equal(
@@ -49,17 +49,19 @@ for (const signature of [
   );
 }
 
-for (const method of ["noteProviderFailure", "orderedReadyProviders", "v37ProviderFailoverSnapshot"]) {
+for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(residual, method), false, `3G.9 final residual must not retain ${method}()`);
 }
+assert.equal(ownsMethod(failover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not falsely claim live provider ordering");
+assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider owner must remain the live v41 provider ordering authority");
+assert.ok(freeProviders.includes("orderedExtendedProviders({"));
+assert.ok(freeProviders.includes("structuredGenerationDepth: this.v35StructuredGenerationDepth"));
 
 for (const marker of [
   "this.v37WorkersDailyQuotaResetAt = 0",
   "isWorkersAiDailyQuotaExhaustion(provider, detail)",
   "nextUtcDailyQuotaResetAt(now)",
   "isRequestLocalProviderFailure(status)",
-  "structuredBrainDepth: this.v35StructuredGenerationDepth",
-  'return ["workers-ai"]',
   "requestLocalProviderFailuresDoNotTripGlobalCooldown: true",
   "emergencyWorkersBrainFallback: true",
   "workersAiDailyQuotaState: true",
@@ -90,4 +92,4 @@ for (const marker of [
   assert.ok(residual.includes(marker), `3G.9 must leave hygiene/shadow residual untouched: ${marker}`);
 }
 
-console.log("v41 Phase 3G.9 provider failure/quota/emergency-routing extraction checks passed");
+console.log("v41 Phase 3G.9 provider failure/quota extraction checks passed; live ordering remains with 3G.4 free-provider authority");
