@@ -30,7 +30,7 @@ const humanDirectorCompat = read("src/index_v41_human_director_compat.js");
 
 assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(!providerCompat.includes('from "./index_v37_human_only.js"'));
-assert.ok(humanOnlyCompat.includes('from "./index_v37_hotfix.js"'));
+assert.ok(humanOnlyCompat.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
