@@ -1,34 +1,11 @@
-// Phase 3G.7 production-only residual owner.
+// Phase 3G.11 shared v37 production-turn telemetry state owner.
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
-// V41 keeps paused shadow, shared stats, and residual diagnostics here;
-// production-turn, provider-readiness, provider-failover, and output hygiene are extracted above.
+// All hotfix behaviors are extracted above this layer; V41 keeps only the shared
+// stats object here because singleflight/readiness/failover/hygiene/shadow owners
+// all write into the same externally visible production-turn diagnostics.
 import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
 
-async function json(response) {
-  try { return await response.json(); } catch { return null; }
-}
-
-export default {
-  async fetch(request, env) {
-    const response = await v37Worker.fetch(request, env);
-    const url = new URL(request.url);
-    if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
-      return response;
-    }
-
-    const data = await json(response);
-    if (!data) return response;
-    return Response.json({
-      ...data,
-      v37: {
-        ...(data.v37 || {}),
-        liveAiShadowPausedForProviderStability: true,
-        liveAiShadowResumedAfterSingleFlightValidation: false,
-        shadowPacketsStillRecordedWhileModelPaused: true
-      }
-    });
-  }
-};
+export default v37Worker;
 
 export class ChatRoom extends V37ChatRoom {
   constructor(ctx, env) {
@@ -60,30 +37,4 @@ export class ChatRoom extends V37ChatRoom {
     };
   }
 
-  maybeRunV37Shadow(now = Date.now()) {
-    this.expireOldV37Shadows?.(now);
-    const pending = this.v37PendingShadows?.[0];
-    if (!pending?.shadow) return;
-    if (pending.shadow.ai?.deferReason !== "live-model-shadow-paused") {
-      this.v37ProductionTurnStats.liveAiShadowPauses += 1;
-      pending.shadow.ai.status = "deferred-production-priority";
-      pending.shadow.ai.deferReason = "live-model-shadow-paused";
-      pending.shadow.ai.error = "live Director model calls paused after provider retry recurrence";
-      this.replaceShadowHistory?.(pending.shadow);
-    }
-  }
-
-
-  v37Snapshot() {
-    const base = super.v37Snapshot();
-    return {
-      ...base,
-      mode: {
-        ...(base.mode || {}),
-        liveAiShadowPausedForProviderStability: true,
-        liveAiShadowResumedAfterSingleFlightValidation: false,
-        shadowPacketsStillRecordedWhileModelPaused: true
-      }
-    };
-  }
 }
