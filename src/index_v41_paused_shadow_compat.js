@@ -2,7 +2,8 @@
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
 // V41 keeps queued Director shadow packets recorded while permanently pausing
 // live shadow model execution behind production provider traffic.
-import residualWorker, { ChatRoom as SharedHotfixStateChatRoom } from "./index_v41_hotfix_residual_compat.js";
+import v37Worker, { ChatRoom as V37ChatRoom } from "./index_v37.js";
+import { createV37ProductionTurnStats } from "./production_turn_stats_v41.js";
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -10,7 +11,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await residualWorker.fetch(request, env);
+    const response = await v37Worker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
       return response;
@@ -29,7 +30,12 @@ export default {
   }
 };
 
-export class ChatRoom extends SharedHotfixStateChatRoom {
+export class ChatRoom extends V37ChatRoom {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.v37ProductionTurnStats = createV37ProductionTurnStats();
+  }
+
   maybeRunV37Shadow(now = Date.now()) {
     this.expireOldV37Shadows?.(now);
     const pending = this.v37PendingShadows?.[0];
