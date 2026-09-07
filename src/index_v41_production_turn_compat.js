@@ -1,7 +1,7 @@
 // Phase 3G.7 production-turn singleflight compatibility owner.
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
 // V41 owns coalescing, bounded replay, tick/alarm serialization, and turn diagnostics here.
-import residualWorker, { ChatRoom as ResidualHotfixChatRoom } from "./index_v41_hotfix_residual_compat.js";
+import readinessWorker, { ChatRoom as ProviderReadinessChatRoom } from "./index_v41_provider_readiness_compat.js";
 import { CoalescingTurnGate } from "./production_turn_gate.js";
 
 async function json(response) {
@@ -10,7 +10,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await residualWorker.fetch(request, env);
+    const response = await readinessWorker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
       return response;
@@ -28,7 +28,7 @@ export default {
   }
 };
 
-export class ChatRoom extends ResidualHotfixChatRoom {
+export class ChatRoom extends ProviderReadinessChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v37ProductionTurnGate = new CoalescingTurnGate({
