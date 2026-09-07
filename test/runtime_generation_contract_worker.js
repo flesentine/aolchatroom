@@ -3,6 +3,8 @@ import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_provi
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
 import { ChatRoom as V41HotfixResidualChatRoom } from "../src/index_v41_hotfix_residual_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
+import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
+import { nextUtcDailyQuotaResetAt } from "../src/provider_failover_v37.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
 
@@ -898,6 +900,132 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractV41ProviderFailoverExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(Number.isFinite(Number(this.v37WorkersDailyQuotaResetAt)), "3G.9 must initialize Workers AI daily-quota state");
+
+    const beforeLocalRejects = Number(this.v37ProductionTurnStats.requestLocalProviderRejects || 0);
+    const beforeGeminiCooldown = Number(this.providerCooldownUntil?.get("gemini") || 0);
+    const originalNoteOutputReject = this.noteOutputReject;
+    let localReject = null;
+    this.noteOutputReject = (provider, detail) => {
+      localReject = { provider, detail };
+      return localReject;
+    };
+    try {
+      V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(
+        this,
+        "gemini",
+        422,
+        null,
+        "request schema rejected"
+      );
+    } finally {
+      this.noteOutputReject = originalNoteOutputReject;
+    }
+    equal(localReject?.provider, "gemini", "3G.9 request-local rejection must remain provider-local");
+    ensure(localReject?.detail?.includes("HTTP 422"), "3G.9 request-local rejection must retain HTTP status detail");
+    equal(
+      Number(this.v37ProductionTurnStats.requestLocalProviderRejects || 0),
+      beforeLocalRejects + 1,
+      "3G.9 request-local rejection telemetry must increment"
+    );
+    equal(
+      Number(this.providerCooldownUntil?.get("gemini") || 0),
+      beforeGeminiCooldown,
+      "3G.9 request-local rejection must not trip the hard provider cooldown"
+    );
+
+    const fixedNow = Date.UTC(2026, 8, 6, 12, 34, 56);
+    const expectedReset = nextUtcDailyQuotaResetAt(fixedNow);
+    const beforeQuota = Number(this.v37ProductionTurnStats.workersDailyQuotaExhaustions || 0);
+    const originalDateNow = Date.now;
+    this.providerCooldownUntil?.delete?.("workers-ai");
+    this.providerLastDetail?.delete?.("workers-ai");
+    Date.now = () => fixedNow;
+    try {
+      V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(
+        this,
+        "workers-ai",
+        0,
+        null,
+        "used up your daily free allocation of 10,000 neurons"
+      );
+    } finally {
+      Date.now = originalDateNow;
+    }
+    equal(this.v37WorkersDailyQuotaResetAt, expectedReset, "3G.9 Workers AI quota must cool until next UTC midnight");
+    equal(
+      Number(this.providerCooldownUntil?.get("workers-ai") || 0),
+      expectedReset,
+      "3G.9 Workers AI hard cooldown must be extended to the daily reset"
+    );
+    ensure(
+      String(this.providerLastDetail?.get?.("workers-ai") || "").includes(new Date(expectedReset).toISOString()),
+      "3G.9 Workers AI failure detail must expose the UTC reset"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.workersDailyQuotaExhaustions || 0),
+      beforeQuota + 1,
+      "3G.9 daily-quota telemetry must increment"
+    );
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    const originalDepth = this.v35StructuredGenerationDepth;
+    const beforeEmergencyCounter = Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0);
+
+    this.configuredProviders = () => ["workers-ai"];
+    this.providerReady = () => true;
+    this.softReady = () => true;
+    try {
+      this.v35StructuredGenerationDepth = 1;
+      const structuredOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredOnlyWorkers.length, 1, "3G.9 must preserve live 3G.4 ordering when Workers AI is the only healthy provider");
+      equal(structuredOnlyWorkers[0], "workers-ai", "3G.9 must preserve Workers AI as the only-provider structured fallback");
+
+      this.v35StructuredGenerationDepth = 0;
+      const routineOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(routineOnlyWorkers.length, 1, "3G.9 must not rewrite the higher routine provider-ordering policy");
+      equal(routineOnlyWorkers[0], "workers-ai", "3G.4 remains allowed to return Workers AI when it is the only healthy provider");
+
+      this.configuredProviders = () => ["openrouter", "workers-ai"];
+      this.v35StructuredGenerationDepth = 1;
+      const structuredAlternative = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredAlternative.includes("openrouter"), true, "3G.4 structured ordering must retain a healthy non-Workers alternative");
+      equal(structuredAlternative.includes("workers-ai"), false, "3G.4 structured ordering must suppress Workers AI when a non-Workers alternative exists");
+    } finally {
+      this.configuredProviders = originalConfigured;
+      this.providerReady = originalReady;
+      this.softReady = originalSoftReady;
+      this.v35StructuredGenerationDepth = originalDepth;
+    }
+    equal(
+      Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0),
+      beforeEmergencyCounter,
+      "3G.9 must not invent lower-layer emergency-route telemetry for ordering owned by 3G.4"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.requestLocalProviderFailuresDoNotTripGlobalCooldown, true, "3G.9 request-local failure mode must remain visible");
+    equal(snapshot?.mode?.emergencyWorkersBrainFallback, true, "3G.9 emergency fallback mode must remain visible");
+    equal(snapshot?.mode?.workersAiDailyQuotaState, true, "3G.9 daily-quota mode must remain visible");
+    ensure(snapshot?.providerFailover, "3G.9 merged provider-failover diagnostics must remain visible");
+    equal(snapshot.providerFailover?.emergencyBrainProvider, "workers-ai", "3G.9 snapshot must retain emergency provider identity");
+    equal(snapshot.providerFailover?.rateLimitRetryAfterPreserved, true, "3G.9 snapshot must retain rate-limit retry policy");
+
+    return {
+      extracted: true,
+      requestLocalRejectPreserved: true,
+      quotaResetAt: expectedReset,
+      liveOrderingOwnerPreserved: "v41-free-providers",
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1437,6 +1565,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
+    if (name === "v41-provider-failover-extraction") return this.contractV41ProviderFailoverExtraction();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();

@@ -44,7 +44,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Provider readiness classification / capacity state | `index_v41_provider_readiness_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.8 preserves hard/soft readiness, structured-ready selection, constrained/degraded decisions, and human-priority capacity policy. |
 | Degraded/capacity-shedding built-in fallback | `index_v41_provider_readiness_compat.js` in v41 production | 3G.8 preserves provider-independent fallback, human priority, ambient shedding, retry-status reporting, and constrained background suppression. |
 | Production-turn singleflight / replay coalescing | `index_v41_production_turn_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.7 owns one base turn at a time, bounded replay, tick/alarm accounting, force-soon propagation, and merged production-turn diagnostics. |
-| Provider failure classification / cooldown policy | `index_v41_hotfix_residual_compat.js` + inherited provider state in v41 production | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
+| Provider failure classification / cooldown policy | `index_v41_provider_failover_compat.js` + inherited provider state in v41 production | 3G.9 preserves request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. Live provider ordering remains owned by `index_v41_free_providers_compat.js`. |
 | Internal chat metadata stripping | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
 | Legacy live-model shadow pause | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
 | Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
@@ -174,13 +174,13 @@ After 3G.5, the only v37 wrapper still on the v41 production inheritance spine i
 
 1. **Production-turn singleflight / replay coalescing** — `runV37BaseProductionTurn()`, `requestV37ProductionTurn()`, `tick()`, `alarm()`, constructor gate state, bounded two-replay policy, and turn diagnostics.
 2. **Provider readiness / degraded and capacity fallback** — hard/soft readiness, preferred/effective structured readiness, degraded-pool detection, built-in degraded fallback, capacity-shedding ambient fallback, and background-AI suppression while constrained.
-3. **Provider failure / quota / emergency routing** — request-local rejection classification, Workers AI daily quota reset/cooldown state, and emergency Workers AI structured routing.
+3. **Provider failure / quota / failover diagnostics** — request-local rejection classification, Workers AI daily quota reset/cooldown state, and merged failover diagnostics. The lower hotfix also contains an `orderedReadyProviders()` implementation, but in v41 production that method is already superseded by the higher 3G.4 free-provider ordering owner.
 4. **Output hygiene** — stripping or dropping internal chat metadata before bot output reaches the visible chat stream.
 5. **Paused shadow isolation** — retaining shadow packets while preventing the old live-model shadow from competing with production provider traffic.
 
 The wrapper also owns the merged status and `v37Snapshot()` diagnostics for these responsibilities. Phase 3G.6 changes no production dispatch. Each authority group must receive its own replacement owner and runtime contract before `index_v37_hotfix.js` can leave the v41 spine.
 
-The preferred extraction order is singleflight first, then provider readiness/degraded fallback, provider failure/emergency routing, output hygiene, and finally shadow pause/diagnostic consolidation.
+The preferred extraction order is singleflight first, then provider readiness/degraded fallback, provider failure/quota diagnostics, output hygiene, and finally shadow pause/diagnostic consolidation. Provider ordering remains a separate 3G.4 authority.
 
 
 #### 3G.7 — extract production-turn singleflight from the v37 hotfix boundary
@@ -215,11 +215,35 @@ The new provider-readiness owner preserves the exact hotfix implementations of:
 - constrained background-AI suppression;
 - readiness/degraded mode flags.
 
-The deeper residual no longer owns those methods or flags. It continues to own shared stats, provider failure/quota/emergency routing, output hygiene, paused-shadow behavior, and the combined provider-failover snapshot. That snapshot intentionally calls the extracted readiness methods dynamically so the externally visible diagnostic shape remains unchanged.
+The deeper residual no longer owns those methods or flags. It continues to own shared stats, provider failure/quota handling, output hygiene, paused-shadow behavior, and the combined provider-failover snapshot. That snapshot intentionally calls the extracted readiness methods dynamically so the externally visible diagnostic shape remains unchanged.
 
 The real-Worker contract verifies hard/soft/effective readiness, preferred-provider priority, constrained-capacity detection, non-degraded behavior with a healthy provider, constrained background-refill suppression, and preserved mode diagnostics.
 
-The next clean extraction is **provider failure / quota / emergency routing**. Output hygiene and paused-shadow isolation remain separate later boundaries.
+The next clean extraction is **provider failure / quota handling plus failover diagnostics**. Live provider ordering remains with the already-extracted 3G.4 free-provider owner. Output hygiene and paused-shadow isolation remain separate later boundaries.
+
+
+#### 3G.9 — extract provider failure, quota, and failover diagnostics
+V41 production now routes `index_v41_provider_readiness_compat.js → index_v41_provider_failover_compat.js → index_v41_hotfix_residual_compat.js → index_v37.js`.
+
+The new provider-failover owner preserves the exact hotfix implementations of:
+- `noteProviderFailure()`, including request-local 400/413/422 rejection handling;
+- Workers AI daily free-allocation detection and next-UTC-midnight cooldown extension;
+- `v37ProviderFailoverSnapshot()` and its combined cooldown/readiness diagnostic shape;
+- failover mode flags and Workers AI quota state.
+
+The code review for 3G.9 corrected an earlier characterization mistake: `index_v41_free_providers_compat.js` already overrides `orderedReadyProviders()` and does not delegate to the lower hotfix method. Therefore 3G.9 deliberately does **not** claim or duplicate provider-ordering authority. The higher 3G.4 owner remains authoritative, including its extended-provider priority and Workers AI boundary.
+
+The shared `v37ProductionTurnStats` object remains in the final residual because output hygiene and paused-shadow counters still write into it. The failover owner consumes the failure-specific counters there without duplicating the shared object.
+
+The failover snapshot intentionally calls readiness methods through `this`. Because the readiness owner remains above this layer, hard/soft/effective provider fields continue to reflect the live extracted readiness policy instead of a duplicated lower copy.
+
+The real-Worker contract verifies:
+- HTTP 422 request-local rejection increments its counter without tripping the hard provider cooldown;
+- Workers AI daily-quota exhaustion extends cooldown exactly to the next UTC midnight and records reset diagnostics;
+- the live 3G.4 provider-ordering policy remains unchanged: Workers AI can remain the only healthy provider, while structured generation suppresses it when a healthy non-Workers alternative exists;
+- merged failover status and snapshot fields remain visible.
+
+The remaining hotfix residual now contains only **output hygiene, paused-shadow isolation, shared stats, and their residual diagnostics**. Those must be extracted separately; output hygiene is the next clean boundary.
 
 ## Retirement rule
 
