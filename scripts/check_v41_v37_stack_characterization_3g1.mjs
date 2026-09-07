@@ -72,7 +72,6 @@ for (const method of [
 
 for (const method of [
   "providerCapacityConstrained",
-  "activeAmbientCharacters",
   "generateHumanReplan",
   "v37Snapshot"
 ]) {
@@ -129,6 +128,7 @@ for (const method of [
   "touchScene",
   "recentHumanInScene",
   "closeExhaustedAmbientScenes",
+  "activeAmbientCharacters",
   "livelyAmbientPrompt",
   "generateLivelyAmbientAi",
   "generateBackgroundPlan",
@@ -137,8 +137,11 @@ for (const method of [
   assert.equal(ownsMethod(livelyAmbient, method), true, `v37 lively ambient must retain ${method}()`);
 }
 
-assert.ok(humanOnly.includes("this.v37AmbientProviderCursor = 0"));
+assert.equal(humanOnly.includes("this.v37AmbientProviderCursor = 0"), false);
+assert.equal(ownsMethod(humanOnly, "activeAmbientCharacters"), false);
+assert.ok(livelyAmbient.includes("this.v37AmbientProviderCursor = 0"));
 assert.ok(livelyAmbient.includes("this.v37AmbientProviderCursor % preferred.length"));
+assert.equal(ownsMethod(livelyAmbient, "activeAmbientCharacters"), true);
 assert.ok(
   ownsMethod(frozenHumanOnly, "generateBackgroundPlan") && ownsMethod(livelyAmbient, "generateBackgroundPlan")
     && !ownsMethod(humanOnly, "generateBackgroundPlan"),
