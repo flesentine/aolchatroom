@@ -44,7 +44,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Provider readiness classification / capacity state | `index_v41_provider_readiness_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.8 preserves hard/soft readiness, structured-ready selection, constrained/degraded decisions, and human-priority capacity policy. |
 | Degraded/capacity-shedding built-in fallback | `index_v41_provider_readiness_compat.js` in v41 production | 3G.8 preserves provider-independent fallback, human priority, ambient shedding, retry-status reporting, and constrained background suppression. |
 | Production-turn singleflight / replay coalescing | `index_v41_production_turn_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.7 owns one base turn at a time, bounded replay, tick/alarm accounting, force-soon propagation, and merged production-turn diagnostics. |
-| Provider failure classification / cooldown policy | `index_v41_hotfix_residual_compat.js` + inherited provider state in v41 production | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
+| Provider failure classification / cooldown policy | `index_v41_provider_failover_compat.js` + inherited provider state in v41 production | 3G.9 preserves request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, emergency routing, and failover telemetry. |
 | Internal chat metadata stripping | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
 | Legacy live-model shadow pause | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
 | Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
@@ -220,6 +220,29 @@ The deeper residual no longer owns those methods or flags. It continues to own s
 The real-Worker contract verifies hard/soft/effective readiness, preferred-provider priority, constrained-capacity detection, non-degraded behavior with a healthy provider, constrained background-refill suppression, and preserved mode diagnostics.
 
 The next clean extraction is **provider failure / quota / emergency routing**. Output hygiene and paused-shadow isolation remain separate later boundaries.
+
+
+#### 3G.9 — extract provider failure, quota, and emergency routing
+V41 production now routes `index_v41_provider_readiness_compat.js → index_v41_provider_failover_compat.js → index_v41_hotfix_residual_compat.js → index_v37.js`.
+
+The new provider-failover owner preserves the exact hotfix implementations of:
+- `noteProviderFailure()`, including request-local 400/413/422 rejection handling;
+- Workers AI daily free-allocation detection and next-UTC-midnight cooldown extension;
+- `orderedReadyProviders()` emergency Workers AI routing during active structured generation;
+- `v37ProviderFailoverSnapshot()` and its combined cooldown/readiness diagnostic shape;
+- failover mode flags and Workers AI quota state.
+
+The shared `v37ProductionTurnStats` object remains in the final residual because output hygiene and paused-shadow counters still write into it. The failover owner consumes the failure-specific counters there without duplicating the shared object.
+
+The failover snapshot intentionally calls readiness methods through `this`. Because the readiness owner remains above this layer, hard/soft/effective provider fields continue to reflect the live extracted readiness policy instead of a duplicated lower copy.
+
+The real-Worker contract verifies:
+- HTTP 422 request-local rejection increments its counter without tripping the hard provider cooldown;
+- Workers AI daily-quota exhaustion extends cooldown exactly to the next UTC midnight and records reset diagnostics;
+- Workers AI is injected only when the lower provider order is empty and structured-generation depth is active;
+- merged failover status and snapshot fields remain visible.
+
+The remaining hotfix residual now contains only **output hygiene, paused-shadow isolation, shared stats, and their residual diagnostics**. Those must be extracted separately; output hygiene is the next clean boundary.
 
 ## Retirement rule
 
