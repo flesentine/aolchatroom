@@ -1181,6 +1181,132 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  async contractV41HotfixResidualRetirement() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const stats = this.v37ProductionTurnStats;
+    ensure(stats && typeof stats === "object", "3G.12 shared production-turn stats must exist");
+    const statsIdentity = stats;
+
+    const expectedKeys = [
+      "outerRequests",
+      "tickRequests",
+      "alarmRequests",
+      "forceRequests",
+      "baseTurnsStarted",
+      "baseTurnsCompleted",
+      "coalescedRequests",
+      "replayTurns",
+      "deferredAfterReplayCap",
+      "maxConcurrentBaseTurns",
+      "liveAiShadowPauses",
+      "internalMetadataStrips",
+      "internalMetadataDroppedLines",
+      "requestLocalProviderRejects",
+      "emergencyWorkersBrainRoutes",
+      "workersDailyQuotaExhaustions",
+      "degradedModeTicks",
+      "degradedHumanFallbacksQueued",
+      "degradedAmbientFallbacksQueued",
+      "degradedFallbackMisses",
+      "constrainedModeTicks",
+      "backgroundAiPlansSuppressed",
+      "capacitySheddingAmbientQueued"
+    ].sort();
+    equal(JSON.stringify(Object.keys(stats).sort()), JSON.stringify(expectedKeys), "3G.12 shared stats schema must remain exact");
+
+    const beforeOuter = stats.outerRequests;
+    const beforeTick = stats.tickRequests;
+    const beforeForce = stats.forceRequests;
+    const originalGateRequest = this.v37ProductionTurnGate.request;
+    this.v37ProductionTurnGate.request = () => "3g12-gate-probe";
+    try {
+      equal(
+        V41ProductionTurnChatRoom.prototype.requestV37ProductionTurn.call(this, "tick", true),
+        "3g12-gate-probe",
+        "3G.12 singleflight owner must still use the live gate"
+      );
+    } finally {
+      this.v37ProductionTurnGate.request = originalGateRequest;
+    }
+    equal(stats.outerRequests, beforeOuter + 1, "3G.12 singleflight must mutate shared outer-request telemetry");
+    equal(stats.tickRequests, beforeTick + 1, "3G.12 singleflight must mutate shared tick telemetry");
+    equal(stats.forceRequests, beforeForce + 1, "3G.12 singleflight must mutate shared force telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 singleflight must preserve shared stats identity");
+
+    const beforeSuppressed = stats.backgroundAiPlansSuppressed;
+    const originalCapacity = this.providerCapacityConstrained;
+    this.providerCapacityConstrained = () => true;
+    try {
+      equal(
+        await V41ProviderReadinessChatRoom.prototype.refillSceneAi.call(this, Date.UTC(2026, 8, 6, 22, 0, 0), false),
+        false,
+        "3G.12 readiness probe must take the constrained suppression path"
+      );
+    } finally {
+      this.providerCapacityConstrained = originalCapacity;
+    }
+    equal(stats.backgroundAiPlansSuppressed, beforeSuppressed + 1, "3G.12 readiness must mutate shared suppression telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 readiness must preserve shared stats identity");
+
+    const beforeRejects = stats.requestLocalProviderRejects;
+    const originalOutputReject = this.noteOutputReject;
+    this.noteOutputReject = () => "3g12-request-local";
+    try {
+      equal(
+        V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(this, "gemini", 422, null, "retirement probe"),
+        "3g12-request-local",
+        "3G.12 failover must preserve request-local handling"
+      );
+    } finally {
+      this.noteOutputReject = originalOutputReject;
+    }
+    equal(stats.requestLocalProviderRejects, beforeRejects + 1, "3G.12 failover must mutate shared rejection telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 failover must preserve shared stats identity");
+
+    const beforeStrips = stats.internalMetadataStrips;
+    V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "SegaMan",
+      "shared {t12/gaming} stats",
+      "bot",
+      "built-in",
+      { topic: "gaming" }
+    );
+    equal(stats.internalMetadataStrips, beforeStrips + 1, "3G.12 hygiene must mutate shared strip telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 hygiene must preserve shared stats identity");
+
+    const now = Date.UTC(2026, 8, 6, 22, 1, 0);
+    const beforePauses = stats.liveAiShadowPauses;
+    this.v37PendingShadows = [{
+      packet: { probe: "3g12" },
+      queuedAt: now,
+      shadow: {
+        id: "shadow-3g12",
+        at: now,
+        completedAt: 0,
+        ai: { status: "queued", deferReason: "", error: "" }
+      }
+    }];
+    this.v37ShadowHistory = [];
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now);
+    equal(stats.liveAiShadowPauses, beforePauses + 1, "3G.12 shadow must mutate shared pause telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 shadow must preserve shared stats identity");
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.productionTurn?.outerRequests, stats.outerRequests, "3G.12 production-turn snapshot must expose the shared object state");
+    equal(snapshot?.productionTurn?.internalMetadataStrips, stats.internalMetadataStrips, "3G.12 snapshot must expose hygiene telemetry");
+    equal(snapshot?.productionTurn?.liveAiShadowPauses, stats.liveAiShadowPauses, "3G.12 snapshot must expose shadow telemetry");
+
+    return {
+      retired: true,
+      oneSharedStatsObject: true,
+      ownersVerified: ["singleflight", "readiness", "failover", "hygiene", "paused-shadow"],
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1723,6 +1849,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-provider-failover-extraction") return this.contractV41ProviderFailoverExtraction();
     if (name === "v41-output-hygiene-extraction") return this.contractV41OutputHygieneExtraction();
     if (name === "v41-paused-shadow-extraction") return this.contractV41PausedShadowExtraction();
+    if (name === "v41-hotfix-residual-retirement") return this.contractV41HotfixResidualRetirement();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
