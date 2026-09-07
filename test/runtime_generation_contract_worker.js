@@ -691,8 +691,16 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const active = V41LivelyAmbientCompatChatRoom.prototype.activeAmbientCharacters.call(this)
       .map((character) => character?.name)
       .filter(Boolean);
+    const dynamicallyDispatchedActive = this.activeAmbientCharacters()
+      .map((character) => character?.name)
+      .filter(Boolean);
     ensure(active.includes("SegaMan"), "3G.13 lively active-character helper must retain SegaMan");
     ensure(active.includes("MetallicaFan"), "3G.13 lively active-character helper must retain MetallicaFan");
+    equal(
+      JSON.stringify(dynamicallyDispatchedActive),
+      JSON.stringify(active),
+      "3G.13 full production dispatch must resolve activeAmbientCharacters() to the lively owner"
+    );
 
     const originalPreferred = this.preferredStructuredReadyProviders;
     const originalCallProvider = this.callProvider;
