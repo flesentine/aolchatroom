@@ -2,6 +2,7 @@ import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_cont
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
 import { ChatRoom as V41HotfixResidualChatRoom } from "../src/index_v41_hotfix_residual_compat.js";
+import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
 
@@ -699,8 +700,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.providerReady = (provider) => provider !== "groq";
     this.softReady = (provider) => provider === "gemini";
 
-    const hardReady = V41HotfixResidualChatRoom.prototype.hardReadyProviders.call(this, Date.now());
-    const softReady = V41HotfixResidualChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    const hardReady = V41ProviderReadinessChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V41ProviderReadinessChatRoom.prototype.softReadyProviders.call(this, Date.now());
     equal(hardReady.includes("gemini"), true, "3G.6 hard readiness must retain healthy Gemini");
     equal(hardReady.includes("workers-ai"), true, "3G.6 hard readiness must retain hard-healthy Workers AI");
     equal(hardReady.includes("groq"), false, "3G.6 hard readiness must exclude cooled Groq");
