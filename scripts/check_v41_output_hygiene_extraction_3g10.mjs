@@ -9,7 +9,7 @@ function read(path) {
 function extractMethod(source, signature) {
   const start = source.indexOf(`  ${signature}`);
   assert.ok(start >= 0, `missing method ${signature}`);
-  const brace = source.indexOf("{", start);
+  const brace = start + signature.lastIndexOf("{");
   let depth = 0;
   for (let i = brace; i < source.length; i += 1) {
     if (source[i] === "{") depth += 1;
