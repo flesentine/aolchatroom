@@ -2,7 +2,7 @@
 // Frozen index_v37_human_only.js remains unchanged for the v37-v40 lineage.
 // V41 preserves only the still-live capacity, ambient-character, human fallback,
 // constructor/diagnostic, and status surface; superseded adaptive ambient is omitted.
-import hotfixWorker, { ChatRoom as HotfixChatRoom } from "./index_v37_hotfix.js";
+import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { getCharacter } from "./characters.js";
 import { ambientAiIntervalMs } from "./adaptive_ambient_policy_v37.js";
@@ -13,7 +13,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await hotfixWorker.fetch(request, env);
+    const response = await productionTurnWorker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
       return response;
@@ -36,7 +36,7 @@ export default {
   }
 };
 
-export class ChatRoom extends HotfixChatRoom {
+export class ChatRoom extends ProductionTurnChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v37AmbientProviderCursor = 0;

@@ -41,12 +41,12 @@ This phase is **characterization only**. It must not change provider routing, st
 | Transient human reconnect grace | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B owns the full reconnect lifecycle; 3F.2 removes the old presence wrapper participation from the v41 spine while frozen v40 retains it. |
 | Hard-era technology gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v40 | Phase 3D preserves generated-line blocking, v38 counters, and retained-history audit behavior. |
 | Room-topic fatigue / cooling / background filtering | `index_v41_quality_compat.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v38-v40 | 3F.4 preserves cooldown bookkeeping, prompt guidance, background-line filtering, coordinator-delegated scene closes, and v38 diagnostics while production bypasses the v38 wrapper. |
-| Provider readiness classification / capacity state | `index_v37_hotfix.js` + provider wrappers | Preserve hard/soft readiness, structured-ready selection, constrained/degraded decisions, and emergency Workers-AI eligibility. |
-| Degraded/capacity-shedding built-in fallback | `index_v37_hotfix.js` (human degraded path is further guarded by v41) | Preserve provider-independent fallback, human priority, ambient shedding, retry-status reporting, and v41 Phase 2B fail-closed interception. |
-| Production-turn singleflight / replay coalescing | `index_v37_hotfix.js` | Preserve one base turn at a time, bounded replay, tick/alarm accounting, and force-soon propagation. |
-| Provider failure classification / cooldown policy | `index_v37_hotfix.js` + inherited provider state | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
-| Internal chat metadata stripping | `index_v37_hotfix.js` | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
-| Legacy live-model shadow pause | `index_v37_hotfix.js` | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
+| Provider readiness classification / capacity state | `index_v41_hotfix_residual_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | Preserve hard/soft readiness, structured-ready selection, constrained/degraded decisions, and emergency Workers-AI eligibility. |
+| Degraded/capacity-shedding built-in fallback | `index_v41_hotfix_residual_compat.js` in v41 production (human degraded path is further guarded by v41) | Preserve provider-independent fallback, human priority, ambient shedding, retry-status reporting, and v41 Phase 2B fail-closed interception. |
+| Production-turn singleflight / replay coalescing | `index_v41_production_turn_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.7 owns one base turn at a time, bounded replay, tick/alarm accounting, force-soon propagation, and merged production-turn diagnostics. |
+| Provider failure classification / cooldown policy | `index_v41_hotfix_residual_compat.js` + inherited provider state in v41 production | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
+| Internal chat metadata stripping | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
+| Legacy live-model shadow pause | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
 | Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
@@ -181,6 +181,26 @@ After 3G.5, the only v37 wrapper still on the v41 production inheritance spine i
 The wrapper also owns the merged status and `v37Snapshot()` diagnostics for these responsibilities. Phase 3G.6 changes no production dispatch. Each authority group must receive its own replacement owner and runtime contract before `index_v37_hotfix.js` can leave the v41 spine.
 
 The preferred extraction order is singleflight first, then provider readiness/degraded fallback, provider failure/emergency routing, output hygiene, and finally shadow pause/diagnostic consolidation.
+
+
+#### 3G.7 — extract production-turn singleflight from the v37 hotfix boundary
+V41 production now routes `index_v41_human_only_compat.js → index_v41_production_turn_compat.js → index_v41_hotfix_residual_compat.js → index_v37.js`. Frozen `index_v37_hotfix.js` remains unchanged for v37-v40 and is no longer imported by the v41 production spine.
+
+The new production-turn owner preserves the exact hotfix implementations of:
+- `runV37BaseProductionTurn()`;
+- `requestV37ProductionTurn()`;
+- `tick()`;
+- `alarm()`;
+- the `CoalescingTurnGate` with `maxReplays: 2`;
+- coalesced/replay/deferred telemetry hooks;
+- `productionTurnSingleFlight` and `productionTurnReplayCoalescing` status flags;
+- merged `productionTurn` snapshot diagnostics.
+
+The new residual hotfix owner preserves the shared `v37ProductionTurnStats` object because its counters are also written by degraded fallback, provider failover, output hygiene, and shadow isolation. All non-singleflight hotfix method bodies remain byte-for-byte equivalent to the frozen v37 implementation. The unrelated reconnect/coherence/world-date/roster baseline callbacks now delegate directly to `index_v37.js`, eliminating hidden hotfix prototype dependencies.
+
+The real-Worker extraction contract deliberately overlaps a tick, an alarm, and a forced tick. It requires one active base turn, two coalesced requests, exactly one replay, preserved force-soon propagation, maximum concurrency of one, and unchanged merged diagnostics.
+
+The next extraction boundary is **provider readiness plus degraded/capacity fallback**. Provider failure/quota routing, output hygiene, and paused-shadow behavior remain in the residual owner and must not move with it accidentally.
 
 ## Retirement rule
 

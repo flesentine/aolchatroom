@@ -100,11 +100,11 @@ function ownsMethod(source, name) {
 }
 
 assert.ok(wrapper.includes('from "./index_v41_world_date_guard.js"'));
-assert.ok(wrapper.includes('from "./index_v37_hotfix.js"'));
+assert.ok(wrapper.includes('from "./index_v37.js"'));
 assert.ok(!wrapper.includes('from "./index_v38_quality_guard.js"'));
-assert.ok(wrapper.includes("V37HotfixChatRoom.prototype.desiredRoster.call"));
-assert.ok(wrapper.includes("V37HotfixChatRoom.prototype.announceBotLeave.call"));
-assert.ok(wrapper.includes("V37HotfixChatRoom.prototype.announceBotEnter.call"));
+assert.ok(wrapper.includes("V37ChatRoom.prototype.desiredRoster.call"));
+assert.ok(wrapper.includes("V37ChatRoom.prototype.announceBotLeave.call"));
+assert.ok(wrapper.includes("V37ChatRoom.prototype.announceBotEnter.call"));
 assert.ok(generationBase.includes('from "./index_v41_bot_roster_reentry.js"'));
 
 for (const [name, source] of [

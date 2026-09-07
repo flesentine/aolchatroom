@@ -1,5 +1,5 @@
 import worker, { ChatRoom as V41CoherenceChatRoom } from "./index_v41_coherence_repair.js";
-import { ChatRoom as V37HotfixChatRoom } from "./index_v37_hotfix.js";
+import { ChatRoom as V37ChatRoom } from "./index_v37.js";
 import { ChatRoom as V41PresenceCompatChatRoom } from "./index_v41_presence_compat.js";
 import { WorldDateGuardAuthority } from "./world_date_guard_v41.js";
 import { auditFutureGameProductHistory } from "./v39_public_world_gate.js";
@@ -48,7 +48,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
       now,
       context,
       speaker,
-      () => V37HotfixChatRoom.prototype.lineViolation.call(this, text, now, context, speaker)
+      () => V37ChatRoom.prototype.lineViolation.call(this, text, now, context, speaker)
     );
   }
 
@@ -57,7 +57,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
       violation,
       stage,
       speaker,
-      () => V37HotfixChatRoom.prototype.noteViolation.call(this, violation, stage, speaker)
+      () => V37ChatRoom.prototype.noteViolation.call(this, violation, stage, speaker)
     );
   }
 
@@ -75,7 +75,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
   historicalAudit(includeAll = false) {
     return this.worldDateGuardCoordinator.historicalAudit(
       includeAll,
-      () => V37HotfixChatRoom.prototype.historicalAudit.call(this, includeAll)
+      () => V37ChatRoom.prototype.historicalAudit.call(this, includeAll)
     );
   }
 
