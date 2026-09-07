@@ -71,7 +71,6 @@ for (const method of [
 }
 
 for (const method of [
-  "providerCapacityConstrained",
   "generateHumanReplan",
   "v37Snapshot"
 ]) {
@@ -151,10 +150,8 @@ assert.ok(
   ownsMethod(humanOnly, "generateHumanReplan") && ownsMethod(humanDirector, "generateHumanReplan"),
   "human Director must own eligible turns while the residual human-only fallback remains available for delegated packets"
 );
-assert.ok(
-  ownsMethod(providerReadiness, "providerCapacityConstrained") && ownsMethod(humanOnly, "providerCapacityConstrained"),
-  "human-only capacity policy must remain the live override above the residual hotfix baseline"
-);
+assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release capacity authority");
+assert.equal(ownsMethod(providerReadiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must consolidate live capacity authority");
 for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(providerFailover, method), true, `3G.9 provider-failover owner must retain ${method}()`);
   }
