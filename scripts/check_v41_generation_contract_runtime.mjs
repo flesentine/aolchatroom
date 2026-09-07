@@ -118,6 +118,7 @@ const contracts = [
   "v41-provider-failover-extraction",
   "v41-output-hygiene-extraction",
   "v41-paused-shadow-extraction",
+  "v41-hotfix-residual-retirement",
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",
