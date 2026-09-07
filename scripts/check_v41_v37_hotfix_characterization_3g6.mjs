@@ -58,11 +58,13 @@ for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "t
   assert.equal(ownsMethod(frozenHotfix, method), true, `frozen v37 hotfix must retain ${method}()`);
 }
 
-for (const method of ["noteProviderFailure", "orderedReadyProviders", "v37ProviderFailoverSnapshot"]) {
+for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(providerFailover, method), true, `3G.9 provider-failover owner must retain ${method}()`);
   assert.equal(ownsMethod(residual, method), false, `3G.9 residual must not retain ${method}()`);
   assert.equal(ownsMethod(frozenHotfix, method), true, `frozen v37 hotfix must retain ${method}()`);
 }
+assert.equal(ownsMethod(providerFailover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not claim live provider ordering");
+assert.equal(ownsMethod(frozenHotfix, "orderedReadyProviders"), true, "frozen v37 hotfix must retain its superseded lower ordering implementation");
 
 for (const method of ["maybeRunV37Shadow", "say", "v37Snapshot"]) {
   assert.equal(ownsMethod(residual, method), true, `3G.9 final residual must retain ${method}()`);
@@ -72,9 +74,7 @@ for (const method of ["maybeRunV37Shadow", "say", "v37Snapshot"]) {
 for (const marker of [
   "this.v37WorkersDailyQuotaResetAt = 0",
   "isWorkersAiDailyQuotaExhaustion(provider, detail)",
-  "isRequestLocalProviderFailure(status)",
-  "structuredBrainDepth: this.v35StructuredGenerationDepth",
-  'return ["workers-ai"]'
+  "isRequestLocalProviderFailure(status)"
 ]) {
   assert.ok(providerFailover.includes(marker), `3G.9 failover owner must preserve marker: ${marker}`);
 }
