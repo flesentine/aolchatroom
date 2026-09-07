@@ -29,6 +29,7 @@ function ownsMethod(source, name) {
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const lively = read("src/index_v41_lively_ambient_compat.js");
+const readiness = read("src/index_v41_provider_readiness_compat.js");
 
 const productionOwnerPaths = [
   "src/index_v41_generation_contract_base.js",
