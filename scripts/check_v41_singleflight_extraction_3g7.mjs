@@ -29,6 +29,7 @@ function ownsMethod(source, name) {
 const frozen = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
 const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
+const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
@@ -47,7 +48,8 @@ const providers = read("src/index_v41_free_providers_compat.js");
 
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
-assert.ok(providerReadiness.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
+assert.ok(providerFailover.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
 assert.ok(!residual.includes('from "./index_v37_hotfix.js"'));
@@ -73,14 +75,22 @@ for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "t
 for (const signature of [
   'noteProviderFailure(provider, status = 0, response = null, detail = "") {',
   "orderedReadyProviders(now = Date.now()) {",
-  "maybeRunV37Shadow(now = Date.now()) {",
-  'say(from, text, kind = "bot", source = "built-in", meta = {}) {',
   "v37ProviderFailoverSnapshot(now = Date.now()) {"
+]) {
+  assert.equal(
+    extractMethod(providerFailover, signature),
+    extractMethod(frozen, signature),
+    `3G.9 failover method must remain byte-for-byte equivalent: ${signature}`
+  );
+}
+for (const signature of [
+  "maybeRunV37Shadow(now = Date.now()) {",
+  'say(from, text, kind = "bot", source = "built-in", meta = {}) {'
 ]) {
   assert.equal(
     extractMethod(residual, signature),
     extractMethod(frozen, signature),
-    `3G.7 residual method must remain byte-for-byte equivalent: ${signature}`
+    `3G.9 final residual method must remain byte-for-byte equivalent: ${signature}`
   );
 }
 
@@ -127,6 +137,7 @@ const v41ProductionSpine = [
   humanOnly,
   productionTurn,
   providerReadiness,
+  providerFailover,
   residual
 ].join("\n");
 
