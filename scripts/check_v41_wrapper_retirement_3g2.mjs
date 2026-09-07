@@ -79,12 +79,22 @@ for (const marker of [
 }
 
 const headerLines = 4;
+const movedSupportMethod = `  activeAmbientCharacters() {
+    return [...(this.activeBotNames || [])]
+      .map((name) => getCharacter(name))
+      .filter(Boolean);
+  }
+
+`;
 const compatBody = livelyCompat.split("\n").slice(headerLines).join("\n")
-  .replace('from "./index_v41_human_director_compat.js"', 'from "./index_v37_human_director.js"');
+  .replace('from "./index_v41_human_director_compat.js"', 'from "./index_v37_human_director.js"')
+  .replace('import { getCharacter } from "./characters.js";\n', "")
+  .replace("    this.v37AmbientProviderCursor = 0;\n", "")
+  .replace(movedSupportMethod, "");
 assert.equal(
   compatBody,
   frozenLively,
-  "3G.2 replacement must remain byte-for-byte behavior-equivalent to frozen v37 lively ambient below its compatibility header"
+  "3G.2 original lively behavior must remain byte-for-byte equivalent after subtracting the explicit 3G.13 support additions"
 );
 
 console.log("v41 Phase 3G.2 v37 lively-ambient wrapper retirement checks passed");
