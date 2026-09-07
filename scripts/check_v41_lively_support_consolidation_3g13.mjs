@@ -93,9 +93,11 @@ assert.deepEqual(
   "3G.13 lively ambient must be the only v41 production owner of activeAmbientCharacters()"
 );
 
-for (const method of ["providerCapacityConstrained", "generateHumanReplan", "v37Snapshot"]) {
+for (const method of ["generateHumanReplan", "v37Snapshot"]) {
   assert.equal(ownsMethod(humanOnly, method), true, `human-only residual must retain ${method}()`);
 }
+assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
+assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
