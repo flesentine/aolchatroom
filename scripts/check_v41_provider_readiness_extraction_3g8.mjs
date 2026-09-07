@@ -60,19 +60,6 @@ for (const signature of [
   );
 }
 
-for (const method of [
-  "hardReadyProviders",
-  "softReadyProviders",
-  "preferredStructuredReadyProviders",
-  "providerCapacityConstrained",
-  "effectiveStructuredReadyProviders",
-  "providerPoolDegraded",
-  "queueV37DegradedFallback",
-  "queueV37CapacitySheddingAmbient",
-  "refillSceneAi"
-]) {
-}
-
 for (const marker of [
   "providerDegradedModeBuiltInFallback: true",
   "effectiveStructuredProviderReadiness: true",
