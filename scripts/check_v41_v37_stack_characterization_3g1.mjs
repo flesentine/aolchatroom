@@ -147,10 +147,12 @@ assert.ok(
   ownsMethod(providerReadiness, "providerCapacityConstrained") && ownsMethod(humanOnly, "providerCapacityConstrained"),
   "human-only capacity policy must remain the live override above the residual hotfix baseline"
 );
-for (const method of ["noteProviderFailure", "orderedReadyProviders", "v37ProviderFailoverSnapshot"]) {
+for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(providerFailover, method), true, `3G.9 provider-failover owner must retain ${method}()`);
   assert.equal(ownsMethod(hotfixResidual, method), false, `3G.9 final residual must not retain ${method}()`);
 }
+assert.equal(ownsMethod(providerFailover, "orderedReadyProviders"), false, "3G.9 must not duplicate the higher live provider-ordering authority");
+assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider compatibility remains the live production ordering owner");
 for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "tick", "alarm"]) {
   assert.equal(ownsMethod(productionTurn, method), true, `3G.7 production-turn owner must retain ${method}()`);
   assert.equal(ownsMethod(hotfixResidual, method), false, `3G.7 residual owner must not retain ${method}()`);
