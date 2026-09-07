@@ -17,7 +17,7 @@ const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
-const hotfixResidual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
@@ -40,8 +40,9 @@ assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.j
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
 assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(hotfixResidual.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
@@ -153,17 +154,13 @@ assert.ok(
 );
 for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
   assert.equal(ownsMethod(providerFailover, method), true, `3G.9 provider-failover owner must retain ${method}()`);
-  assert.equal(ownsMethod(hotfixResidual, method), false, `3G.9 final residual must not retain ${method}()`);
-}
+  }
 assert.equal(ownsMethod(providerFailover, "orderedReadyProviders"), false, "3G.9 must not duplicate the higher live provider-ordering authority");
 assert.equal(ownsMethod(outputHygiene, "say"), true, "3G.10 output-hygiene owner must retain say()");
 assert.equal(ownsMethod(pausedShadow, "maybeRunV37Shadow"), true, "3G.11 paused-shadow owner must retain maybeRunV37Shadow()");
-assert.equal(ownsMethod(hotfixResidual, "say"), false, "3G.10 shared-state residual must not retain say()");
-assert.equal(ownsMethod(hotfixResidual, "maybeRunV37Shadow"), false, "3G.11 shared-state residual must not retain maybeRunV37Shadow()");
 assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider compatibility remains the live production ordering owner");
 for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "tick", "alarm"]) {
   assert.equal(ownsMethod(productionTurn, method), true, `3G.7 production-turn owner must retain ${method}()`);
-  assert.equal(ownsMethod(hotfixResidual, method), false, `3G.7 residual owner must not retain ${method}()`);
-}
+  }
 
 console.log("v41 Phase 3G.1 v37 wrapper-stack characterization checks passed");
