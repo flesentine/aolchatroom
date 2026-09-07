@@ -45,7 +45,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Degraded/capacity-shedding built-in fallback | `index_v41_provider_readiness_compat.js` in v41 production | 3G.8 preserves provider-independent fallback, human priority, ambient shedding, retry-status reporting, and constrained background suppression. |
 | Production-turn singleflight / replay coalescing | `index_v41_production_turn_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.7 owns one base turn at a time, bounded replay, tick/alarm accounting, force-soon propagation, and merged production-turn diagnostics. |
 | Provider failure classification / cooldown policy | `index_v41_provider_failover_compat.js` + inherited provider state in v41 production | 3G.9 preserves request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. Live provider ordering remains owned by `index_v41_free_providers_compat.js`. |
-| Internal chat metadata stripping | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
+| Internal chat metadata stripping | `index_v41_output_hygiene_compat.js` in v41 production | 3G.10 preserves bot-only stripping/drop behavior, shared strip/drop counters, higher provider-source normalization, and the output-hygiene status flag. |
 | Legacy live-model shadow pause | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve paused-shadow behavior until shadow machinery is explicitly retired. |
 | Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
@@ -244,6 +244,28 @@ The real-Worker contract verifies:
 - merged failover status and snapshot fields remain visible.
 
 The remaining hotfix residual now contains only **output hygiene, paused-shadow isolation, shared stats, and their residual diagnostics**. Those must be extracted separately; output hygiene is the next clean boundary.
+
+
+#### 3G.10 — extract output hygiene
+V41 production now routes `index_v41_provider_failover_compat.js → index_v41_output_hygiene_compat.js → index_v41_hotfix_residual_compat.js → index_v37.js`.
+
+The new output-hygiene owner preserves the exact hotfix `say()` implementation:
+- non-bot/human text bypasses stripping;
+- bot text passes through `stripInternalChatMetadata()`;
+- sanitized bot lines increment `internalMetadataStrips`;
+- metadata-only bot lines are dropped and increment `internalMetadataDroppedLines`;
+- `internalMetadataOutputHygiene` remains visible in status/snapshot output.
+
+The shared `v37ProductionTurnStats` object stays in the residual because paused-shadow accounting still writes into it. The hygiene owner consumes only the two hygiene counters without duplicating shared state.
+
+The live upper `index_v41_free_providers_compat.js` `say()` override remains above this layer and still delegates through `super.say()`. The real-Worker contract therefore exercises the full production path and proves:
+- extended-provider source normalization still occurs first;
+- internal thread/topic metadata is stripped before visible bot chat;
+- concrete provider metadata survives;
+- metadata-only bot lines never enter history;
+- human text containing the same tag syntax is untouched.
+
+The remaining hotfix residual is now limited to **paused-shadow isolation, shared stats, and residual diagnostics**. Paused-shadow extraction is the next clean boundary.
 
 ## Retirement rule
 
