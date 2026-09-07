@@ -1219,7 +1219,19 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractWorldDateConsoleNormalization() {
     this.reset({ bots: ["SegaMan"] });
     const before = this.history.length;
-    this.say("SegaMan", "PS1 has good games", "bot", "gemini", { topic: "gaming" });
+
+    // The real lower pipeline includes v7 typing style, whose deliberate random
+    // emoticons/typos can make an exact normalization assertion flaky. Pin its
+    // random branches off for this contract so only the world/date rewrite is
+    // under test; production randomness remains untouched.
+    const originalRandom = Math.random;
+    Math.random = () => 0.999999;
+    try {
+      this.say("SegaMan", "PS1 has good games", "bot", "gemini", { topic: "gaming" });
+    } finally {
+      Math.random = originalRandom;
+    }
+
     equal(this.history.length, before + 1, "bot normalization contract must emit one line");
     equal(this.history.at(-1)?.text, "playstation has good games", "3D must preserve the existing lower-pipeline surface after PS1 normalization");
     equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
@@ -1227,7 +1239,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.say("Crateman", "PS1 has good games", "human", "human", { topic: "gaming" });
     equal(this.history.at(-1)?.text, "PS1 has good games", "human text must never be rewritten by console normalization");
     equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "human text must not affect normalization counter");
-    return { normalizedBotOnly: true };
+    return { normalizedBotOnly: true, typingRandomnessPinned: true };
   }
 
   async contractWorldDateHistoricalAudit() {
