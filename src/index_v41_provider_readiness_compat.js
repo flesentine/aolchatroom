@@ -2,7 +2,7 @@
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
 // V41 owns readiness/capacity classification, degraded fallback, capacity shedding,
 // and constrained background suppression here.
-import residualWorker, { ChatRoom as ResidualHotfixChatRoom } from "./index_v41_hotfix_residual_compat.js";
+import failoverWorker, { ChatRoom as ProviderFailoverChatRoom } from "./index_v41_provider_failover_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import {
   degradedBuiltInFallbackEligible,
@@ -17,7 +17,7 @@ async function json(response) {
 
 export default {
   async fetch(request, env) {
-    const response = await residualWorker.fetch(request, env);
+    const response = await failoverWorker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") {
       return response;
@@ -37,7 +37,7 @@ export default {
   }
 };
 
-export class ChatRoom extends ResidualHotfixChatRoom {
+export class ChatRoom extends ProviderFailoverChatRoom {
   hardReadyProviders(now = Date.now()) {
     const configured = this.configuredProviders?.() || [];
     if (typeof this.providerReady !== "function") return configured;
