@@ -73,18 +73,6 @@ export class ChatRoom extends V37ChatRoom {
     }
   }
 
-) {
-    const original = String(text || "");
-    if (kind !== "bot") return super.say(from, original, kind, source, meta);
-
-    const sanitized = stripInternalChatMetadata(original);
-    if (sanitized !== original) this.v37ProductionTurnStats.internalMetadataStrips += 1;
-    if (!sanitized) {
-      this.v37ProductionTurnStats.internalMetadataDroppedLines += 1;
-      return false;
-    }
-    return super.say(from, sanitized, kind, source, meta);
-  }
 
   v37Snapshot() {
     const base = super.v37Snapshot();
