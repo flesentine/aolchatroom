@@ -14,6 +14,7 @@ function ownsMethod(source, name) {
 const hotfix = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
 const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
+const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const hotfixResidual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const frozenHumanOnly = read("src/index_v37_human_only.js");
@@ -34,7 +35,8 @@ assert.ok(freeProviders.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenFreeProviders.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
-assert.ok(providerReadiness.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
+assert.ok(providerFailover.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(hotfixResidual.includes('from "./index_v37.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
@@ -145,6 +147,10 @@ assert.ok(
   ownsMethod(providerReadiness, "providerCapacityConstrained") && ownsMethod(humanOnly, "providerCapacityConstrained"),
   "human-only capacity policy must remain the live override above the residual hotfix baseline"
 );
+for (const method of ["noteProviderFailure", "orderedReadyProviders", "v37ProviderFailoverSnapshot"]) {
+  assert.equal(ownsMethod(providerFailover, method), true, `3G.9 provider-failover owner must retain ${method}()`);
+  assert.equal(ownsMethod(hotfixResidual, method), false, `3G.9 final residual must not retain ${method}()`);
+}
 for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "tick", "alarm"]) {
   assert.equal(ownsMethod(productionTurn, method), true, `3G.7 production-turn owner must retain ${method}()`);
   assert.equal(ownsMethod(hotfixResidual, method), false, `3G.7 residual owner must not retain ${method}()`);
