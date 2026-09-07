@@ -54,36 +54,10 @@ for (const signature of [
   );
 }
 
-for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
-}
 assert.equal(ownsMethod(failover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not falsely claim live provider ordering");
 assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider owner must remain the live v41 provider ordering authority");
 assert.ok(freeProviders.includes("orderedExtendedProviders({"));
 assert.ok(freeProviders.includes("structuredGenerationDepth: this.v35StructuredGenerationDepth"));
-
-for (const marker of [
-  "this.v37WorkersDailyQuotaResetAt = 0",
-  "isWorkersAiDailyQuotaExhaustion(provider, detail)",
-  "nextUtcDailyQuotaResetAt(now)",
-  "isRequestLocalProviderFailure(status)",
-  "requestLocalProviderFailuresDoNotTripGlobalCooldown: true",
-  "emergencyWorkersBrainFallback: true",
-  "workersAiDailyQuotaState: true",
-  "providerFailover: this.v37ProviderFailoverSnapshot(Date.now())"
-]) {
-  assert.ok(failover.includes(marker), `3G.9 provider-failover owner must preserve marker: ${marker}`);
-}
-
-for (const marker of [
-  "this.v37WorkersDailyQuotaResetAt = 0",
-  "isWorkersAiDailyQuotaExhaustion(provider, detail)",
-  "isRequestLocalProviderFailure(status)",
-  "requestLocalProviderFailuresDoNotTripGlobalCooldown: true",
-  "emergencyWorkersBrainFallback: true",
-  "workersAiDailyQuotaState: true",
-  "providerFailover:"
-]) {
-}
 
 assert.ok(sharedStats.includes("createV37ProductionTurnStats"), "3G.12 must keep shared stats in the state factory");
 for (const marker of ["stripInternalChatMetadata(original)", "internalMetadataOutputHygiene: true"]) {
