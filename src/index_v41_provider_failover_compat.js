@@ -1,10 +1,10 @@
 // Phase 3G.9 provider-failure, quota, and emergency-routing compatibility owner.
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
 // V41 owns provider failure classification, Workers AI daily-quota state,
-// emergency structured routing, and merged failover diagnostics here.
+// quota cooldown state, and merged failover diagnostics here. Live v41 provider
+// ordering remains owned by the higher Phase 3G.4 free-provider compatibility layer.
 import residualWorker, { ChatRoom as ResidualHotfixChatRoom } from "./index_v41_hotfix_residual_compat.js";
 import {
-  emergencyWorkersBrainEligible,
   isRequestLocalProviderFailure,
   isWorkersAiDailyQuotaExhaustion,
   nextUtcDailyQuotaResetAt
@@ -70,25 +70,6 @@ export class ChatRoom extends ResidualHotfixChatRoom {
       );
     }
     return super.noteProviderFailure(provider, status, response, detail);
-  }
-
-  orderedReadyProviders(now = Date.now()) {
-    const ordered = super.orderedReadyProviders(now);
-    const configured = this.configuredProviders?.() || [];
-    const workersHardReady = configured.includes("workers-ai")
-      && (typeof this.providerReady !== "function" || this.providerReady("workers-ai", now));
-    const workersSoftReady = typeof this.softReady !== "function" || this.softReady("workers-ai", now);
-
-    if (!emergencyWorkersBrainEligible({
-      orderedProviders: ordered,
-      structuredBrainDepth: this.v35StructuredGenerationDepth,
-      configuredProviders: configured,
-      workersHardReady,
-      workersSoftReady
-    })) return ordered;
-
-    this.v37ProductionTurnStats.emergencyWorkersBrainRoutes += 1;
-    return ["workers-ai"];
   }
 
   v37ProviderFailoverSnapshot(now = Date.now()) {
