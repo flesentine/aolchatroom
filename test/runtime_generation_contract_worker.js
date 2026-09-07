@@ -478,7 +478,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     ensure(snapshot?.humanDirector, "v37 human Director diagnostics must survive");
     ensure(snapshot?.livelyAmbientAi, "v37 lively ambient diagnostics must survive");
 
-    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "human-only constructor state used by lively ambient must exist");
+    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "lively-owned ambient provider cursor must exist");
     ensure(typeof this.providerCapacityConstrained === "function", "live v37 capacity policy must remain callable");
     ensure(typeof this.callProvider === "function", "live v37 extended provider dispatch must remain callable");
     ensure(typeof this.generateHumanReplan === "function", "live v37 human Director path must remain callable");
