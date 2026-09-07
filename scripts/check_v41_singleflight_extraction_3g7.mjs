@@ -28,6 +28,7 @@ function ownsMethod(source, name) {
 
 const frozen = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
+const providerReadiness = read("src/index_v41_provider_readiness_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
@@ -45,7 +46,8 @@ const director = read("src/index_v41_human_director_compat.js");
 const providers = read("src/index_v41_free_providers_compat.js");
 
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
-assert.ok(productionTurn.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
+assert.ok(providerReadiness.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
 assert.ok(!residual.includes('from "./index_v37_hotfix.js"'));
@@ -64,19 +66,11 @@ for (const signature of [
 }
 
 for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "tick", "alarm"]) {
+  assert.equal(ownsMethod(providerReadiness, method), false, `readiness owner must not retain ${method}()`);
   assert.equal(ownsMethod(residual, method), false, `residual hotfix owner must not retain ${method}()`);
 }
 
 for (const signature of [
-  "hardReadyProviders(now = Date.now()) {",
-  "softReadyProviders(now = Date.now()) {",
-  "preferredStructuredReadyProviders(now = Date.now()) {",
-  "providerCapacityConstrained(now = Date.now()) {",
-  "effectiveStructuredReadyProviders(now = Date.now()) {",
-  "providerPoolDegraded(now = Date.now()) {",
-  "queueV37DegradedFallback(now = Date.now(), forceSoon = false) {",
-  "queueV37CapacitySheddingAmbient(now = Date.now(), forceSoon = false) {",
-  "async refillSceneAi(now = Date.now(), force = false) {",
   'noteProviderFailure(provider, status = 0, response = null, detail = "") {',
   "orderedReadyProviders(now = Date.now()) {",
   "maybeRunV37Shadow(now = Date.now()) {",
@@ -132,6 +126,7 @@ const v41ProductionSpine = [
   providers,
   humanOnly,
   productionTurn,
+  providerReadiness,
   residual
 ].join("\n");
 
