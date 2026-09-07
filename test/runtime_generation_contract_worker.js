@@ -730,7 +730,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       authorities: [
         "production-turn-singleflight",
         "provider-readiness-and-degraded-fallback",
-        "provider-failure-and-emergency-routing",
+        "provider-failure-and-quota-diagnostics",
         "output-hygiene",
         "paused-shadow"
       ]
