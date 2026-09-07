@@ -31,12 +31,14 @@ const productionTurn = read("src/index_v41_production_turn_compat.js");
 const readiness = read("src/index_v41_provider_readiness_compat.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
+const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(readiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
-assert.ok(outputHygiene.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
+assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 
 for (const signature of [
@@ -90,6 +92,6 @@ for (const marker of [
 for (const marker of ["stripInternalChatMetadata(original)", "internalMetadataOutputHygiene: true"]) {
   assert.ok(outputHygiene.includes(marker), `3G.10 output-hygiene owner must retain ${marker}`);
 }
-assert.ok(residual.includes("maybeRunV37Shadow(now = Date.now())"), "3G.10 residual must retain later shadow authority");
+assert.ok(pausedShadow.includes("maybeRunV37Shadow(now = Date.now())"), "3G.11 paused-shadow owner must retain later shadow authority");
 
 console.log("v41 Phase 3G.8 provider readiness/degraded fallback extraction checks passed");

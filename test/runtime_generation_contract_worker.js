@@ -4,6 +4,7 @@ import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_o
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
 import { ChatRoom as V41OutputHygieneChatRoom } from "../src/index_v41_output_hygiene_compat.js";
+import { ChatRoom as V41PausedShadowChatRoom } from "../src/index_v41_paused_shadow_compat.js";
 import { nextUtcDailyQuotaResetAt } from "../src/provider_failover_v37.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
@@ -1107,6 +1108,79 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  contractV41PausedShadowExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const now = Date.UTC(2026, 8, 6, 21, 0, 0);
+    const shadow = {
+      id: "shadow-3g11",
+      at: now - 1000,
+      completedAt: 0,
+      ai: {
+        status: "queued",
+        deferReason: "",
+        error: ""
+      }
+    };
+    this.v37PendingShadows = [{ packet: { probe: true }, shadow, queuedAt: now }];
+    this.v37ShadowHistory = [];
+    this.lastV37Shadow = null;
+
+    const beforePauses = Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0);
+    const beforeExpired = Number(this.v37Stats?.aiShadowExpired || 0);
+
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now);
+
+    equal(this.v37PendingShadows.length, 1, "3G.11 paused shadow must remain queued for observational history");
+    equal(shadow.ai.status, "deferred-production-priority", "3G.11 paused shadow must be marked production-priority deferred");
+    equal(shadow.ai.deferReason, "live-model-shadow-paused", "3G.11 paused shadow must retain the frozen defer reason");
+    equal(
+      shadow.ai.error,
+      "live Director model calls paused after provider retry recurrence",
+      "3G.11 paused shadow must retain the frozen diagnostic error"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 first pause transition must increment telemetry exactly once"
+    );
+    equal(Number(this.v37Stats?.aiShadowExpired || 0), beforeExpired, "3G.11 fresh queued shadow must not be expired");
+    equal(this.v37ShadowHistory.length, 1, "3G.11 pause transition must replace/record shadow history");
+    equal(this.v37ShadowHistory[0]?.id, "shadow-3g11", "3G.11 shadow history must retain shadow identity");
+    equal(this.lastV37Shadow?.ai?.deferReason, "live-model-shadow-paused", "3G.11 last-shadow diagnostics must reflect paused state");
+
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now + 1);
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 repeated pause observation must be idempotent"
+    );
+    equal(this.v37ShadowHistory.length, 1, "3G.11 idempotent pause must not duplicate shadow history");
+
+    this.v37PendingShadows = [];
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now + 2);
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 no-pending call must be a telemetry no-op"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.liveAiShadowPausedForProviderStability, true, "3G.11 paused-shadow mode must remain visible");
+    equal(snapshot?.mode?.liveAiShadowResumedAfterSingleFlightValidation, false, "3G.11 shadow-resume mode must remain false");
+    equal(snapshot?.mode?.shadowPacketsStillRecordedWhileModelPaused, true, "3G.11 shadow-packet recording flag must remain visible");
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.11 must preserve higher output-hygiene diagnostics");
+
+    return {
+      extracted: true,
+      firstPauseRecorded: true,
+      idempotent: true,
+      pendingPreserved: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
   async contractRetiredV38QualityCompatibility() {
     const now = Date.now();
     const history = [];
@@ -1648,6 +1722,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
     if (name === "v41-provider-failover-extraction") return this.contractV41ProviderFailoverExtraction();
     if (name === "v41-output-hygiene-extraction") return this.contractV41OutputHygieneExtraction();
+    if (name === "v41-paused-shadow-extraction") return this.contractV41PausedShadowExtraction();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();

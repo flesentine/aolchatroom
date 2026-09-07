@@ -30,11 +30,13 @@ function ownsMethod(source, name) {
 const frozen = read("src/index_v37_hotfix.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
 const hygiene = read("src/index_v41_output_hygiene_compat.js");
+const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
 const residual = read("src/index_v41_hotfix_residual_compat.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
 
 assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
-assert.ok(hygiene.includes('from "./index_v41_hotfix_residual_compat.js"'));
+assert.ok(hygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
+assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
 assert.ok(residual.includes('from "./index_v37.js"'));
 assert.ok(hygiene.includes('from "./output_hygiene_v37.js"'));
 
@@ -56,8 +58,8 @@ assert.ok(hygiene.includes("internalMetadataOutputHygiene: true"));
 assert.ok(residual.includes("this.v37ProductionTurnStats = {"));
 assert.ok(residual.includes("internalMetadataStrips: 0"));
 assert.ok(residual.includes("internalMetadataDroppedLines: 0"));
-assert.ok(residual.includes("maybeRunV37Shadow(now = Date.now())"));
-assert.ok(residual.includes('deferReason = "live-model-shadow-paused"'));
+assert.ok(pausedShadow.includes("maybeRunV37Shadow(now = Date.now())"));
+assert.ok(pausedShadow.includes('deferReason = "live-model-shadow-paused"'));
 
 assert.equal(ownsMethod(freeProviders, "say"), true, "3G.4 free-provider source normalization must remain above hygiene");
 const freeProviderSay = extractMethod(freeProviders, 'say(from, text, kind = "bot", source = "built-in", meta = {}) {');
