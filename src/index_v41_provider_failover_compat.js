@@ -1,4 +1,4 @@
-// Phase 3G.9 provider-failure, quota, and emergency-routing compatibility owner.
+// Phase 3G.9 provider-failure, quota, and failover-diagnostics compatibility owner.
 // Frozen index_v37_hotfix.js remains unchanged for the v37-v40 lineage.
 // V41 owns provider failure classification, Workers AI daily-quota state,
 // quota cooldown state, and merged failover diagnostics here. Live v41 provider
