@@ -28,7 +28,6 @@ const v41ProviderReadinessCompat = read("src/index_v41_provider_readiness_compat
 const v41ProviderFailoverCompat = read("src/index_v41_provider_failover_compat.js");
 const v41OutputHygieneCompat = read("src/index_v41_output_hygiene_compat.js");
 const v41PausedShadowCompat = read("src/index_v41_paused_shadow_compat.js");
-const v41HotfixResidualCompat = read("src/index_v41_hotfix_residual_compat.js");
 const v41Scene = read("src/index_v41_scene_coordinator.js");
 const v41Reconnect = read("src/index_v41_human_reconnect.js");
 const v41Coherence = read("src/index_v41_coherence_repair.js");
@@ -62,8 +61,9 @@ assert.ok(v41ProductionTurnCompat.includes('from "./index_v41_provider_readiness
 assert.ok(v41ProviderReadinessCompat.includes('from "./index_v41_provider_failover_compat.js"'), "3G.9 readiness owner must sit above the provider-failover owner");
 assert.ok(v41ProviderFailoverCompat.includes('from "./index_v41_output_hygiene_compat.js"'), "3G.10 failover owner must sit above the output-hygiene owner");
 assert.ok(v41OutputHygieneCompat.includes('from "./index_v41_paused_shadow_compat.js"'), "3G.11 output-hygiene owner must sit above the paused-shadow owner");
-assert.ok(v41PausedShadowCompat.includes('from "./index_v41_hotfix_residual_compat.js"'), "3G.11 paused-shadow owner must sit above shared hotfix state");
-assert.ok(v41HotfixResidualCompat.includes('from "./index_v37.js"'), "3G.11 shared hotfix state must preserve the frozen v37 baseline");
+assert.ok(v41PausedShadowCompat.includes('from "./index_v37.js"'), "3G.12 paused-shadow owner must inherit directly from the frozen v37 baseline");
+assert.ok(v41PausedShadowCompat.includes('from "./production_turn_stats_v41.js"'), "3G.12 paused-shadow owner must initialize shared telemetry through the state factory");
+assert.equal(fs.existsSync(new URL("../src/index_v41_hotfix_residual_compat.js", import.meta.url)), false, "3G.12 retired hotfix residual file must stay deleted");
 assert.ok(!v41CoherenceCompat.includes('from "./index_v38_quality_guard.js"'), "v38 quality must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_coherence.js"'), "v39 coherence must be retired from v41 production inheritance");
 assert.ok(!v41PresenceCompat.includes('from "./index_v39_presence_fix.js"'), "v39 presence must be retired from v41 production inheritance");

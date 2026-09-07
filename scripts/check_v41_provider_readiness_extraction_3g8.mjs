@@ -32,14 +32,15 @@ const readiness = read("src/index_v41_provider_readiness_compat.js");
 const failover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
-const residual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(readiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
 assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(residual.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 
 for (const signature of [
   "hardReadyProviders(now = Date.now()) {",
@@ -59,20 +60,6 @@ for (const signature of [
   );
 }
 
-for (const method of [
-  "hardReadyProviders",
-  "softReadyProviders",
-  "preferredStructuredReadyProviders",
-  "providerCapacityConstrained",
-  "effectiveStructuredReadyProviders",
-  "providerPoolDegraded",
-  "queueV37DegradedFallback",
-  "queueV37CapacitySheddingAmbient",
-  "refillSceneAi"
-]) {
-  assert.equal(ownsMethod(residual, method), false, `3G.8 residual must not retain ${method}()`);
-}
-
 for (const marker of [
   "providerDegradedModeBuiltInFallback: true",
   "effectiveStructuredProviderReadiness: true",
@@ -80,7 +67,6 @@ for (const marker of [
   "ambientAiCapacityShedding: true"
 ]) {
   assert.ok(readiness.includes(marker), `3G.8 readiness status surface must retain ${marker}`);
-  assert.equal(residual.includes(marker), false, `3G.8 residual must not duplicate ${marker}`);
 }
 
 for (const marker of [

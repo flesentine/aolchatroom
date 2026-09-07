@@ -47,6 +47,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Provider failure classification / cooldown policy | `index_v41_provider_failover_compat.js` + inherited provider state in v41 production | 3G.9 preserves request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. Live provider ordering remains owned by `index_v41_free_providers_compat.js`. |
 | Internal chat metadata stripping | `index_v41_output_hygiene_compat.js` in v41 production | 3G.10 preserves bot-only stripping/drop behavior, shared strip/drop counters, higher provider-source normalization, and the output-hygiene status flag. |
 | Legacy live-model shadow pause | `index_v41_paused_shadow_compat.js` in v41 production | 3G.11 preserves queued-shadow pause marking, idempotent telemetry, retained shadow-history updates, and the paused-shadow status flags. |
+| Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
 | Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
@@ -287,6 +288,28 @@ The shared `v37ProductionTurnStats` object remains in `index_v41_hotfix_residual
 The real-Worker contract verifies the first pause transition, retained pending packet, shadow-history replacement, no stale expiry, idempotent repeat behavior, no-pending no-op behavior, and preserved merged diagnostics.
 
 With 3G.11 complete, every behavioral responsibility characterized in 3G.6 has a v41 production owner outside the old hotfix residual. The next clean step is a **shared-state consolidation/retirement decision** for `index_v41_hotfix_residual_compat.js`, not another behavior extraction.
+
+
+#### 3G.12 — retire the hotfix residual compatibility layer
+V41 production now routes `index_v41_output_hygiene_compat.js → index_v41_paused_shadow_compat.js → index_v37.js`. The file `index_v41_hotfix_residual_compat.js` is deleted.
+
+The only responsibility left after 3G.11 was initialization of the shared `v37ProductionTurnStats` object. 3G.12 moves that schema into the state-only factory `production_turn_stats_v41.js`. The paused-shadow owner is the lowest v41 hotfix-derived layer, so its constructor now:
+- calls the v37 constructor first;
+- creates one fresh telemetry object per room;
+- leaves all behavior in the already extracted singleflight/readiness/failover/hygiene/shadow owners.
+
+The retirement gate derives the frozen counter keys from `index_v37_hotfix.js` and requires the factory to match that schema exactly with every counter initialized to zero. It also requires the deleted residual file to stay absent and forbids higher owners from reinitializing the object.
+
+The real-Worker retirement contract proves one object identity is shared across:
+- production-turn request accounting;
+- readiness/capacity suppression;
+- request-local provider rejection handling;
+- output-hygiene stripping;
+- paused-shadow accounting.
+
+The merged `productionTurn` snapshot must expose the same mutated values after all five owners run.
+
+After 3G.12 there is no v41 production dependency on `index_v37_hotfix.js` or on a hotfix-residual compatibility wrapper. The frozen v37-v40 lineage remains unchanged.
 
 ## Retirement rule
 

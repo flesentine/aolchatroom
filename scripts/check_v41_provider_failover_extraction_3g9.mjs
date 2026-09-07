@@ -33,14 +33,15 @@ const failover = read("src/index_v41_provider_failover_compat.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
-const residual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(readiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(failover.includes('from "./index_v41_output_hygiene_compat.js"'));
 assert.ok(outputHygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(pausedShadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(residual.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./index_v37.js"'));
+assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 
 for (const signature of [
   'noteProviderFailure(provider, status = 0, response = null, detail = "") {',
@@ -53,9 +54,6 @@ for (const signature of [
   );
 }
 
-for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
-  assert.equal(ownsMethod(residual, method), false, `3G.9 final residual must not retain ${method}()`);
-}
 assert.equal(ownsMethod(failover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not falsely claim live provider ordering");
 assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider owner must remain the live v41 provider ordering authority");
 assert.ok(freeProviders.includes("orderedExtendedProviders({"));
@@ -74,19 +72,7 @@ for (const marker of [
   assert.ok(failover.includes(marker), `3G.9 provider-failover owner must preserve marker: ${marker}`);
 }
 
-for (const marker of [
-  "this.v37WorkersDailyQuotaResetAt = 0",
-  "isWorkersAiDailyQuotaExhaustion(provider, detail)",
-  "isRequestLocalProviderFailure(status)",
-  "requestLocalProviderFailuresDoNotTripGlobalCooldown: true",
-  "emergencyWorkersBrainFallback: true",
-  "workersAiDailyQuotaState: true",
-  "providerFailover:"
-]) {
-  assert.equal(residual.includes(marker), false, `3G.9 final residual must not duplicate marker: ${marker}`);
-}
-
-assert.ok(residual.includes("this.v37ProductionTurnStats = {"), "3G.10 must keep shared stats in the residual");
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"), "3G.12 must keep shared stats in the state factory");
 for (const marker of ["stripInternalChatMetadata(original)", "internalMetadataOutputHygiene: true"]) {
   assert.ok(outputHygiene.includes(marker), `3G.10 must preserve output hygiene: ${marker}`);
 }

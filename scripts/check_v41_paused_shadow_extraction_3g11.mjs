@@ -30,11 +30,12 @@ const frozen = read("src/index_v37_hotfix.js");
 const productionTurn = read("src/index_v41_production_turn_compat.js");
 const hygiene = read("src/index_v41_output_hygiene_compat.js");
 const shadow = read("src/index_v41_paused_shadow_compat.js");
-const residual = read("src/index_v41_hotfix_residual_compat.js");
+const sharedStats = read("src/production_turn_stats_v41.js");
 
 assert.ok(hygiene.includes('from "./index_v41_paused_shadow_compat.js"'));
-assert.ok(shadow.includes('from "./index_v41_hotfix_residual_compat.js"'));
-assert.ok(residual.includes('from "./index_v37.js"'));
+assert.ok(shadow.includes('from "./index_v37.js"'));
+assert.ok(shadow.includes('from "./production_turn_stats_v41.js"'));
+assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 assert.ok(productionTurn.includes("this.maybeRunV37Shadow(Date.now())"));
 
 assert.equal(
@@ -44,9 +45,7 @@ assert.equal(
 );
 
 assert.equal(ownsMethod(shadow, "maybeRunV37Shadow"), true, "3G.11 shadow owner must own maybeRunV37Shadow()");
-assert.equal(ownsMethod(residual, "maybeRunV37Shadow"), false, "3G.11 shared-state residual must not retain maybeRunV37Shadow()");
 assert.equal(ownsMethod(shadow, "v37Snapshot"), true, "3G.11 shadow owner must own shadow mode diagnostics");
-assert.equal(ownsMethod(residual, "v37Snapshot"), false, "3G.11 shared-state residual must not retain a shadow snapshot override");
 
 for (const marker of [
   'deferReason !== "live-model-shadow-paused"',
@@ -59,13 +58,11 @@ for (const marker of [
   "shadowPacketsStillRecordedWhileModelPaused: true"
 ]) {
   assert.ok(shadow.includes(marker), `3G.11 paused-shadow owner must preserve marker: ${marker}`);
-  assert.equal(residual.includes(marker), false, `3G.11 shared-state residual must not duplicate marker: ${marker}`);
 }
 
-assert.ok(residual.includes("this.v37ProductionTurnStats = {"));
-assert.ok(residual.includes("liveAiShadowPauses: 0"));
-assert.equal((residual.match(/this\.v37ProductionTurnStats = \{/g) || []).length, 1, "shared stats must be initialized exactly once");
-assert.equal(shadow.includes("this.v37ProductionTurnStats = {"), false, "shadow owner must consume shared stats without reinitializing them");
-assert.equal(hygiene.includes("this.v37ProductionTurnStats = {"), false, "hygiene owner must consume shared stats without reinitializing them");
+assert.ok(sharedStats.includes("liveAiShadowPauses: 0"));
+assert.equal((sharedStats.match(/liveAiShadowPauses: 0/g) || []).length, 1, "shared stats schema must define shadow-pause telemetry exactly once");
+assert.ok(shadow.includes("this.v37ProductionTurnStats = createV37ProductionTurnStats()"));
+assert.equal(hygiene.includes("this.v37ProductionTurnStats ="), false, "hygiene owner must consume shared stats without reinitializing them");
 
 console.log("v41 Phase 3G.11 paused-shadow extraction checks passed");
