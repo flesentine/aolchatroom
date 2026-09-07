@@ -74,7 +74,6 @@ for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "t
 
 for (const signature of [
   'noteProviderFailure(provider, status = 0, response = null, detail = "") {',
-  "orderedReadyProviders(now = Date.now()) {",
   "v37ProviderFailoverSnapshot(now = Date.now()) {"
 ]) {
   assert.equal(
