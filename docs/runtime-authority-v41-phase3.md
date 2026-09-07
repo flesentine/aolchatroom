@@ -41,8 +41,8 @@ This phase is **characterization only**. It must not change provider routing, st
 | Transient human reconnect grace | `index_v41_human_reconnect.js` + `human_reconnect_lifecycle_v41.js` in v41 production | Phase 3B owns the full reconnect lifecycle; 3F.2 removes the old presence wrapper participation from the v41 spine while frozen v40 retains it. |
 | Hard-era technology gate / audit | `index_v41_world_date_guard.js` + `world_date_guard_v41.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v40 | Phase 3D preserves generated-line blocking, v38 counters, and retained-history audit behavior. |
 | Room-topic fatigue / cooling / background filtering | `index_v41_quality_compat.js` in v41 production; legacy `index_v38_quality_guard.js` remains for frozen v38-v40 | 3F.4 preserves cooldown bookkeeping, prompt guidance, background-line filtering, coordinator-delegated scene closes, and v38 diagnostics while production bypasses the v38 wrapper. |
-| Provider readiness classification / capacity state | `index_v41_hotfix_residual_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | Preserve hard/soft readiness, structured-ready selection, constrained/degraded decisions, and emergency Workers-AI eligibility. |
-| Degraded/capacity-shedding built-in fallback | `index_v41_hotfix_residual_compat.js` in v41 production (human degraded path is further guarded by v41) | Preserve provider-independent fallback, human priority, ambient shedding, retry-status reporting, and v41 Phase 2B fail-closed interception. |
+| Provider readiness classification / capacity state | `index_v41_provider_readiness_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.8 preserves hard/soft readiness, structured-ready selection, constrained/degraded decisions, and human-priority capacity policy. |
+| Degraded/capacity-shedding built-in fallback | `index_v41_provider_readiness_compat.js` in v41 production | 3G.8 preserves provider-independent fallback, human priority, ambient shedding, retry-status reporting, and constrained background suppression. |
 | Production-turn singleflight / replay coalescing | `index_v41_production_turn_compat.js` in v41 production; frozen `index_v37_hotfix.js` remains for v37-v40 | 3G.7 owns one base turn at a time, bounded replay, tick/alarm accounting, force-soon propagation, and merged production-turn diagnostics. |
 | Provider failure classification / cooldown policy | `index_v41_hotfix_residual_compat.js` + inherited provider state in v41 production | Preserve request-local rejection handling, Workers-AI daily quota reset behavior, cooldown mutation, and failover telemetry. |
 | Internal chat metadata stripping | `index_v41_hotfix_residual_compat.js` in v41 production | Preserve pre-display stripping/drop behavior for internal metadata on bot output. |
@@ -201,6 +201,25 @@ The new residual hotfix owner preserves the shared `v37ProductionTurnStats` obje
 The real-Worker extraction contract deliberately overlaps a tick, an alarm, and a forced tick. It requires one active base turn, two coalesced requests, exactly one replay, preserved force-soon propagation, maximum concurrency of one, and unchanged merged diagnostics.
 
 The next extraction boundary is **provider readiness plus degraded/capacity fallback**. Provider failure/quota routing, output hygiene, and paused-shadow behavior remain in the residual owner and must not move with it accidentally.
+
+
+#### 3G.8 — extract provider readiness and degraded/capacity fallback
+V41 production now routes `index_v41_production_turn_compat.js → index_v41_provider_readiness_compat.js → index_v41_hotfix_residual_compat.js → index_v37.js`.
+
+The new provider-readiness owner preserves the exact hotfix implementations of:
+- hard/soft provider readiness;
+- preferred/effective structured provider selection;
+- capacity-constrained and degraded-pool decisions;
+- degraded built-in human/ambient fallback;
+- capacity-shedding ambient fallback;
+- constrained background-AI suppression;
+- readiness/degraded mode flags.
+
+The deeper residual no longer owns those methods or flags. It continues to own shared stats, provider failure/quota/emergency routing, output hygiene, paused-shadow behavior, and the combined provider-failover snapshot. That snapshot intentionally calls the extracted readiness methods dynamically so the externally visible diagnostic shape remains unchanged.
+
+The real-Worker contract verifies hard/soft/effective readiness, preferred-provider priority, constrained-capacity detection, non-degraded behavior with a healthy provider, constrained background-refill suppression, and preserved mode diagnostics.
+
+The next clean extraction is **provider failure / quota / emergency routing**. Output hygiene and paused-shadow isolation remain separate later boundaries.
 
 ## Retirement rule
 
