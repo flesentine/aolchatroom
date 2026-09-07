@@ -1,7 +1,8 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
-import { ChatRoom as V37HotfixChatRoom } from "../src/index_v37_hotfix.js";
+import { ChatRoom as V41HotfixResidualChatRoom } from "../src/index_v41_hotfix_residual_compat.js";
+import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
 
 function ensure(condition, message) {
@@ -698,8 +699,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.providerReady = (provider) => provider !== "groq";
     this.softReady = (provider) => provider === "gemini";
 
-    const hardReady = V37HotfixChatRoom.prototype.hardReadyProviders.call(this, Date.now());
-    const softReady = V37HotfixChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    const hardReady = V41HotfixResidualChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V41HotfixResidualChatRoom.prototype.softReadyProviders.call(this, Date.now());
     equal(hardReady.includes("gemini"), true, "3G.6 hard readiness must retain healthy Gemini");
     equal(hardReady.includes("workers-ai"), true, "3G.6 hard readiness must retain hard-healthy Workers AI");
     equal(hardReady.includes("groq"), false, "3G.6 hard readiness must exclude cooled Groq");
@@ -729,6 +730,115 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
         "output-hygiene",
         "paused-shadow"
       ]
+    };
+  }
+
+
+  async contractV41ProductionTurnSingleflightExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const gateBefore = this.v37ProductionTurnGate?.snapshot?.();
+    ensure(gateBefore, "3G.7 must expose the production-turn gate");
+    equal(gateBefore.active, false, "3G.7 contract must begin with an idle production-turn gate");
+    equal(gateBefore.maxReplays, 2, "3G.7 must preserve the bounded two-replay policy");
+
+    const beforeStats = { ...this.v37ProductionTurnStats };
+    const calls = [];
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    let releaseFirst;
+    const firstBlocked = new Promise((resolve) => { releaseFirst = resolve; });
+    const originalRun = this.runV37BaseProductionTurn;
+
+    this.runV37BaseProductionTurn = async (source, forceSoon) => {
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      calls.push({ source, forceSoon: Boolean(forceSoon) });
+      try {
+        if (calls.length === 1) await firstBlocked;
+        return calls.length;
+      } finally {
+        concurrent -= 1;
+      }
+    };
+
+    try {
+      const first = V41ProductionTurnChatRoom.prototype.tick.call(this, false);
+      const overlappingAlarm = V41ProductionTurnChatRoom.prototype.alarm.call(this);
+      const overlappingForcedTick = V41ProductionTurnChatRoom.prototype.tick.call(this, true);
+
+      await Promise.resolve();
+      equal(calls.length, 1, "overlapping production-turn requests must not start parallel work");
+      equal(maxConcurrent, 1, "singleflight owner must keep base-turn concurrency at one");
+
+      const queued = this.v37ProductionTurnGate.snapshot();
+      equal(queued.coalesced, 2, "alarm + forced tick must coalesce behind the active turn");
+      equal(queued.replayRequested, true, "coalesced requests must request one replay");
+      equal(queued.replayForce, true, "forced tick signal must survive coalescing");
+
+      releaseFirst();
+      await Promise.all([first, overlappingAlarm, overlappingForcedTick]);
+    } finally {
+      this.runV37BaseProductionTurn = originalRun;
+    }
+
+    equal(calls.length, 2, "overlapping requests must collapse into exactly one replay");
+    equal(calls[0]?.source, "tick", "first production turn must preserve tick source");
+    equal(calls[0]?.forceSoon, false, "first production turn must preserve force flag");
+    equal(calls[1]?.source, "replay", "coalesced work must run as a replay");
+    equal(calls[1]?.forceSoon, true, "coalesced forced tick must force the replay");
+    equal(maxConcurrent, 1, "replay must remain serialized with the first turn");
+
+    const gateAfter = this.v37ProductionTurnGate.snapshot();
+    equal(gateAfter.active, false, "gate must return idle after replay");
+    equal(gateAfter.maxConcurrent, 1, "gate diagnostics must report max concurrency one");
+    equal(gateAfter.replays, 1, "gate diagnostics must report one replay");
+
+    equal(
+      this.v37ProductionTurnStats.outerRequests - Number(beforeStats.outerRequests || 0),
+      3,
+      "production-turn owner must count all outer requests"
+    );
+    equal(
+      this.v37ProductionTurnStats.tickRequests - Number(beforeStats.tickRequests || 0),
+      2,
+      "production-turn owner must count both tick requests"
+    );
+    equal(
+      this.v37ProductionTurnStats.alarmRequests - Number(beforeStats.alarmRequests || 0),
+      1,
+      "production-turn owner must count the alarm request"
+    );
+    equal(
+      this.v37ProductionTurnStats.forceRequests - Number(beforeStats.forceRequests || 0),
+      1,
+      "production-turn owner must count the forced request"
+    );
+    equal(
+      this.v37ProductionTurnStats.coalescedRequests - Number(beforeStats.coalescedRequests || 0),
+      2,
+      "production-turn owner must preserve coalesced-request telemetry"
+    );
+    equal(
+      this.v37ProductionTurnStats.replayTurns - Number(beforeStats.replayTurns || 0),
+      1,
+      "production-turn owner must preserve replay telemetry"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "singleflight mode must remain visible after extraction");
+    equal(snapshot?.mode?.productionTurnReplayCoalescing, true, "replay-coalescing mode must remain visible after extraction");
+    ensure(snapshot?.productionTurn?.gate, "production-turn diagnostics must remain visible after extraction");
+    equal(snapshot.productionTurn.gate.maxConcurrent, 1, "merged snapshot must report serialized execution");
+
+    return {
+      extracted: true,
+      calls,
+      maxConcurrent,
+      coalesced: gateAfter.coalesced,
+      replays: gateAfter.replays,
+      forcePreserved: calls[1]?.forceSoon === true,
+      diagnosticsPreserved: true
     };
   }
 
@@ -1258,6 +1368,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
+    if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
