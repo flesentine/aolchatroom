@@ -115,6 +115,7 @@ const contracts = [
   "v37-hotfix-characterization",
   "v41-production-turn-singleflight-extraction",
   "v41-provider-readiness-extraction",
+  "v41-provider-failover-extraction",
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",
