@@ -4,6 +4,7 @@
 // bypassing the old v37 wrapper as an inheritance/fetch boundary.
 import humanDirectorWorker, { ChatRoom as HumanDirectorChatRoom } from "./index_v41_human_director_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
+import { getCharacter } from "./characters.js";
 import { PROVIDER_LABELS_V37 } from "./free_provider_pool_v37.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
@@ -130,6 +131,7 @@ export default {
 export class ChatRoom extends HumanDirectorChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
+    this.v37AmbientProviderCursor = 0;
     this.v37LastLivelyAmbientAiAt = 0;
     this.v37LivelyAmbientStats = {
       attempts: 0,
@@ -145,6 +147,12 @@ export class ChatRoom extends HumanDirectorChatRoom {
       exhaustedScenesClosedBeforePlan: 0,
       closedSceneResurrectionBlocks: 0
     };
+  }
+
+  activeAmbientCharacters() {
+    return [...(this.activeBotNames || [])]
+      .map((name) => getCharacter(name))
+      .filter(Boolean);
   }
 
   sceneIsClosed(scene) {

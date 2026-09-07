@@ -48,10 +48,10 @@ This phase is **characterization only**. It must not change provider routing, st
 | Internal chat metadata stripping | `index_v41_output_hygiene_compat.js` in v41 production | 3G.10 preserves bot-only stripping/drop behavior, shared strip/drop counters, higher provider-source normalization, and the output-hygiene status flag. |
 | Legacy live-model shadow pause | `index_v41_paused_shadow_compat.js` in v41 production | 3G.11 preserves queued-shadow pause marking, idempotent telemetry, retained shadow-history updates, and the paused-shadow status flags. |
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
-| Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, active ambient-character helper, delegated human fallback, constructor state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. |
+| Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, delegated human fallback, legacy adaptive diagnostic state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. 3G.13 moves lively-only support out of this residual. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
-| Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. |
+| Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
 
 ## Cross-cutting observability surfaces
 
@@ -310,6 +310,23 @@ The real-Worker retirement contract proves one object identity is shared across:
 The merged `productionTurn` snapshot must expose the same mutated values after all five owners run.
 
 After 3G.12 there is no v41 production dependency on `index_v37_hotfix.js` or on a hotfix-residual compatibility wrapper. The frozen v37-v40 lineage remains unchanged.
+
+
+#### 3G.13 — consolidate lively-ambient support ownership
+The remaining human-only residual still contained two pieces that existed solely to support the already-authoritative lively ambient path: `v37AmbientProviderCursor` initialization and `activeAmbientCharacters()`.
+
+3G.13 moves both into `index_v41_lively_ambient_compat.js`, their only live behavioral consumer. The active-character helper remains byte-for-byte equivalent to the frozen v37 human-only implementation, and lively provider rotation still uses the same cursor arithmetic.
+
+The human-only residual deliberately remains in the production spine because it still owns separate responsibilities that must not be conflated with ambient generation:
+- the one-preferred-provider capacity override;
+- delegated built-in human fallback for packets the Director does not claim;
+- legacy adaptive-ambient diagnostic state and counters;
+- the historical human-only status/snapshot surface.
+
+The 3G.13 source gate proves the human-only residual no longer owns the lively cursor, character lookup dependency, or active-character helper, while the lively owner initializes and consumes both locally. The real-Worker contract verifies active bot resolution and forces one lively provider attempt, proving the local cursor advances from Gemini to the next slot exactly through the moved owner.
+
+No client/browser code changes in this phase.
+
 
 ## Retirement rule
 

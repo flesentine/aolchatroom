@@ -1,6 +1,7 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
+import { ChatRoom as V41LivelyAmbientCompatChatRoom } from "../src/index_v41_lively_ambient_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
 import { ChatRoom as V41OutputHygieneChatRoom } from "../src/index_v41_output_hygiene_compat.js";
@@ -477,7 +478,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     ensure(snapshot?.humanDirector, "v37 human Director diagnostics must survive");
     ensure(snapshot?.livelyAmbientAi, "v37 lively ambient diagnostics must survive");
 
-    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "human-only constructor state used by lively ambient must exist");
+    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "lively-owned ambient provider cursor must exist");
     ensure(typeof this.providerCapacityConstrained === "function", "live v37 capacity policy must remain callable");
     ensure(typeof this.callProvider === "function", "live v37 extended provider dispatch must remain callable");
     ensure(typeof this.generateHumanReplan === "function", "live v37 human Director path must remain callable");
@@ -653,15 +654,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   contractRetiredV37HumanOnlyCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
-    equal(this.v37AmbientProviderCursor, 0, "3G.5 must initialize the ambient provider cursor");
     equal(this.v37LastAmbientAiAt, 0, "3G.5 must initialize the legacy adaptive-ambient timestamp");
     ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5 must initialize adaptive-ambient compatibility counters");
-
-    const active = V41HumanOnlyCompatChatRoom.prototype.activeAmbientCharacters.call(this)
-      .map((character) => character?.name)
-      .filter(Boolean);
-    ensure(active.includes("SegaMan"), "3G.5 active ambient helper must retain SegaMan");
-    ensure(active.includes("MetallicaFan"), "3G.5 active ambient helper must retain MetallicaFan");
 
     const originalPreferred = this.preferredStructuredReadyProviders;
     this.preferredStructuredReadyProviders = () => ["gemini"];
@@ -681,9 +675,79 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     return {
       retired: true,
       residualOwner: true,
-      ambientCharacters: active,
+      livelySupportReleased: true,
       singlePreferredProviderClearsConstraint: true,
       diagnosticsPreserved: true
+    };
+  }
+
+
+  async contractV41LivelySupportConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const cursorBefore = Number(this.v37AmbientProviderCursor);
+    ensure(Number.isFinite(cursorBefore), "3G.13 lively owner must expose a finite ambient provider cursor");
+
+    const active = V41LivelyAmbientCompatChatRoom.prototype.activeAmbientCharacters.call(this)
+      .map((character) => character?.name)
+      .filter(Boolean);
+    const dynamicallyDispatchedActive = this.activeAmbientCharacters()
+      .map((character) => character?.name)
+      .filter(Boolean);
+    ensure(active.includes("SegaMan"), "3G.13 lively active-character helper must retain SegaMan");
+    ensure(active.includes("MetallicaFan"), "3G.13 lively active-character helper must retain MetallicaFan");
+    equal(
+      JSON.stringify(dynamicallyDispatchedActive),
+      JSON.stringify(active),
+      "3G.13 full production dispatch must resolve activeAmbientCharacters() to the lively owner"
+    );
+
+    const originalPreferred = this.preferredStructuredReadyProviders;
+    const originalCallProvider = this.callProvider;
+    const originalNoteFailure = this.noteProviderFailure;
+    this.preferredStructuredReadyProviders = () => ["gemini", "groq"];
+    this.callProvider = async (provider) => ({
+      ok: false,
+      status: 503,
+      provider,
+      error: new Error("3g13 provider probe")
+    });
+    this.noteProviderFailure = () => undefined;
+    this.v37LastLivelyAmbientAiAt = 0;
+    this.pendingHumans = [];
+    this.aiQueue = [];
+
+    let result;
+    try {
+      result = await V41LivelyAmbientCompatChatRoom.prototype.generateLivelyAmbientAi.call(
+        this,
+        Date.UTC(2026, 8, 7, 6, 30, 0)
+      );
+    } finally {
+      this.preferredStructuredReadyProviders = originalPreferred;
+      this.callProvider = originalCallProvider;
+      this.noteProviderFailure = originalNoteFailure;
+    }
+
+    const preferred = ["gemini", "groq"];
+    equal(
+      result?.provider,
+      preferred[cursorBefore % preferred.length],
+      "3G.13 lively owner must select from its locally owned cursor"
+    );
+    equal(
+      this.v37AmbientProviderCursor,
+      (cursorBefore + 1) % 1000000,
+      "3G.13 lively generation must advance its locally owned cursor"
+    );
+    equal(result?.reason, "provider-failure", "3G.13 probe must reach the provider attempt path");
+
+    return {
+      consolidated: true,
+      owner: "lively-ambient",
+      ambientCharacters: active,
+      cursorAdvanced: true,
+      humanOnlyResidualReleasedSupport: true
     };
   }
 
@@ -1843,6 +1907,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
     if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
+    if (name === "v41-lively-support-consolidation") return this.contractV41LivelySupportConsolidation();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();

@@ -1,10 +1,9 @@
 // Phase 3G.5 production-only residual compatibility owner.
 // Frozen index_v37_human_only.js remains unchanged for the v37-v40 lineage.
-// V41 preserves only the still-live capacity, ambient-character, human fallback,
-// constructor/diagnostic, and status surface; superseded adaptive ambient is omitted.
+// V41 preserves only the still-live capacity, human fallback, legacy adaptive
+// diagnostic state, and status surface; superseded adaptive ambient is omitted.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
-import { getCharacter } from "./characters.js";
 import { ambientAiIntervalMs } from "./adaptive_ambient_policy_v37.js";
 
 async function json(response) {
@@ -39,7 +38,6 @@ export default {
 export class ChatRoom extends ProductionTurnChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v37AmbientProviderCursor = 0;
     this.v37LastAmbientAiAt = 0;
     this.v37AdaptiveAmbientStats = {
       ambientAiAttempts: 0,
@@ -61,12 +59,6 @@ export class ChatRoom extends ProductionTurnChatRoom {
     const preferred = this.preferredStructuredReadyProviders?.(now) || [];
     if (preferred.length >= 1) return false;
     return super.providerCapacityConstrained(now);
-  }
-
-  activeAmbientCharacters() {
-    return [...(this.activeBotNames || [])]
-      .map((name) => getCharacter(name))
-      .filter(Boolean);
   }
 
   // The Director owns eligible direct-human turns, but still delegates unlocked
