@@ -971,31 +971,32 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       "3G.9 daily-quota telemetry must increment"
     );
 
-    const lowerProto = V41HotfixResidualChatRoom.prototype;
-    const hadOwnOrdered = Object.prototype.hasOwnProperty.call(lowerProto, "orderedReadyProviders");
-    const originalLowerOrdered = lowerProto.orderedReadyProviders;
     const originalConfigured = this.configuredProviders;
     const originalReady = this.providerReady;
     const originalSoftReady = this.softReady;
     const originalDepth = this.v35StructuredGenerationDepth;
-    const beforeEmergency = Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0);
+    const beforeEmergencyCounter = Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0);
 
-    lowerProto.orderedReadyProviders = () => [];
     this.configuredProviders = () => ["workers-ai"];
     this.providerReady = () => true;
     this.softReady = () => true;
     try {
       this.v35StructuredGenerationDepth = 1;
-      const emergency = V41ProviderFailoverChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
-      equal(emergency.length, 1, "3G.9 emergency structured routing must produce one provider");
-      equal(emergency[0], "workers-ai", "3G.9 emergency structured routing must select Workers AI");
+      const structuredOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredOnlyWorkers.length, 1, "3G.9 must preserve live 3G.4 ordering when Workers AI is the only healthy provider");
+      equal(structuredOnlyWorkers[0], "workers-ai", "3G.9 must preserve Workers AI as the only-provider structured fallback");
 
       this.v35StructuredGenerationDepth = 0;
-      const routine = V41ProviderFailoverChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
-      equal(routine.length, 0, "3G.9 Workers AI emergency route must remain structured-generation-only");
+      const routineOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(routineOnlyWorkers.length, 1, "3G.9 must not rewrite the higher routine provider-ordering policy");
+      equal(routineOnlyWorkers[0], "workers-ai", "3G.4 remains allowed to return Workers AI when it is the only healthy provider");
+
+      this.configuredProviders = () => ["openrouter", "workers-ai"];
+      this.v35StructuredGenerationDepth = 1;
+      const structuredAlternative = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredAlternative.includes("openrouter"), true, "3G.4 structured ordering must retain a healthy non-Workers alternative");
+      equal(structuredAlternative.includes("workers-ai"), false, "3G.4 structured ordering must suppress Workers AI when a non-Workers alternative exists");
     } finally {
-      if (hadOwnOrdered) lowerProto.orderedReadyProviders = originalLowerOrdered;
-      else delete lowerProto.orderedReadyProviders;
       this.configuredProviders = originalConfigured;
       this.providerReady = originalReady;
       this.softReady = originalSoftReady;
@@ -1003,8 +1004,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     }
     equal(
       Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0),
-      beforeEmergency + 1,
-      "3G.9 emergency-route telemetry must increment exactly once"
+      beforeEmergencyCounter,
+      "3G.9 must not invent lower-layer emergency-route telemetry for ordering owned by 3G.4"
     );
 
     const snapshot = this.v37Snapshot();
@@ -1019,7 +1020,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       extracted: true,
       requestLocalRejectPreserved: true,
       quotaResetAt: expectedReset,
-      emergencyWorkersAi: true,
+      liveOrderingOwnerPreserved: "v41-free-providers",
       diagnosticsPreserved: true
     };
   }
