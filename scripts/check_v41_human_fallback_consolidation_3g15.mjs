@@ -27,9 +27,9 @@ function ownsMethod(source, name) {
 }
 
 const frozenHumanOnly = read("src/index_v37_human_only.js");
-const humanOnly = read("src/index_v41_human_only_compat.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
+const legacyDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 
 const productionOwnerPaths = [
   "src/index_v41_generation_contract_base.js",
@@ -45,7 +45,6 @@ const productionOwnerPaths = [
   "src/index_v41_lively_ambient_compat.js",
   "src/index_v41_human_director_compat.js",
   "src/index_v41_free_providers_compat.js",
-  "src/index_v41_human_only_compat.js",
   "src/index_v41_production_turn_compat.js",
   "src/index_v41_provider_readiness_compat.js",
   "src/index_v41_provider_failover_compat.js",
@@ -53,6 +52,12 @@ const productionOwnerPaths = [
   "src/index_v41_paused_shadow_compat.js"
 ];
 const productionOwners = productionOwnerPaths.map((ownerPath) => [ownerPath, read(ownerPath)]);
+
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired human-only residual source must be deleted"
+);
 
 const frozenFallback = extractMethod(frozenHumanOnly, "async generateHumanReplan(human) {");
 const delegatedFallback = extractMethod(humanDirector, "async generateDelegatedHumanReplan(human) {")
@@ -64,8 +69,6 @@ assert.equal(
   "3G.15 delegated fallback must remain byte-for-byte equivalent to frozen v37 human-only generateHumanReplan() after normalizing the method name and 3G.16 telemetry owner"
 );
 
-assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
-assert.equal(humanOnly.includes('from "./index_v14.js"'), false, "3G.15 human-only residual must release the built-in fallback dependency");
 assert.equal(ownsMethod(humanDirector, "generateHumanReplan"), true, "3G.15 human Director must remain the human-turn authority");
 assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
 
@@ -109,15 +112,14 @@ for (const marker of [
 }
 
 for (const marker of [
-  "this.v37LastAmbientAiAt = 0",
-  "this.v37AdaptiveAmbientStats = {",
+  "room.v37LastAmbientAiAt = 0",
+  "room.v37AdaptiveAmbientStats = {",
   "humanModelFallbacks",
   "humanModelFallbackMisses",
   "humanModelFailureFallsBackBuiltIn: true",
   "adaptiveAmbientAi: {"
 ]) {
-  assert.ok(humanOnly.includes(marker), `3G.15 human-only residual must retain legacy diagnostic marker: ${marker}`);
+  assert.ok(legacyDiagnostics.includes(marker), `3G.15/3G.18 helper must retain legacy diagnostic marker: ${marker}`);
 }
-assert.equal(ownsMethod(humanOnly, "v37Snapshot"), true, "3G.15 human-only residual must retain v37Snapshot()");
 
-console.log("v41 Phase 3G.15 delegated-human-fallback consolidation checks passed");
+console.log("v41 Phase 3G.15 delegated-human-fallback consolidation checks passed after 3G.18 source retirement");
