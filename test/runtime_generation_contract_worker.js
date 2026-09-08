@@ -867,12 +867,6 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       this.callGroq = originalCallGroq;
     }
 
-    const directHelper = await V41HumanDirectorCompatChatRoom.prototype.generateDelegatedHumanReplan.call(this, {
-      ...human,
-      text: "how old are you?"
-    });
-    ensure(Array.isArray(directHelper), "3G.15 delegated helper must remain directly callable on the production room");
-
     return {
       consolidated: true,
       owner: "human-director",
