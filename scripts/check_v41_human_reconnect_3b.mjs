@@ -25,19 +25,6 @@ function fakeRoom() {
     sockets,
     tasks,
     broadcasts,
-    v39HumanReplacementAt: new Map(),
-    v39PendingHumanDisconnects: new Map(),
-    v39PresenceFixStats: {
-      humanSessionReplacements: 0,
-      duplicateEnterAnnouncementsSuppressed: 0,
-      pendingCloseSocketsMarked: 0,
-      supersededCloseCallbacksIgnored: 0
-    },
-    v39Stats: {
-      humanDisconnectsDeferred: 0,
-      transientHumanReconnects: 0,
-      humanDisconnectsCommitted: 0
-    },
     ctx: {
       getWebSockets: () => sockets,
       waitUntil(task) { tasks.push(task); }
@@ -61,13 +48,16 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
 {
   const room = fakeRoom();
   const authority = new HumanReconnectLifecycleAuthority(room, { graceMs: 5, sleepFn: () => Promise.resolve() });
+  assert.equal(Object.hasOwn(room, "v39PendingHumanDisconnects"), false);
+  assert.equal(Object.hasOwn(room, "v39HumanReplacementAt"), false);
+  assert.equal(Object.hasOwn(room, "v39PresenceFixStats"), false);
   const oldSocket = socket("Crateman");
   room.sockets.push(oldSocket);
   let commits = 0;
   authority.webSocketClose(oldSocket, 1006, "network changed", false, () => { commits += 1; });
   assert.equal(oldSocket.deserializeAttachment().v39DisconnectPending, true);
   assert.deepEqual(room.humanNames(), []);
-  assert.equal(room.v39PendingHumanDisconnects.has("Crateman"), true);
+  assert.equal(authority.pendingHumanDisconnects.has("Crateman"), true);
 
   const replacement = socket("Crateman");
   room.sockets.push(replacement);
@@ -75,8 +65,8 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
   const result = authority.system("Crateman has entered the room.", () => { delegated += 1; });
   assert.equal(result, false);
   assert.equal(delegated, 0);
-  assert.equal(room.v39PendingHumanDisconnects.has("Crateman"), false);
-  assert.equal(room.v39Stats.transientHumanReconnects, 1);
+  assert.equal(authority.pendingHumanDisconnects.has("Crateman"), false);
+  assert.equal(authority.reconnectStats.transientHumanReconnects, 1);
   await Promise.all(room.tasks);
   assert.equal(commits, 0);
 }
@@ -94,10 +84,10 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
   let commits = 0;
   authority.webSocketClose(oldSocket, 4001, "replaced by newer session", true, () => { commits += 1; });
   assert.equal(commits, 0);
-  assert.equal(room.v39PresenceFixStats.supersededCloseCallbacksIgnored, 1);
-  assert.equal(room.v39PendingHumanDisconnects.size, 0);
+  assert.equal(authority.presenceFixStats.supersededCloseCallbacksIgnored, 1);
+  assert.equal(authority.pendingHumanDisconnects.size, 0);
   assert.equal(authority.system("Crateman has entered the room.", () => true), false);
-  assert.equal(room.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed, 1);
+  assert.equal(authority.presenceFixStats.duplicateEnterAnnouncementsSuppressed, 1);
 }
 
 // No reconnect: after grace the close delegates exactly once.
@@ -112,12 +102,12 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
   room.sockets.push(oldSocket);
   let commits = 0;
   authority.webSocketClose(oldSocket, 1006, "gone", false, () => { commits += 1; });
-  assert.equal(room.v39Stats.humanDisconnectsDeferred, 1);
+  assert.equal(authority.reconnectStats.humanDisconnectsDeferred, 1);
   release();
   await Promise.all(room.tasks);
   assert.equal(commits, 1);
-  assert.equal(room.v39Stats.humanDisconnectsCommitted, 1);
-  assert.equal(room.v39PendingHumanDisconnects.size, 0);
+  assert.equal(authority.reconnectStats.humanDisconnectsCommitted, 1);
+  assert.equal(authority.pendingHumanDisconnects.size, 0);
 }
 
 // A replacement connection that becomes logically active before the grace
@@ -137,7 +127,7 @@ assert.equal(V41_HUMAN_REPLACEMENT_WINDOW_MS, 5000);
   release();
   await Promise.all(room.tasks);
   assert.equal(commits, 0);
-  assert.equal(room.v39Stats.transientHumanReconnects, 1);
+  assert.equal(authority.reconnectStats.transientHumanReconnects, 1);
 }
 
 const reconnectWrapper = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
@@ -172,4 +162,4 @@ for (const [name, source] of [["v39 world", v39World], ["v40 continuity", v40], 
   assert.equal(ownsMethod(source, "webSocketClose"), false, `${name} must not own webSocketClose() while 3B delegates below the legacy reconnect wrappers`);
 }
 
-console.log("v41 Phase 3B human reconnect lifecycle authority checks passed");
+console.log("v41 Phase 3B human reconnect lifecycle authority checks passed after 4B state consolidation");
