@@ -18,13 +18,16 @@ const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
 const sharedStats = read("src/production_turn_stats_v41.js");
-const humanOnlyCompat = read("src/index_v41_human_only_compat.js");
 const freeProvidersCompat = read("src/index_v41_free_providers_compat.js");
 const turnGate = read("src/production_turn_gate.js");
 const failover = read("src/provider_failover_v37.js");
 const hygiene = read("src/output_hygiene_v37.js");
 
-assert.ok(humanOnlyCompat.includes('from "./index_v41_production_turn_compat.js"'));
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired v41 human-only residual source must stay deleted"
+);
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
@@ -115,8 +118,4 @@ assert.ok(failover.includes("emergencyWorkersBrainEligible"));
 assert.ok(failover.includes("degradedBuiltInFallbackEligible"));
 assert.ok(hygiene.includes("stripInternalChatMetadata"));
 
-for (const method of ["tick", "noteProviderFailure", "say"]) {
-  assert.equal(ownsMethod(humanOnlyCompat, method), false, `authority for ${method}() must remain below human-only`);
-}
-
-console.log("v41 Phase 3G.6 hotfix responsibility characterization checks passed after 3G.12 residual retirement");
+console.log("v41 Phase 3G.6 hotfix responsibility characterization checks passed after 3G.18 human-only source retirement");
