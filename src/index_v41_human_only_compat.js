@@ -1,7 +1,7 @@
 // Phase 3G.5 production-only residual compatibility owner.
 // Frozen index_v37_human_only.js remains unchanged for the v37-v40 lineage.
-// V41 preserves only the still-live capacity, human fallback, legacy adaptive
-// diagnostic state, and status surface; superseded adaptive ambient is omitted.
+// V41 preserves only delegated human fallback, legacy adaptive diagnostic state,
+// and the historical status surface; superseded adaptive ambient is omitted.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { ambientAiIntervalMs } from "./adaptive_ambient_policy_v37.js";
@@ -51,14 +51,6 @@ export class ChatRoom extends ProductionTurnChatRoom {
       humanModelFallbacks: 0,
       humanModelFallbackMisses: 0
     };
-  }
-
-  // A single healthy preferred provider is enough for the live v37 capacity
-  // policy. Later lively ambient owns routine background generation itself.
-  providerCapacityConstrained(now = Date.now()) {
-    const preferred = this.preferredStructuredReadyProviders?.(now) || [];
-    if (preferred.length >= 1) return false;
-    return super.providerCapacityConstrained(now);
   }
 
   // The Director owns eligible direct-human turns, but still delegates unlocked

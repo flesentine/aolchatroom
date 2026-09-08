@@ -59,6 +59,8 @@ export class ChatRoom extends ProviderFailoverChatRoom {
   }
 
   providerCapacityConstrained(now = Date.now()) {
+    const preferred = this.preferredStructuredReadyProviders?.(now) || [];
+    if (preferred.length >= 1) return false;
     return providerBudgetConstrained({
       configuredProviders: this.configuredProviders?.() || [],
       hardReadyProviders: this.hardReadyProviders(now),

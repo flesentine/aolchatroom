@@ -48,7 +48,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Internal chat metadata stripping | `index_v41_output_hygiene_compat.js` in v41 production | 3G.10 preserves bot-only stripping/drop behavior, shared strip/drop counters, higher provider-source normalization, and the output-hygiene status flag. |
 | Legacy live-model shadow pause | `index_v41_paused_shadow_compat.js` in v41 production | 3G.11 preserves queued-shadow pause marking, idempotent telemetry, retained shadow-history updates, and the paused-shadow status flags. |
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
-| Provider capacity decision / delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves the one-preferred-provider capacity override, delegated human fallback, legacy adaptive diagnostic state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. 3G.13 moves lively-only support out of this residual. |
+| Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |\n| Delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves delegated human fallback, legacy adaptive diagnostic state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. 3G.13 and 3G.14 move lively support and capacity authority out of this residual. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
@@ -324,6 +324,22 @@ The human-only residual deliberately remains in the production spine because it 
 - the historical human-only status/snapshot surface.
 
 The 3G.13 source gate proves the human-only residual no longer owns the lively cursor, character lookup dependency, or active-character helper, while the lively owner initializes and consumes both locally. The real-Worker contract verifies active bot resolution and forces one lively provider attempt, proving the local cursor advances from Gemini to the next slot exactly through the moved owner.
+
+No client/browser code changes in this phase.
+
+
+
+#### 3G.14 — consolidate live capacity policy in provider readiness
+After 3G.13, the human-only residual still overrode `providerCapacityConstrained()` only to make one healthy preferred provider sufficient for live v41 operation. The lower 3G.8 readiness owner already contained the extracted hotfix capacity baseline, so capacity authority remained split across two layers.
+
+3G.14 consolidates both halves in `index_v41_provider_readiness_compat.js`:
+- one healthy preferred structured provider returns unconstrained, preserving the live human-only override;
+- when no preferred provider is healthy, the method falls through to the existing hotfix-derived `providerBudgetConstrained()` baseline with `minimumPreferredReady: 2`;
+- degraded-provider classification remains separate, so a healthy Workers AI fallback can be non-degraded while preferred capacity is still constrained.
+
+The human-only residual no longer owns capacity policy. It remains responsible only for delegated human fallback, legacy adaptive-ambient diagnostic state/counters, and its historical status/snapshot surface.
+
+The 3G.14 source gate requires provider readiness to be the only v41 production owner of `providerCapacityConstrained()`. The real-Worker contract verifies both the one-preferred unconstrained path and the zero-preferred baseline path through direct and dynamic production dispatch.
 
 No client/browser code changes in this phase.
 

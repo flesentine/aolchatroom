@@ -35,7 +35,6 @@ assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
 for (const method of [
-  "providerCapacityConstrained",
   "generateHumanReplan",
   "v37Snapshot"
 ]) {
@@ -62,7 +61,6 @@ for (const retiredMethod of [
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
-  "if (preferred.length >= 1) return false",
   "ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human)",
   "humanModelFallbacks",
   "humanModelFallbackMisses",
@@ -73,6 +71,8 @@ for (const marker of [
   assert.ok(humanOnlyCompat.includes(marker), `3G.5 must preserve marker: ${marker}`);
 }
 
+assert.equal(ownsMethod(humanOnlyCompat, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
+assert.equal(ownsMethod(read("src/index_v41_provider_readiness_compat.js"), "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 assert.equal(ownsMethod(humanOnlyCompat, "activeAmbientCharacters"), false, "3G.13 human-only residual must release activeAmbientCharacters()");
 assert.equal(humanOnlyCompat.includes("this.v37AmbientProviderCursor = 0"), false, "3G.13 human-only residual must release the lively provider cursor");
 assert.equal(humanOnlyCompat.includes('from "./characters.js"'), false, "3G.13 human-only residual must release the character lookup dependency");
@@ -115,4 +115,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.13 lively-support consolidation");
+console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.14 capacity-policy consolidation");

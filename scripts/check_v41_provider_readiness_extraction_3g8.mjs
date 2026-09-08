@@ -46,7 +46,6 @@ for (const signature of [
   "hardReadyProviders(now = Date.now()) {",
   "softReadyProviders(now = Date.now()) {",
   "preferredStructuredReadyProviders(now = Date.now()) {",
-  "providerCapacityConstrained(now = Date.now()) {",
   "effectiveStructuredReadyProviders(now = Date.now()) {",
   "providerPoolDegraded(now = Date.now()) {",
   "queueV37DegradedFallback(now = Date.now(), forceSoon = false) {",
@@ -59,6 +58,19 @@ for (const signature of [
     `3G.8 extracted readiness/degraded method must remain byte-for-byte equivalent: ${signature}`
   );
 }
+
+const capacitySignature = "providerCapacityConstrained(now = Date.now()) {";
+const frozenCapacity = extractMethod(frozen, capacitySignature);
+const liveCapacity = extractMethod(readiness, capacitySignature);
+const expectedLiveCapacity = frozenCapacity.replace(
+  `  ${capacitySignature}\n`,
+  `  ${capacitySignature}\n    const preferred = this.preferredStructuredReadyProviders?.(now) || [];\n    if (preferred.length >= 1) return false;\n`
+);
+assert.equal(
+  liveCapacity,
+  expectedLiveCapacity,
+  "3G.14 live capacity policy must equal the frozen 3G.8 hotfix baseline plus only the one-preferred-provider override"
+);
 
 for (const marker of [
   "providerDegradedModeBuiltInFallback: true",

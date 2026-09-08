@@ -657,15 +657,6 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(this.v37LastAmbientAiAt, 0, "3G.5 must initialize the legacy adaptive-ambient timestamp");
     ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5 must initialize adaptive-ambient compatibility counters");
 
-    const originalPreferred = this.preferredStructuredReadyProviders;
-    this.preferredStructuredReadyProviders = () => ["gemini"];
-    equal(
-      V41HumanOnlyCompatChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
-      false,
-      "one healthy preferred provider must still clear the human-only capacity constraint"
-    );
-    this.preferredStructuredReadyProviders = originalPreferred;
-
     const snapshot = V41HumanOnlyCompatChatRoom.prototype.v37Snapshot.call(this);
     equal(snapshot?.mode?.humanOnlyModelBudget, false, "human-only compatibility mode must remain visible");
     equal(snapshot?.mode?.adaptiveAmbientAi, true, "historical adaptive-ambient compatibility flag must remain visible below lively authority");
@@ -676,7 +667,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       retired: true,
       residualOwner: true,
       livelySupportReleased: true,
-      singlePreferredProviderClearsConstraint: true,
+      capacityPolicyReleased: true,
       diagnosticsPreserved: true
     };
   }
@@ -748,6 +739,67 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       ambientCharacters: active,
       cursorAdvanced: true,
       humanOnlyResidualReleasedSupport: true
+    };
+  }
+
+
+  contractV41CapacityPolicyConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    const originalPreferred = this.preferredStructuredReadyProviders;
+
+    try {
+      this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+      this.providerReady = (provider) => provider === "gemini" || provider === "workers-ai";
+      this.softReady = (provider) => provider === "gemini" || provider === "workers-ai";
+      this.preferredStructuredReadyProviders = () => ["gemini"];
+
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
+        false,
+        "3G.14 one healthy preferred provider must clear the consolidated capacity constraint"
+      );
+      equal(
+        this.providerCapacityConstrained(Date.now()),
+        false,
+        "3G.14 full production dispatch must resolve the one-preferred-provider policy through readiness"
+      );
+
+      this.providerReady = (provider) => provider === "workers-ai";
+      this.softReady = (provider) => provider === "workers-ai";
+      this.preferredStructuredReadyProviders = () => [];
+
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
+        true,
+        "3G.14 zero preferred providers must fall through to the preserved hotfix capacity baseline"
+      );
+      equal(
+        this.providerCapacityConstrained(Date.now()),
+        true,
+        "3G.14 dynamic production dispatch must preserve the zero-preferred constrained state"
+      );
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerPoolDegraded.call(this, Date.now()),
+        false,
+        "3G.14 Workers AI fallback availability must remain non-degraded while preferred capacity is constrained"
+      );
+    } finally {
+      this.configuredProviders = originalConfigured;
+      this.providerReady = originalReady;
+      this.softReady = originalSoftReady;
+      this.preferredStructuredReadyProviders = originalPreferred;
+    }
+
+    return {
+      consolidated: true,
+      owner: "provider-readiness",
+      onePreferredClearsConstraint: true,
+      zeroPreferredUsesHotfixBaseline: true,
+      workersFallbackRemainsNonDegraded: true
     };
   }
 
@@ -936,7 +988,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(preferred.length, 1, "3G.8 preferred readiness must contain one healthy preferred provider");
     equal(preferred[0], "gemini", "3G.8 preferred readiness must preserve Gemini priority");
     equal(effective[0], "gemini", "3G.8 effective structured routing must preserve Gemini");
-    equal(constrained, true, "3G.8 one preferred provider must remain capacity-constrained at the hotfix baseline");
+    equal(constrained, false, "3G.14 live readiness owner must clear capacity constraint with one healthy preferred provider");
     equal(degraded, false, "3G.8 a healthy effective provider must not activate degraded mode");
 
     this.configuredProviders = originalConfigured;
@@ -1908,6 +1960,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
     if (name === "v41-lively-support-consolidation") return this.contractV41LivelySupportConsolidation();
+    if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();

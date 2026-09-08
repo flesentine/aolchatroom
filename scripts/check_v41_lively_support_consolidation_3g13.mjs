@@ -29,6 +29,7 @@ function ownsMethod(source, name) {
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const lively = read("src/index_v41_lively_ambient_compat.js");
+const readiness = read("src/index_v41_provider_readiness_compat.js");
 
 const productionOwnerPaths = [
   "src/index_v41_generation_contract_base.js",
@@ -92,9 +93,11 @@ assert.deepEqual(
   "3G.13 lively ambient must be the only v41 production owner of activeAmbientCharacters()"
 );
 
-for (const method of ["providerCapacityConstrained", "generateHumanReplan", "v37Snapshot"]) {
+for (const method of ["generateHumanReplan", "v37Snapshot"]) {
   assert.equal(ownsMethod(humanOnly, method), true, `human-only residual must retain ${method}()`);
 }
+assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
+assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
