@@ -13,6 +13,11 @@ import {
 
 const PASS = "conversation-coherence-v39";
 const V39_HUMAN_RECONNECT_GRACE_MS = 5000;
+const EMPTY_V39_RECONNECT_STATS = Object.freeze({
+  humanDisconnectsDeferred: 0,
+  transientHumanReconnects: 0,
+  humanDisconnectsCommitted: 0
+});
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -74,7 +79,6 @@ export class ChatRoom extends V41QualityCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v39RecentBotLeaves = new Map();
-    this.v39PendingHumanDisconnects = new Map();
     this.v39LastTargetRepair = null;
     this.v39LastCoherenceLock = null;
     this.v39Stats = {
@@ -83,10 +87,7 @@ export class ChatRoom extends V41QualityCompatChatRoom {
       futureEventLinesBlocked: 0,
       selfDialogueLinesBlocked: 0,
       backgroundPlansFiltered: 0,
-      botReentryBlocks: 0,
-      humanDisconnectsDeferred: 0,
-      transientHumanReconnects: 0,
-      humanDisconnectsCommitted: 0
+      botReentryBlocks: 0
     };
   }
 
@@ -120,19 +121,13 @@ export class ChatRoom extends V41QualityCompatChatRoom {
           : 0
       }))
       .filter((row) => row.remainingMs > 0);
-    const pendingHumanDisconnects = [...this.v39PendingHumanDisconnects.entries()]
-      .map(([name, row]) => ({
-        name,
-        ageMs: Math.max(0, now - Number(row.at || now)),
-        graceRemainingMs: Math.max(0, V39_HUMAN_RECONNECT_GRACE_MS - (now - Number(row.at || now))),
-        code: row.code,
-        reason: row.reason,
-        wasClean: row.wasClean
-      }));
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority?.() || null;
+    const reconnectStats = reconnectAuthority?.legacyV39Stats?.() || EMPTY_V39_RECONNECT_STATS;
+    const pendingHumanDisconnects = reconnectAuthority?.legacyPendingHumanDisconnects?.(now) || [];
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
-      stats: { ...this.v39Stats },
+      stats: { ...this.v39Stats, ...reconnectStats },
       lastTargetRepair: this.v39LastTargetRepair,
       lastCoherenceLock: this.v39LastCoherenceLock,
       recentlyDeparted,
