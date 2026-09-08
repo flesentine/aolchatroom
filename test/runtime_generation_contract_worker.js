@@ -2191,6 +2191,15 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.webSocketClose(oldSocket, 1006, "4b ownership probe", false);
     ensure(reconnectAuthority.pendingHumanDisconnects.has("StateOwner"), "4B authority must retain the pending reconnect token");
 
+    const pendingLegacy = this.v39Snapshot(Date.now());
+    equal(pendingLegacy.pendingHumanDisconnects?.length, 1, "legacy v39 snapshot must expose one pending reconnect during grace");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.name, "StateOwner", "legacy v39 pending row must preserve the screen name");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.code, 1006, "legacy v39 pending row must preserve the close code");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.reason, "4b ownership probe", "legacy v39 pending row must preserve the close reason");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.wasClean, false, "legacy v39 pending row must preserve clean-close state");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.graceRemainingMs > 0, true, "legacy v39 pending row must expose positive grace remaining");
+    equal(pendingLegacy.stats?.humanDisconnectsDeferred, beforeStats.humanDisconnectsDeferred + 1, "legacy v39 snapshot must bridge deferred-close telemetry during grace");
+
     this.acceptContractHuman("StateOwner");
     const enterResult = this.system("StateOwner has entered the room.");
     equal(enterResult, false, "4B quick reconnect must still suppress duplicate enter");
