@@ -33,7 +33,6 @@ const providerFailover = read("src/index_v41_provider_failover_compat.js");
 const outputHygiene = read("src/index_v41_output_hygiene_compat.js");
 const pausedShadow = read("src/index_v41_paused_shadow_compat.js");
 const sharedStats = read("src/production_turn_stats_v41.js");
-const humanOnly = read("src/index_v41_human_only_compat.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
@@ -48,7 +47,11 @@ const lively = read("src/index_v41_lively_ambient_compat.js");
 const director = read("src/index_v41_human_director_compat.js");
 const providers = read("src/index_v41_free_providers_compat.js");
 
-assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired v41 human-only residual source must stay deleted"
+);
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
 assert.ok(providerReadiness.includes('from "./index_v41_provider_failover_compat.js"'));
 assert.ok(providerFailover.includes('from "./index_v41_output_hygiene_compat.js"'));
@@ -132,7 +135,6 @@ const v41ProductionSpine = [
   lively,
   director,
   providers,
-  humanOnly,
   productionTurn,
   providerReadiness,
   providerFailover,
@@ -152,4 +154,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_hotfix.js"'));
 }
 
-console.log("v41 Phase 3G.7 production-turn singleflight extraction checks passed");
+console.log("v41 Phase 3G.7 production-turn singleflight extraction checks passed after 3G.18 source retirement");
