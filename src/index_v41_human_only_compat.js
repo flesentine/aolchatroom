@@ -1,7 +1,7 @@
-// Phase 3G.5 production-only residual compatibility owner.
+// Retained historical Phase 3G.5/3G.16 compatibility artifact.
+// Phase 3G.17 removes this file from the v41 production inheritance/fetch spine.
 // Frozen index_v37_human_only.js remains unchanged for the v37-v40 lineage.
-// V41 preserves only legacy adaptive diagnostic state and the historical
-// status/snapshot surface; superseded adaptive ambient is omitted.
+// The extracted v41 diagnostic surface now lives in human_only_legacy_diagnostics_v41.js.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { ambientAiIntervalMs } from "./adaptive_ambient_policy_v37.js";
 
