@@ -30,7 +30,9 @@ const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 
 assert.ok(humanCompat.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(!humanCompat.includes('from "./index_v37_free_providers.js"'));
-assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
+assert.ok(providerCompat.includes('from "./index_v41_production_turn_compat.js"'));
+assert.ok(providerCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'));
+assert.ok(!providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenProvider.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
@@ -77,13 +79,41 @@ for (const marker of [
   assert.ok(providerCompat.includes(marker), `3G.4 must preserve marker: ${marker}`);
 }
 
-const headerLines = 4;
+const headerLines = 5;
+const diagnosticsImport = `import {
+  initializeV37HumanOnlyDiagnostics,
+  mergeV37HumanOnlySnapshot,
+  mergeV37HumanOnlyStatus
+} from "./human_only_legacy_diagnostics_v41.js";
+`;
 const compatBody = providerCompat.split("\n").slice(headerLines).join("\n")
-  .replace('from "./index_v41_human_only_compat.js"', 'from "./index_v37_human_only.js"');
+  .replace(
+    'import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";',
+    'import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v37_human_only.js";'
+  )
+  .replace(diagnosticsImport, "")
+  .replace("const response = await productionTurnWorker.fetch(request, env);", "const response = await baseWorker.fetch(request, env);")
+  .replace(
+    `    const legacy = mergeV37HumanOnlyStatus(data);
+    return Response.json({
+      ...legacy,
+      v37: {
+        ...(legacy.v37 || {}),`,
+    `    return Response.json({
+      ...data,
+      v37: {
+        ...(data.v37 || {}),`
+  )
+  .replace("export class ChatRoom extends ProductionTurnChatRoom {", "export class ChatRoom extends AdaptiveChatRoom {")
+  .replace("    initializeV37HumanOnlyDiagnostics(this);\n", "")
+  .replace(
+    "    const base = mergeV37HumanOnlySnapshot(this, super.v37Snapshot());",
+    "    const base = super.v37Snapshot();"
+  );
 assert.equal(
   compatBody,
   frozenProvider,
-  "3G.4 replacement must remain byte-for-byte behavior-equivalent to frozen v37 free-provider wrapper below its compatibility header"
+  "3G.4 provider behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.17 diagnostic composition and direct-parent change"
 );
 
 const v41ProductionSpine = [
