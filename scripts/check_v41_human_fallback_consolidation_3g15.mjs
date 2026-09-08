@@ -56,11 +56,12 @@ const productionOwners = productionOwnerPaths.map((ownerPath) => [ownerPath, rea
 
 const frozenFallback = extractMethod(frozenHumanOnly, "async generateHumanReplan(human) {");
 const delegatedFallback = extractMethod(humanDirector, "async generateDelegatedHumanReplan(human) {")
-  .replace("async generateDelegatedHumanReplan(human) {", "async generateHumanReplan(human) {");
+  .replace("async generateDelegatedHumanReplan(human) {", "async generateHumanReplan(human) {")
+  .replaceAll("v37HumanFallbackStats", "v37AdaptiveAmbientStats");
 assert.equal(
   delegatedFallback,
   frozenFallback,
-  "3G.15 delegated fallback must remain byte-for-byte equivalent to frozen v37 human-only generateHumanReplan() after renaming only the method"
+  "3G.15 delegated fallback must remain byte-for-byte equivalent to frozen v37 human-only generateHumanReplan() after normalizing the method name and 3G.16 telemetry owner"
 );
 
 assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
@@ -99,8 +100,8 @@ assert.ok(
 );
 
 for (const marker of [
-  "this.v37AdaptiveAmbientStats.humanModelFallbacks += 1",
-  "this.v37AdaptiveAmbientStats.humanModelFallbackMisses += 1",
+  "this.v37HumanFallbackStats.humanModelFallbacks += 1",
+  "this.v37HumanFallbackStats.humanModelFallbackMisses += 1",
   'this.setAiStatus?.("AI human reply fallback · built-in")',
   'source: "built-in"'
 ]) {

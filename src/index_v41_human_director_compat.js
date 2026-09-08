@@ -64,6 +64,10 @@ export class ChatRoom extends FreeProviderChatRoom {
       legacyBrainBypasses: 0
     };
     this.v37LastHumanDirector = null;
+    this.v37HumanFallbackStats = {
+      humanModelFallbacks: 0,
+      humanModelFallbackMisses: 0
+    };
   }
 
   repairedHumanTrigger(human) {
@@ -218,12 +222,12 @@ export class ChatRoom extends FreeProviderChatRoom {
 
     const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
     if (fallback.length) {
-      this.v37AdaptiveAmbientStats.humanModelFallbacks += 1;
+      this.v37HumanFallbackStats.humanModelFallbacks += 1;
       this.setAiStatus?.("AI human reply fallback · built-in");
       return fallback.map((item) => ({ ...item, source: "built-in" }));
     }
 
-    this.v37AdaptiveAmbientStats.humanModelFallbackMisses += 1;
+    this.v37HumanFallbackStats.humanModelFallbackMisses += 1;
     return [];
   }
 

@@ -148,6 +148,9 @@ assert.ok(
 assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release delegated fallback behavior");
 assert.equal(ownsMethod(humanDirector, "generateHumanReplan"), true, "human Director must remain the human-turn authority");
 assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must consolidate delegated fallback behavior");
+assert.ok(humanDirector.includes("this.v37HumanFallbackStats = {"), "3G.16 human Director must own live fallback telemetry");
+assert.equal(humanOnly.includes("humanModelFallbacks: 0"), false, "3G.16 human-only residual must release live fallback counter initialization");
+assert.ok(humanOnly.includes("humanModelFallbacks: Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0)"), "3G.16 human-only snapshot must preserve the historical counter surface");
 assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release capacity authority");
 assert.equal(ownsMethod(providerReadiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must consolidate live capacity authority");
 for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {

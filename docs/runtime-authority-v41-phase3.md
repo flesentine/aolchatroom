@@ -49,8 +49,8 @@ This phase is **characterization only**. It must not change provider routing, st
 | Legacy live-model shadow pause | `index_v41_paused_shadow_compat.js` in v41 production | 3G.11 preserves queued-shadow pause marking, idempotent telemetry, retained shadow-history updates, and the paused-shadow status flags. |
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
 | Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |
-| Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. |
-| Legacy human-only diagnostics/status | `index_v41_human_only_compat.js` in v41 production | After 3G.15 this residual owns only legacy adaptive-ambient diagnostic state/counters and the historical human-only status/snapshot surface. |
+| Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. 3G.16 also moves the two live fallback counters here. |
+| Legacy human-only diagnostics/status | `index_v41_human_only_compat.js` in v41 production | After 3G.16 this residual owns only historical adaptive-ambient state and the compatibility status/snapshot shell. Its snapshot bridges live fallback counters from the Human Director. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. 3G.15 also consolidates delegated empty-plan fallback here. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
@@ -360,6 +360,22 @@ The moved helper is byte-for-byte equivalent to frozen `index_v37_human_only.js:
 The human-only residual no longer owns human-turn behavior or the v14 fallback dependency. It remains only as a legacy diagnostic/status owner: `v37LastAmbientAiAt`, `v37AdaptiveAmbientStats`, and the historical human-only `v37Snapshot()`/status surface.
 
 The real-Worker contract proves both sides of the delegated path: a successful lower planner result bypasses built-in fallback and leaves the fallback counter unchanged, while a forced empty lower planner reaches the built-in directed reply and increments the legacy fallback counter exactly once.
+
+No client/browser code changes in this phase.
+
+
+#### 3G.16 — split live human fallback telemetry from historical ambient diagnostics
+After 3G.15, delegated fallback behavior lived in the Human Director but its two live counters still lived inside the old `v37AdaptiveAmbientStats` object initialized by the human-only residual. That left behavior and telemetry owned by different layers.
+
+3G.16 gives the Human Director a dedicated `v37HumanFallbackStats` object with:
+- `humanModelFallbacks`;
+- `humanModelFallbackMisses`.
+
+The delegated fallback helper now mutates those Director-owned counters. The human-only residual's `v37AdaptiveAmbientStats` is reduced to the historical ambient-only fields that no longer have live v41 writers.
+
+For compatibility, the legacy `adaptiveAmbientAi` snapshot still exposes `humanModelFallbacks` and `humanModelFallbackMisses`, but reads them from `v37HumanFallbackStats`. This keeps the external diagnostic shape stable while separating live telemetry ownership from historical ambient state.
+
+The 3G.16 source gate proves the Human Director is the only v41 production initializer of the new telemetry object and that the human-only residual no longer initializes the live counters. The real-Worker contract forces a delegated built-in fallback, verifies the Director counter increments exactly once, and verifies the historical snapshot reports the same value.
 
 No client/browser code changes in this phase.
 

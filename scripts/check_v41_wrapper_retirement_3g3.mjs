@@ -79,8 +79,14 @@ for (const marker of [
 
 const headerLines = 4;
 const delegatedFallback = extractMethod(humanCompat, "async generateDelegatedHumanReplan(human) {");
+const telemetryInitializer = `    this.v37HumanFallbackStats = {
+      humanModelFallbacks: 0,
+      humanModelFallbackMisses: 0
+    };
+`;
 const compatBody = humanCompat.split("\n").slice(headerLines).join("\n")
   .replace('from "./index_v41_free_providers_compat.js"', 'from "./index_v37_free_providers.js"')
+  .replace(telemetryInitializer, "")
   .replace(`${delegatedFallback}\n\n`, "")
   .replace(
     "if (!this.directHumanDirectorEligible(packet)) return this.generateDelegatedHumanReplan(human);",
@@ -89,7 +95,7 @@ const compatBody = humanCompat.split("\n").slice(headerLines).join("\n")
 assert.equal(
   compatBody,
   frozenHuman,
-  "3G.3 original Director behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.15 delegated-fallback addition"
+  "3G.3 original Director behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.15 delegated fallback and 3G.16 telemetry initializer"
 );
 
 const v41ProductionSpine = [

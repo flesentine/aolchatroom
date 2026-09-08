@@ -46,9 +46,7 @@ export class ChatRoom extends ProductionTurnChatRoom {
       ambientAiLines: 0,
       ambientBuiltInPlansGenerated: 0,
       ambientAiRateSkips: 0,
-      ambientAiHumanPrioritySkips: 0,
-      humanModelFallbacks: 0,
-      humanModelFallbackMisses: 0
+      ambientAiHumanPrioritySkips: 0
     };
   }
 
@@ -68,6 +66,8 @@ export class ChatRoom extends ProductionTurnChatRoom {
       },
       adaptiveAmbientAi: {
         ...this.v37AdaptiveAmbientStats,
+        humanModelFallbacks: Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
+        humanModelFallbackMisses: Number(this.v37HumanFallbackStats?.humanModelFallbackMisses || 0),
         preferredReadyProviders: preferred,
         nextIntervalMs: ambientAiIntervalMs(preferred.length),
         lastAmbientAiAgoMs: this.v37LastAmbientAiAt ? Math.max(0, Date.now() - this.v37LastAmbientAiAt) : null,

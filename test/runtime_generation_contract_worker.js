@@ -820,7 +820,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const originalCallBrainProvider = this.callBrainProvider;
     const originalCallGroq = this.callGroq;
 
-    const fallbackBefore = Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0);
+    const fallbackBefore = Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0);
     let lowerLines = [];
     let fallbackLines = [];
 
@@ -843,7 +843,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       lowerLines = await this.generateHumanReplan(human);
       equal(lowerLines?.[0]?.text, "lower planner reply", "3G.15 delegated path must preserve a successful lower planner result");
       equal(
-        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
         fallbackBefore,
         "3G.15 built-in fallback must not run when the lower planner succeeds"
       );
@@ -855,7 +855,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       equal(fallbackLines[0]?.target, "Crateman", "3G.15 built-in fallback must reply to the human");
       equal(fallbackLines[0]?.source, "built-in", "3G.15 delegated fallback source must remain built-in");
       equal(
-        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
         fallbackBefore + 1,
         "3G.15 delegated fallback must preserve the legacy humanModelFallbacks counter"
       );
@@ -873,6 +873,72 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       fallbackReachedOnlyAfterEmptyLowerPlan: true,
       fallbackCounterPreserved: true,
       humanOnlyResidualReleasedBehavior: true
+    };
+  }
+
+
+  async contractV41HumanFallbackTelemetry() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v37HumanFallbackStats && typeof this.v37HumanFallbackStats === "object", "3G.16 Human Director must initialize live fallback telemetry");
+    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbacks"), false, "3G.16 legacy ambient stats must no longer own human fallback successes");
+    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbackMisses"), false, "3G.16 legacy ambient stats must no longer own human fallback misses");
+
+    const originalPacket = this.humanDirectorPacket;
+    const originalActiveCharacters = this.activeCharacters;
+    const before = Number(this.v37HumanFallbackStats.humanModelFallbacks || 0);
+
+    try {
+      this.humanDirectorPacket = () => ({
+        trigger: {
+          kind: "human",
+          from: "Crateman",
+          target: "SegaMan",
+          text: "how old are you?",
+          at: Date.now()
+        },
+        obligation: { locked: false, speaker: "", target: "" },
+        onlineBots: ["SegaMan", "MetallicaFan"]
+      });
+      this.activeCharacters = () => [];
+
+      const lines = await this.generateHumanReplan({
+        kind: "human",
+        from: "Crateman",
+        target: "SegaMan",
+        text: "how old are you?",
+        at: Date.now()
+      });
+
+      ensure(Array.isArray(lines) && lines.length >= 1, "3G.16 telemetry probe must reach the delegated built-in fallback");
+      equal(lines[0]?.source, "built-in", "3G.16 telemetry probe must exercise the built-in fallback path");
+      equal(
+        Number(this.v37HumanFallbackStats.humanModelFallbacks || 0),
+        before + 1,
+        "3G.16 Human Director fallback counter must increment exactly once"
+      );
+
+      const legacySnapshot = V41HumanOnlyCompatChatRoom.prototype.v37Snapshot.call(this);
+      equal(
+        Number(legacySnapshot?.adaptiveAmbientAi?.humanModelFallbacks || 0),
+        before + 1,
+        "3G.16 historical adaptiveAmbientAi snapshot must bridge the live fallback counter"
+      );
+      equal(
+        Number(legacySnapshot?.adaptiveAmbientAi?.humanModelFallbackMisses || 0),
+        Number(this.v37HumanFallbackStats.humanModelFallbackMisses || 0),
+        "3G.16 historical adaptiveAmbientAi snapshot must bridge fallback misses"
+      );
+    } finally {
+      this.humanDirectorPacket = originalPacket;
+      this.activeCharacters = originalActiveCharacters;
+    }
+
+    return {
+      consolidated: true,
+      telemetryOwner: "human-director",
+      legacyAmbientCountersSeparated: true,
+      historicalSnapshotBridged: true
     };
   }
 
@@ -2035,6 +2101,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-lively-support-consolidation") return this.contractV41LivelySupportConsolidation();
     if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
     if (name === "v41-human-fallback-consolidation") return this.contractV41HumanFallbackConsolidation();
+    if (name === "v41-human-fallback-telemetry") return this.contractV41HumanFallbackTelemetry();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();

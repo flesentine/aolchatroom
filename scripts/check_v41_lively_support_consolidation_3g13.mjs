@@ -97,13 +97,13 @@ assert.deepEqual(
 assert.equal(ownsMethod(humanOnly, "v37Snapshot"), true, "human-only residual must retain v37Snapshot()");
 assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
 assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
+assert.ok(humanDirector.includes("this.v37HumanFallbackStats = {"), "3G.16 human Director must initialize live fallback telemetry");
+assert.ok(humanOnly.includes("humanModelFallbacks: Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0)"), "3G.16 legacy snapshot must bridge live fallback telemetry");
 assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
 assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
-  "humanModelFallbacks",
-  "humanModelFallbackMisses",
   "adaptiveAmbientAi: true",
   "humanModelFailureFallsBackBuiltIn: true"
 ]) {
