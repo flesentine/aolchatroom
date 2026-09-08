@@ -2,6 +2,7 @@
 // Frozen index_v37_free_providers.js remains unchanged for the v37-v40 lineage.
 // V41 production preserves provider configuration, ordering, implementations, source
 // normalization, failover diagnostics, and /ai-status augmentation here.
+// Phase 3G.17 also composes the retired human-only historical diagnostics helper here.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
