@@ -22,7 +22,6 @@ const v41QualityCompat = read("src/index_v41_quality_compat.js");
 const v41LivelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const v41HumanDirectorCompat = read("src/index_v41_human_director_compat.js");
 const v41FreeProvidersCompat = read("src/index_v41_free_providers_compat.js");
-const v41HumanOnlyCompat = read("src/index_v41_human_only_compat.js");
 const v41LegacyHumanDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 const v41ProductionTurnCompat = read("src/index_v41_production_turn_compat.js");
 const v41ProviderReadinessCompat = read("src/index_v41_provider_readiness_compat.js");
@@ -62,7 +61,7 @@ assert.ok(!v41FreeProvidersCompat.includes('from "./index_v41_human_only_compat.
 assert.ok(v41LegacyHumanDiagnostics.includes("initializeV37HumanOnlyDiagnostics"), "3G.17 legacy diagnostics helper must own historical human-only state initialization");
 assert.ok(v41LegacyHumanDiagnostics.includes("mergeV37HumanOnlySnapshot"), "3G.17 legacy diagnostics helper must own historical snapshot composition");
 assert.ok(v41LegacyHumanDiagnostics.includes("mergeV37HumanOnlyStatus"), "3G.17 legacy diagnostics helper must own historical status composition");
-assert.ok(v41HumanOnlyCompat.includes('from "./index_v41_production_turn_compat.js"'), "retired 3G.5 residual source remains historical-only and must preserve its frozen parent edge for proof comparison");
+assert.equal(fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)), false, "3G.18 retired human-only residual source must stay deleted");
 assert.ok(v41ProductionTurnCompat.includes('from "./index_v41_provider_readiness_compat.js"'), "3G.8 production-turn authority must sit above the provider-readiness owner");
 assert.ok(v41ProviderReadinessCompat.includes('from "./index_v41_provider_failover_compat.js"'), "3G.9 readiness owner must sit above the provider-failover owner");
 assert.ok(v41ProviderFailoverCompat.includes('from "./index_v41_output_hygiene_compat.js"'), "3G.10 failover owner must sit above the output-hygiene owner");

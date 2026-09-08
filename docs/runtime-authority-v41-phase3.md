@@ -50,7 +50,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
 | Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |
 | Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. 3G.16 also moves the two live fallback counters here. |
-| Legacy human-only diagnostics/status | `human_only_legacy_diagnostics_v41.js`, composed by `index_v41_free_providers_compat.js` | 3G.17 retires the human-only residual from the production inheritance/fetch spine while preserving historical ambient state, status flags, snapshot shape, and the Human Director fallback-counter bridge. The old v41 residual file remains only as a historical proof artifact. |
+| Legacy human-only diagnostics/status | `human_only_legacy_diagnostics_v41.js`, composed by `index_v41_free_providers_compat.js` | 3G.17 retires the human-only residual from the production inheritance/fetch spine while preserving historical ambient state, status flags, snapshot shape, and the Human Director fallback-counter bridge. 3G.18 deletes the obsolete v41 residual source; frozen `index_v37_human_only.js` remains for lineage. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. 3G.15 also consolidates delegated empty-plan fallback here. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
@@ -393,11 +393,31 @@ The helper owns only state/status shaping:
 - `mergeV37HumanOnlyStatus(data)`;
 - `mergeV37HumanOnlySnapshot(room, base)`.
 
-No production file imports `index_v41_human_only_compat.js` after this phase. The old source remains in the repository as a historical Phase 3G.5/3G.16 proof artifact, the same way frozen v37-v40 wrappers remain available for lineage checks.
+No production file imports `index_v41_human_only_compat.js` after this phase. 3G.18 subsequently deletes that obsolete v41 residual source; frozen v37-v40 lineage files remain available for historical checks.
 
-The 3G.17 source gate proves the residual path is absent from the actual v41 production spine and verifies the helper's compatibility output. The real-Worker contract proves free providers inherit directly from production-turn and that full production snapshot/status compatibility remains intact.
+The 3G.17 source gate proves the residual path is absent from the actual v41 production spine and directly verifies the helper's compatibility output. Superseded human-only Worker probes are retired rather than allowing historical mode flags to override higher live lively-ambient authority.
 
 No client/browser code changes in this phase.
+
+
+#### 3G.18 — delete the retired v41 human-only source
+After 3G.17, `index_v41_human_only_compat.js` had no production dependency edge and no unique compatibility responsibility. Keeping the file solely so older proof scripts could inspect it created a second, stale representation of diagnostics already owned by `human_only_legacy_diagnostics_v41.js`.
+
+3G.18 deletes `src/index_v41_human_only_compat.js` entirely.
+
+The proof chain is updated to use:
+- frozen `index_v37_human_only.js` for original v37 lineage and byte-equivalence evidence;
+- live v41 owners for behavior and telemetry ownership;
+- `human_only_legacy_diagnostics_v41.js` for historical status/snapshot compatibility.
+
+The dedicated 3G.18 gate requires:
+- the retired v41 source to be absent;
+- the frozen v37 source to remain;
+- the free-provider owner to inherit directly from production-turn and compose the diagnostics helper;
+- `check:v41` to stop syntax-checking the deleted file;
+- prior 3G.1/3G.5/3G.13–3G.17 proof scripts to stop reading the deleted source.
+
+No production behavior or client/browser code changes in this phase.
 
 
 ## Retirement rule

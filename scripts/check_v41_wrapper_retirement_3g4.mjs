@@ -14,7 +14,6 @@ function ownsMethod(source, name) {
 const humanCompat = read("src/index_v41_human_director_compat.js");
 const providerCompat = read("src/index_v41_free_providers_compat.js");
 const frozenProvider = read("src/index_v37_free_providers.js");
-const humanOnly = read("src/index_v41_human_only_compat.js");
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
@@ -34,7 +33,11 @@ assert.ok(providerCompat.includes('from "./index_v41_production_turn_compat.js"'
 assert.ok(providerCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'));
 assert.ok(!providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenProvider.includes('from "./index_v37_human_only.js"'));
-assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired v41 human-only residual source must stay deleted"
+);
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 
 for (const method of [
@@ -143,4 +146,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_free_providers.js"'));
 }
 
-console.log("v41 Phase 3G.4 v37 free-provider wrapper retirement checks passed");
+console.log("v41 Phase 3G.4 v37 free-provider wrapper retirement checks passed after 3G.18 source retirement");

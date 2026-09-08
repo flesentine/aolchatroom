@@ -11,9 +11,9 @@ function ownsMethod(source, name) {
   );
 }
 
-const humanOnly = read("src/index_v41_human_only_compat.js");
 const readiness = read("src/index_v41_provider_readiness_compat.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
+const legacyDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 
 const productionOwnerPaths = [
   "src/index_v41_generation_contract_base.js",
@@ -29,7 +29,6 @@ const productionOwnerPaths = [
   "src/index_v41_lively_ambient_compat.js",
   "src/index_v41_human_director_compat.js",
   "src/index_v41_free_providers_compat.js",
-  "src/index_v41_human_only_compat.js",
   "src/index_v41_production_turn_compat.js",
   "src/index_v41_provider_readiness_compat.js",
   "src/index_v41_provider_failover_compat.js",
@@ -38,7 +37,11 @@ const productionOwnerPaths = [
 ];
 const productionOwners = productionOwnerPaths.map((path) => [path, read(path)]);
 
-assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired human-only residual source must be deleted"
+);
 assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 
 const capacityOwners = productionOwners
@@ -62,17 +65,15 @@ for (const marker of [
   assert.ok(readiness.includes(marker), `3G.14 readiness owner must preserve composed capacity marker: ${marker}`);
 }
 
-assert.equal(ownsMethod(humanOnly, "v37Snapshot"), true, "3G.14/3G.15 human-only residual must retain v37Snapshot()");
-assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
 assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
 assert.ok(humanDirector.includes("this.v37HumanFallbackStats = {"), "3G.16 human Director must initialize live fallback telemetry");
-assert.ok(humanOnly.includes("humanModelFallbackMisses: Number(this.v37HumanFallbackStats?.humanModelFallbackMisses || 0)"), "3G.16 legacy snapshot must bridge fallback misses");
+assert.ok(legacyDiagnostics.includes("humanModelFallbackMisses: Number(room.v37HumanFallbackStats?.humanModelFallbackMisses || 0)"), "3G.16/3G.18 helper must bridge fallback misses");
 for (const marker of [
-  "this.v37LastAmbientAiAt = 0",
-  "this.v37AdaptiveAmbientStats = {",
+  "room.v37LastAmbientAiAt = 0",
+  "room.v37AdaptiveAmbientStats = {",
   "humanModelFailureFallsBackBuiltIn: true"
 ]) {
-  assert.ok(humanOnly.includes(marker), `3G.14 human-only residual must retain marker: ${marker}`);
+  assert.ok(legacyDiagnostics.includes(marker), `3G.17/3G.18 diagnostics helper must retain marker: ${marker}`);
 }
 
-console.log("v41 Phase 3G.14 capacity-policy consolidation checks passed");
+console.log("v41 Phase 3G.14 capacity-policy consolidation checks passed after 3G.18 source retirement");
