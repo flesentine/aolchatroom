@@ -13,6 +13,7 @@ function ownsMethod(source, name) {
 
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const readiness = read("src/index_v41_provider_readiness_compat.js");
+const humanDirector = read("src/index_v41_human_director_compat.js");
 
 const productionOwnerPaths = [
   "src/index_v41_generation_contract_base.js",
@@ -61,9 +62,9 @@ for (const marker of [
   assert.ok(readiness.includes(marker), `3G.14 readiness owner must preserve composed capacity marker: ${marker}`);
 }
 
-for (const method of ["generateHumanReplan", "v37Snapshot"]) {
-  assert.equal(ownsMethod(humanOnly, method), true, `3G.14 human-only residual must retain ${method}()`);
-}
+assert.equal(ownsMethod(humanOnly, "v37Snapshot"), true, "3G.14/3G.15 human-only residual must retain v37Snapshot()");
+assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
+assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",

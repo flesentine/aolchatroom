@@ -35,7 +35,6 @@ assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
 
 for (const method of [
-  "generateHumanReplan",
   "v37Snapshot"
 ]) {
   assert.equal(ownsMethod(humanOnlyCompat, method), true, `3G.5 must preserve live residual ${method}()`);
@@ -61,7 +60,6 @@ for (const retiredMethod of [
 for (const marker of [
   "this.v37LastAmbientAiAt = 0",
   "this.v37AdaptiveAmbientStats = {",
-  "ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human)",
   "humanModelFallbacks",
   "humanModelFallbackMisses",
   "adaptiveAmbientAi: true",
@@ -71,6 +69,10 @@ for (const marker of [
   assert.ok(humanOnlyCompat.includes(marker), `3G.5 must preserve marker: ${marker}`);
 }
 
+assert.equal(ownsMethod(humanOnlyCompat, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
+assert.equal(humanOnlyCompat.includes('from "./index_v14.js"'), false, "3G.15 human-only residual must release the built-in fallback dependency");
+assert.equal(ownsMethod(humanDirectorCompat, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
+assert.ok(humanDirectorCompat.includes("this.v37AdaptiveAmbientStats.humanModelFallbacks += 1"), "3G.15 Director must preserve delegated fallback accounting");
 assert.equal(ownsMethod(humanOnlyCompat, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
 assert.equal(ownsMethod(read("src/index_v41_provider_readiness_compat.js"), "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 assert.equal(ownsMethod(humanOnlyCompat, "activeAmbientCharacters"), false, "3G.13 human-only residual must release activeAmbientCharacters()");
@@ -115,4 +117,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.14 capacity-policy consolidation");
+console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.15 delegated-fallback consolidation");

@@ -804,6 +804,79 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   }
 
 
+  async contractV41HumanFallbackConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "how old are you?",
+      at: Date.now()
+    };
+
+    const originalPacket = this.humanDirectorPacket;
+    const originalActiveCharacters = this.activeCharacters;
+    const originalCallBrainProvider = this.callBrainProvider;
+    const originalCallGroq = this.callGroq;
+
+    const fallbackBefore = Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0);
+    let lowerLines = [];
+    let fallbackLines = [];
+
+    try {
+      this.humanDirectorPacket = () => ({
+        trigger: human,
+        obligation: { locked: false, speaker: "", target: "" },
+        onlineBots: ["SegaMan", "MetallicaFan"]
+      });
+      this.callBrainProvider = async () => null;
+      this.callGroq = async () => [{
+        speaker: "SegaMan",
+        text: "lower planner reply",
+        target: "Crateman",
+        intent: "reply",
+        topic: "general",
+        source: "groq"
+      }];
+
+      lowerLines = await this.generateHumanReplan(human);
+      equal(lowerLines?.[0]?.text, "lower planner reply", "3G.15 delegated path must preserve a successful lower planner result");
+      equal(
+        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        fallbackBefore,
+        "3G.15 built-in fallback must not run when the lower planner succeeds"
+      );
+
+      this.activeCharacters = () => [];
+      fallbackLines = await this.generateHumanReplan(human);
+      ensure(Array.isArray(fallbackLines) && fallbackLines.length >= 1, "3G.15 empty lower planner must reach built-in human fallback");
+      equal(fallbackLines[0]?.speaker, "SegaMan", "3G.15 built-in fallback must preserve the directed target speaker");
+      equal(fallbackLines[0]?.target, "Crateman", "3G.15 built-in fallback must reply to the human");
+      equal(fallbackLines[0]?.source, "built-in", "3G.15 delegated fallback source must remain built-in");
+      equal(
+        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        fallbackBefore + 1,
+        "3G.15 delegated fallback must preserve the legacy humanModelFallbacks counter"
+      );
+    } finally {
+      this.humanDirectorPacket = originalPacket;
+      this.activeCharacters = originalActiveCharacters;
+      this.callBrainProvider = originalCallBrainProvider;
+      this.callGroq = originalCallGroq;
+    }
+
+    return {
+      consolidated: true,
+      owner: "human-director",
+      lowerPlannerPreserved: true,
+      fallbackReachedOnlyAfterEmptyLowerPlan: true,
+      fallbackCounterPreserved: true,
+      humanOnlyResidualReleasedBehavior: true
+    };
+  }
+
+
   contractV37HotfixCharacterization() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
@@ -1961,6 +2034,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
     if (name === "v41-lively-support-consolidation") return this.contractV41LivelySupportConsolidation();
     if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
+    if (name === "v41-human-fallback-consolidation") return this.contractV41HumanFallbackConsolidation();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();

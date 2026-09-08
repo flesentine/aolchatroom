@@ -48,9 +48,11 @@ This phase is **characterization only**. It must not change provider routing, st
 | Internal chat metadata stripping | `index_v41_output_hygiene_compat.js` in v41 production | 3G.10 preserves bot-only stripping/drop behavior, shared strip/drop counters, higher provider-source normalization, and the output-hygiene status flag. |
 | Legacy live-model shadow pause | `index_v41_paused_shadow_compat.js` in v41 production | 3G.11 preserves queued-shadow pause marking, idempotent telemetry, retained shadow-history updates, and the paused-shadow status flags. |
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
-| Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |\n| Delegated human fallback compatibility | `index_v41_human_only_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.5 preserves delegated human fallback, legacy adaptive diagnostic state, status flags, and v37 diagnostics while omitting superseded adaptive ambient generation. 3G.13 and 3G.14 move lively support and capacity authority out of this residual. |
+| Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |
+| Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. |
+| Legacy human-only diagnostics/status | `index_v41_human_only_compat.js` in v41 production | After 3G.15 this residual owns only legacy adaptive-ambient diagnostic state/counters and the historical human-only status/snapshot surface. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
-| Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. |
+| Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. 3G.15 also consolidates delegated empty-plan fallback here. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
 
 ## Cross-cutting observability surfaces
@@ -340,6 +342,24 @@ After 3G.13, the human-only residual still overrode `providerCapacityConstrained
 The human-only residual no longer owns capacity policy. It remains responsible only for delegated human fallback, legacy adaptive-ambient diagnostic state/counters, and its historical status/snapshot surface.
 
 The 3G.14 source gate requires provider readiness to be the only v41 production owner of `providerCapacityConstrained()`. The real-Worker contract verifies both the one-preferred unconstrained path and the zero-preferred baseline path through direct and dynamic production dispatch.
+
+No client/browser code changes in this phase.
+
+
+#### 3G.15 — consolidate delegated human fallback in the Human Director
+After 3G.14, the human-only residual still wrapped `generateHumanReplan()` solely to provide a built-in reply when the inherited lower planning stack returned no lines. The higher Human Director already owned the direct-human path and already depended on the same v14 built-in fallback for its own direct-turn safety path.
+
+3G.15 moves only that delegated fallback wrapper into `index_v41_human_director_compat.js` as `generateDelegatedHumanReplan()`:
+- Director-ineligible packets still delegate through the complete lower planner chain first;
+- a non-empty lower plan returns unchanged;
+- only an empty lower result reaches the same v14 `builtInHumanReply()`;
+- `humanModelFallbacks`, `humanModelFallbackMisses`, built-in source tagging, and AI status text remain unchanged.
+
+The moved helper is byte-for-byte equivalent to frozen `index_v37_human_only.js::generateHumanReplan()` after changing only the method name. The original 3G.3 Human Director body also remains byte-for-byte equivalent to frozen v37 after subtracting the new helper and restoring its single delegation line.
+
+The human-only residual no longer owns human-turn behavior or the v14 fallback dependency. It remains only as a legacy diagnostic/status owner: `v37LastAmbientAiAt`, `v37AdaptiveAmbientStats`, and the historical human-only `v37Snapshot()`/status surface.
+
+The real-Worker contract proves both sides of the delegated path: a successful lower planner result bypasses built-in fallback and leaves the fallback counter unchanged, while a forced empty lower planner reaches the built-in directed reply and increments the legacy fallback counter exactly once.
 
 No client/browser code changes in this phase.
 

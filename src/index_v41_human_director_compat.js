@@ -212,9 +212,24 @@ export class ChatRoom extends FreeProviderChatRoom {
     this.broadcast?.({ type: "scene_plan", action: "v37-human-pivot-close", sceneId, turns: Number(scene.turns || 0), at: now });
   }
 
+  async generateDelegatedHumanReplan(human) {
+    const lines = await super.generateHumanReplan(human);
+    if (Array.isArray(lines) && lines.length) return lines;
+
+    const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
+    if (fallback.length) {
+      this.v37AdaptiveAmbientStats.humanModelFallbacks += 1;
+      this.setAiStatus?.("AI human reply fallback · built-in");
+      return fallback.map((item) => ({ ...item, source: "built-in" }));
+    }
+
+    this.v37AdaptiveAmbientStats.humanModelFallbackMisses += 1;
+    return [];
+  }
+
   async generateHumanReplan(human) {
     const packet = this.humanDirectorPacket(human);
-    if (!this.directHumanDirectorEligible(packet)) return super.generateHumanReplan(human);
+    if (!this.directHumanDirectorEligible(packet)) return this.generateDelegatedHumanReplan(human);
 
     this.v37HumanDirectorStats.eligibleDirectHumanTurns += 1;
     this.v37HumanDirectorStats.legacyBrainBypasses += 1;

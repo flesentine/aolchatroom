@@ -11,6 +11,21 @@ function ownsMethod(source, name) {
   );
 }
 
+function extractMethod(source, signature) {
+  const start = source.indexOf(`  ${signature}`);
+  assert.ok(start >= 0, `missing method ${signature}`);
+  const brace = start + signature.lastIndexOf("{");
+  let depth = 0;
+  for (let i = brace; i < source.length; i += 1) {
+    if (source[i] === "{") depth += 1;
+    else if (source[i] === "}") {
+      depth -= 1;
+      if (depth === 0) return source.slice(start, i + 1);
+    }
+  }
+  assert.fail(`unterminated method ${signature}`);
+}
+
 const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const humanCompat = read("src/index_v41_human_director_compat.js");
 const providerCompat = read("src/index_v41_free_providers_compat.js");
@@ -40,6 +55,7 @@ for (const method of [
   "activeForHumanMove",
   "sceneForMessage",
   "closeLegacySceneForPivot",
+  "generateDelegatedHumanReplan",
   "generateHumanReplan",
   "queueScenePlan",
   "v37Snapshot"
@@ -62,12 +78,18 @@ for (const marker of [
 }
 
 const headerLines = 4;
+const delegatedFallback = extractMethod(humanCompat, "async generateDelegatedHumanReplan(human) {");
 const compatBody = humanCompat.split("\n").slice(headerLines).join("\n")
-  .replace('from "./index_v41_free_providers_compat.js"', 'from "./index_v37_free_providers.js"');
+  .replace('from "./index_v41_free_providers_compat.js"', 'from "./index_v37_free_providers.js"')
+  .replace(`${delegatedFallback}\n\n`, "")
+  .replace(
+    "if (!this.directHumanDirectorEligible(packet)) return this.generateDelegatedHumanReplan(human);",
+    "if (!this.directHumanDirectorEligible(packet)) return super.generateHumanReplan(human);"
+  );
 assert.equal(
   compatBody,
   frozenHuman,
-  "3G.3 replacement must remain byte-for-byte behavior-equivalent to frozen v37 human Director below its compatibility header"
+  "3G.3 original Director behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.15 delegated-fallback addition"
 );
 
 const v41ProductionSpine = [
