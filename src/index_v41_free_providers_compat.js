@@ -6,7 +6,6 @@
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
-  initializeV37HumanOnlyDiagnostics,
   mergeV37HumanOnlySnapshot,
   mergeV37HumanOnlyStatus
 } from "./human_only_legacy_diagnostics_v41.js";
@@ -68,7 +67,6 @@ export default {
 export class ChatRoom extends ProductionTurnChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    initializeV37HumanOnlyDiagnostics(this);
     this.v37ExtendedProviderStats = {
       calls: 0,
       successes: 0,

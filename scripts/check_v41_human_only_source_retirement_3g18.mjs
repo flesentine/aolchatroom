@@ -23,7 +23,7 @@ assert.equal(freeProviders.includes("index_v41_human_only_compat.js"), false, "l
 assert.equal(packageJson.includes("node --check src/index_v41_human_only_compat.js"), false, "check:v41 must not syntax-check deleted residual");
 
 for (const marker of [
-  "initializeV37HumanOnlyDiagnostics",
+  "V37_RETIRED_ADAPTIVE_AMBIENT_STATS",
   "mergeV37HumanOnlyStatus",
   "mergeV37HumanOnlySnapshot",
   "V37_HUMAN_ONLY_COMPAT_MODE"
@@ -52,4 +52,4 @@ for (const proofPath of [
   );
 }
 
-console.log("v41 Phase 3G.18 human-only source retirement checks passed");
+console.log("v41 Phase 3G.18 human-only source retirement checks passed after 3G.19 stateless diagnostics");

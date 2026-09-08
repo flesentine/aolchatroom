@@ -99,12 +99,12 @@ assert.ok(humanDirector.includes("this.v37HumanFallbackStats = {"), "3G.16 human
 assert.ok(legacyDiagnostics.includes("humanModelFallbacks: Number(room.v37HumanFallbackStats?.humanModelFallbacks || 0)"), "3G.16/3G.18 helper must bridge live fallback telemetry");
 assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
 for (const marker of [
-  "room.v37LastAmbientAiAt = 0",
-  "room.v37AdaptiveAmbientStats = {",
+  "V37_RETIRED_ADAPTIVE_AMBIENT_STATS",
+  "ambientAiAttempts: 0",
   "adaptiveAmbientAi: true",
   "humanModelFailureFallsBackBuiltIn: true"
 ]) {
   assert.ok(legacyDiagnostics.includes(marker), `3G.17/3G.18 diagnostics helper must retain marker: ${marker}`);
 }
 
-console.log("v41 Phase 3G.13 lively-support consolidation checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.13 lively-support consolidation checks passed after 3G.19 stateless diagnostics");

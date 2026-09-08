@@ -654,8 +654,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   contractRetiredV37HumanOnlyCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
-    equal(this.v37LastAmbientAiAt, 0, "3G.5/3G.17 must initialize the legacy adaptive-ambient timestamp");
-    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5/3G.17 must initialize adaptive-ambient compatibility counters");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37LastAmbientAiAt"), false, "3G.19 must not allocate the retired adaptive-ambient timestamp");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37AdaptiveAmbientStats"), false, "3G.19 must not allocate retired adaptive-ambient counters");
 
     const directSnapshot = mergeV37HumanOnlySnapshot(
       this,
@@ -891,8 +891,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
     ensure(this.v37HumanFallbackStats && typeof this.v37HumanFallbackStats === "object", "3G.16 Human Director must initialize live fallback telemetry");
-    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbacks"), false, "3G.16 legacy ambient stats must no longer own human fallback successes");
-    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbackMisses"), false, "3G.16 legacy ambient stats must no longer own human fallback misses");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37AdaptiveAmbientStats"), false, "3G.19 retired ambient stats must no longer exist on the room");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37LastAmbientAiAt"), false, "3G.19 retired ambient timestamp must no longer exist on the room");
 
     const originalPacket = this.humanDirectorPacket;
     const originalActiveCharacters = this.activeCharacters;
@@ -961,8 +961,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       V41ProductionTurnChatRoom.prototype,
       "3G.17 free-provider class must inherit directly from production-turn after human-only residual retirement"
     );
-    equal(this.v37LastAmbientAiAt, 0, "3G.17 diagnostic helper must initialize the historical ambient timestamp");
-    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.17 diagnostic helper must initialize historical ambient counters");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37LastAmbientAiAt"), false, "3G.19 diagnostic helper must not allocate the retired ambient timestamp");
+    equal(Object.prototype.hasOwnProperty.call(this, "v37AdaptiveAmbientStats"), false, "3G.19 diagnostic helper must not allocate retired ambient counters");
 
     const snapshot = this.v37Snapshot();
     equal(snapshot?.mode?.humanOnlyModelBudget, false, "3G.17 full production snapshot must preserve humanOnlyModelBudget");
@@ -983,6 +983,69 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       diagnosticStatePreserved: true,
       snapshotPreserved: true,
       statusPreserved: true
+    };
+  }
+
+
+  contractV41RetiredAmbientDiagnosticsState() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    equal(
+      Object.prototype.hasOwnProperty.call(this, "v37LastAmbientAiAt"),
+      false,
+      "3G.19 production room must not allocate the retired ambient timestamp"
+    );
+    equal(
+      Object.prototype.hasOwnProperty.call(this, "v37AdaptiveAmbientStats"),
+      false,
+      "3G.19 production room must not allocate retired ambient counters"
+    );
+
+    const snapshot = this.v37Snapshot();
+    ensure(snapshot?.adaptiveAmbientAi, "3G.19 historical adaptiveAmbientAi snapshot must remain visible");
+
+    for (const key of [
+      "ambientAiAttempts",
+      "ambientAiSuccesses",
+      "ambientAiFailures",
+      "ambientAiOutputRejects",
+      "ambientAiLines",
+      "ambientBuiltInPlansGenerated",
+      "ambientAiRateSkips",
+      "ambientAiHumanPrioritySkips"
+    ]) {
+      equal(Number(snapshot.adaptiveAmbientAi[key] || 0), 0, `3G.19 retired ambient counter must remain zero: ${key}`);
+    }
+
+    equal(
+      Number(snapshot.adaptiveAmbientAi.humanModelFallbacks || 0),
+      Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
+      "3G.19 historical snapshot must continue bridging live human fallback successes"
+    );
+    equal(
+      Number(snapshot.adaptiveAmbientAi.humanModelFallbackMisses || 0),
+      Number(this.v37HumanFallbackStats?.humanModelFallbackMisses || 0),
+      "3G.19 historical snapshot must continue bridging live human fallback misses"
+    );
+    equal(snapshot.adaptiveAmbientAi.lastAmbientAiAgoMs, null, "3G.19 retired ambient timestamp surface must remain null");
+
+    const helperSnapshot = mergeV37HumanOnlySnapshot(this, { mode: { sentinel: true } });
+    equal(helperSnapshot.mode.sentinel, true, "3G.19 helper snapshot must preserve existing mode fields");
+    equal(
+      JSON.stringify(helperSnapshot.adaptiveAmbientAi),
+      JSON.stringify(snapshot.adaptiveAmbientAi),
+      "3G.19 full production snapshot must preserve the helper-owned historical adaptiveAmbientAi payload"
+    );
+
+    const status = mergeV37HumanOnlyStatus({ v37: { sentinel: true } });
+    equal(status?.v37?.sentinel, true, "3G.19 status helper must preserve existing v37 fields");
+    equal(status?.v37?.humanModelFailureFallsBackBuiltIn, true, "3G.19 status helper must preserve human fallback policy");
+
+    return {
+      stateless: true,
+      retiredRoomStateAbsent: true,
+      historicalPayloadPreserved: true,
+      liveFallbackBridgePreserved: true
     };
   }
 
@@ -2146,6 +2209,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
     if (name === "v41-human-fallback-consolidation") return this.contractV41HumanFallbackConsolidation();
     if (name === "v41-human-fallback-telemetry") return this.contractV41HumanFallbackTelemetry();
+    if (name === "v41-retired-ambient-diagnostics-state") return this.contractV41RetiredAmbientDiagnosticsState();
     if (name === "v41-human-only-residual-retirement") return this.contractV41HumanOnlyResidualRetirement();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();

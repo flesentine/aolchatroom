@@ -58,7 +58,7 @@ assert.ok(v41HumanDirectorCompat.includes('from "./index_v41_free_providers_comp
 assert.ok(v41FreeProvidersCompat.includes('from "./index_v41_production_turn_compat.js"'), "3G.17 provider compatibility must inherit directly from the v41 production-turn owner");
 assert.ok(v41FreeProvidersCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'), "3G.17 provider compatibility must compose the retired human-only diagnostics helper");
 assert.ok(!v41FreeProvidersCompat.includes('from "./index_v41_human_only_compat.js"'), "3G.17 provider compatibility must no longer route through the retired human-only residual");
-assert.ok(v41LegacyHumanDiagnostics.includes("initializeV37HumanOnlyDiagnostics"), "3G.17 legacy diagnostics helper must own historical human-only state initialization");
+assert.ok(v41LegacyHumanDiagnostics.includes("V37_RETIRED_ADAPTIVE_AMBIENT_STATS"), "3G.19 legacy diagnostics helper must render retired ambient telemetry without room-state initialization");
 assert.ok(v41LegacyHumanDiagnostics.includes("mergeV37HumanOnlySnapshot"), "3G.17 legacy diagnostics helper must own historical snapshot composition");
 assert.ok(v41LegacyHumanDiagnostics.includes("mergeV37HumanOnlyStatus"), "3G.17 legacy diagnostics helper must own historical status composition");
 assert.equal(fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)), false, "3G.18 retired human-only residual source must stay deleted");
