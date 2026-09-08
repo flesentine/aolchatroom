@@ -50,7 +50,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
 | Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |
 | Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. 3G.16 also moves the two live fallback counters here. |
-| Legacy human-only diagnostics/status | `index_v41_human_only_compat.js` in v41 production | After 3G.16 this residual owns only historical adaptive-ambient state and the compatibility status/snapshot shell. Its snapshot bridges live fallback counters from the Human Director. |
+| Legacy human-only diagnostics/status | `human_only_legacy_diagnostics_v41.js`, composed by `index_v41_free_providers_compat.js` | 3G.17 retires the human-only residual from the production inheritance/fetch spine while preserving historical ambient state, status flags, snapshot shape, and the Human Director fallback-counter bridge. The old v41 residual file remains only as a historical proof artifact. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. 3G.15 also consolidates delegated empty-plan fallback here. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
@@ -376,6 +376,26 @@ The delegated fallback helper now mutates those Director-owned counters. The hum
 For compatibility, the legacy `adaptiveAmbientAi` snapshot still exposes `humanModelFallbacks` and `humanModelFallbackMisses`, but reads them from `v37HumanFallbackStats`. This keeps the external diagnostic shape stable while separating live telemetry ownership from historical ambient state.
 
 The 3G.16 source gate proves the Human Director is the only v41 production initializer of the new telemetry object and that the human-only residual no longer initializes the live counters. The real-Worker contract forces a delegated built-in fallback, verifies the Director counter increments exactly once, and verifies the historical snapshot reports the same value.
+
+No client/browser code changes in this phase.
+
+
+#### 3G.17 — retire the human-only residual boundary
+After 3G.16, `index_v41_human_only_compat.js` no longer owned live behavior or live telemetry. Its only remaining production responsibility was a historical diagnostics shell:
+- initializing the obsolete adaptive-ambient timestamp/counters retained for compatibility;
+- adding legacy human-only status flags to `/api/health`, `/api/everything`, and `/api/full-status`;
+- preserving the historical `adaptiveAmbientAi` snapshot shape while bridging the two live fallback counters from the Human Director.
+
+3G.17 extracts that shell into `human_only_legacy_diagnostics_v41.js` and makes `index_v41_free_providers_compat.js` inherit/fetch directly from `index_v41_production_turn_compat.js`.
+
+The helper owns only state/status shaping:
+- `initializeV37HumanOnlyDiagnostics(room)`;
+- `mergeV37HumanOnlyStatus(data)`;
+- `mergeV37HumanOnlySnapshot(room, base)`.
+
+No production file imports `index_v41_human_only_compat.js` after this phase. The old source remains in the repository as a historical Phase 3G.5/3G.16 proof artifact, the same way frozen v37-v40 wrappers remain available for lineage checks.
+
+The 3G.17 source gate proves the residual path is absent from the actual v41 production spine and verifies the helper's compatibility output. The real-Worker contract proves free providers inherit directly from production-turn and that full production snapshot/status compatibility remains intact.
 
 No client/browser code changes in this phase.
 

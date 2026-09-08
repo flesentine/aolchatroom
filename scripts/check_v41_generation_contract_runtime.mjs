@@ -111,7 +111,6 @@ const contracts = [
   "wrapper-retirement-v37-lively",
   "wrapper-retirement-v37-human-director",
   "wrapper-retirement-v37-free-providers",
-  "wrapper-retirement-v37-human-only",
   "v41-lively-support-consolidation",
   "v41-capacity-policy-consolidation",
   "v41-human-fallback-consolidation",

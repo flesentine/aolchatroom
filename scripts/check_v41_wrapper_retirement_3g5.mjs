@@ -27,8 +27,11 @@ const coherenceCompat = read("src/index_v41_coherence_compat.js");
 const qualityCompat = read("src/index_v41_quality_compat.js");
 const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const humanDirectorCompat = read("src/index_v41_human_director_compat.js");
+const legacyDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 
-assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
+assert.ok(providerCompat.includes('from "./index_v41_production_turn_compat.js"'));
+assert.ok(providerCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'));
+assert.ok(!providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(!providerCompat.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnlyCompat.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
@@ -107,7 +110,7 @@ const v41ProductionSpine = [
   livelyCompat,
   humanDirectorCompat,
   providerCompat,
-  humanOnlyCompat
+  legacyDiagnostics
 ].join("\n");
 
 assert.equal(
@@ -115,10 +118,15 @@ assert.equal(
   false,
   "3G.5 must remove the retired v37 human-only wrapper from every v41 production dependency edge"
 );
+assert.equal(
+  v41ProductionSpine.includes('from "./index_v41_human_only_compat.js"'),
+  false,
+  "3G.17 must remove the v41 human-only residual from every production dependency edge"
+);
 
 for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(source.includes('from "./index_v37.js"'));
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 human-only residual checks passed after 3G.16 telemetry split");
+console.log("v41 Phase 3G.5 historical human-only compatibility checks passed after 3G.17 residual retirement");
