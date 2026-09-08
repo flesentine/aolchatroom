@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import {
-  initializeV37HumanOnlyDiagnostics,
+  V37_RETIRED_ADAPTIVE_AMBIENT_STATS,
   mergeV37HumanOnlySnapshot,
   mergeV37HumanOnlyStatus
 } from "../src/human_only_legacy_diagnostics_v41.js";
@@ -91,9 +91,7 @@ const room = {
   },
   preferredStructuredReadyProviders: () => ["gemini"]
 };
-initializeV37HumanOnlyDiagnostics(room);
-assert.equal(room.v37LastAmbientAiAt, 0);
-assert.deepEqual(room.v37AdaptiveAmbientStats, {
+assert.deepEqual(V37_RETIRED_ADAPTIVE_AMBIENT_STATS, {
   ambientAiAttempts: 0,
   ambientAiSuccesses: 0,
   ambientAiFailures: 0,
@@ -103,6 +101,8 @@ assert.deepEqual(room.v37AdaptiveAmbientStats, {
   ambientAiRateSkips: 0,
   ambientAiHumanPrioritySkips: 0
 });
+assert.equal(Object.prototype.hasOwnProperty.call(room, "v37LastAmbientAiAt"), false);
+assert.equal(Object.prototype.hasOwnProperty.call(room, "v37AdaptiveAmbientStats"), false);
 
 const status = mergeV37HumanOnlyStatus({ v37: { sentinel: true } });
 assert.equal(status.v37.sentinel, true);
@@ -120,4 +120,4 @@ assert.deepEqual(snapshot.adaptiveAmbientAi.preferredReadyProviders, ["gemini"])
 assert.equal(snapshot.adaptiveAmbientAi.nextIntervalMs, 90000);
 assert.equal(snapshot.adaptiveAmbientAi.lastAmbientAiAgoMs, null);
 
-console.log("v41 Phase 3G.17 human-only residual retirement checks passed after 3G.18 source deletion");
+console.log("v41 Phase 3G.17 human-only residual retirement checks passed after 3G.19 stateless diagnostics");
