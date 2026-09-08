@@ -25,6 +25,33 @@ function filesContaining(paths, marker) {
     .sort();
 }
 
+
+function escapeRegExp(value) {
+  return String(value).replace(/[.*+?^$()|[\]\\]/g, "\\function filesContaining(paths, marker) {
+  return paths
+    .filter((path) => read(path).includes(marker))
+    .sort();
+}
+");
+}
+
+function filesAssigningSurface(paths, surface) {
+  const name = escapeRegExp(surface);
+  const assignment = new RegExp(
+    `(?:this|this\\.room)\\.${name}\\s*(?:=|\\?\\?=|\\|\\|=|&&=)`
+  );
+  return paths.filter((path) => assignment.test(read(path))).sort();
+}
+
+function filesWritingCounter(paths, surface, counter) {
+  const surfaceName = escapeRegExp(surface);
+  const counterName = escapeRegExp(counter);
+  const write = new RegExp(
+    `(?:this|this\\.room)\\.${surfaceName}\\??\\.${counterName}\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|=)`
+  );
+  return paths.filter((path) => write.test(read(path))).sort();
+}
+
 function objectKeys(source, assignmentMarker) {
   const start = source.indexOf(assignmentMarker);
   assert.ok(start >= 0, `missing object assignment: ${assignmentMarker}`);
@@ -120,7 +147,26 @@ for (const [marker, expected] of Object.entries(initializers)) {
   assert.deepEqual(
     filesContaining(sources, marker),
     expected,
-    `4A v39 shared-state initializer ownership drifted for ${marker}`
+    `4A v39 shared-state compatibility initializer marker drifted for ${marker}`
+  );
+}
+
+const initializerOwners = {
+  v39Stats: ["src/index_v41_coherence_compat.js"],
+  v39RecentBotLeaves: ["src/index_v41_coherence_compat.js"],
+  v39PendingHumanDisconnects: ["src/index_v41_coherence_compat.js"],
+  v39LastTargetRepair: ["src/index_v41_coherence_compat.js"],
+  v39LastCoherenceLock: ["src/index_v41_coherence_compat.js"],
+  v39PresenceFixStats: ["src/index_v41_presence_compat.js"],
+  v39CaptureFixStats: ["src/index_v41_presence_compat.js"],
+  v39HumanReplacementAt: ["src/index_v41_presence_compat.js"]
+};
+
+for (const [surface, expected] of Object.entries(initializerOwners)) {
+  assert.deepEqual(
+    filesAssigningSurface(sources, surface),
+    expected,
+    `4A v39 shared-state assignment ownership drifted for ${surface}`
   );
 }
 
@@ -219,6 +265,41 @@ for (const marker of [
   "this.room.v39Stats.botReentryBlocks += 1"
 ]) {
   assert.ok(roster.includes(marker), `4A roster authority must retain shared-state marker: ${marker}`);
+}
+
+const counterWriters = {
+  v39Stats: {
+    clarificationTargetRepairs: ["src/coherence_repair_v41.js"],
+    coherenceVoiceLocks: ["src/coherence_repair_v41.js"],
+    futureEventLinesBlocked: ["src/world_date_guard_v41.js"],
+    selfDialogueLinesBlocked: ["src/index_v41_coherence_compat.js"],
+    backgroundPlansFiltered: ["src/index_v41_coherence_compat.js"],
+    botReentryBlocks: ["src/bot_roster_reentry_v41.js"],
+    humanDisconnectsDeferred: ["src/human_reconnect_lifecycle_v41.js"],
+    transientHumanReconnects: ["src/human_reconnect_lifecycle_v41.js"],
+    humanDisconnectsCommitted: ["src/human_reconnect_lifecycle_v41.js"]
+  },
+  v39PresenceFixStats: {
+    humanSessionReplacements: ["src/human_reconnect_lifecycle_v41.js"],
+    duplicateEnterAnnouncementsSuppressed: ["src/human_reconnect_lifecycle_v41.js"],
+    pendingCloseSocketsMarked: ["src/human_reconnect_lifecycle_v41.js"],
+    supersededCloseCallbacksIgnored: ["src/human_reconnect_lifecycle_v41.js"]
+  },
+  v39CaptureFixStats: {
+    legacyQuickBackgroundCallsSuppressed: ["src/index_v41_presence_compat.js"],
+    explicitErrorChallengesRepaired: ["src/coherence_repair_v41.js"],
+    historicalDateClaimsBlocked: ["src/world_date_guard_v41.js"]
+  }
+};
+
+for (const [surface, counters] of Object.entries(counterWriters)) {
+  for (const [counter, expected] of Object.entries(counters)) {
+    assert.deepEqual(
+      filesWritingCounter(sources, surface, counter),
+      expected,
+      `4A shared-counter writer ownership drifted for ${surface}.${counter}`
+    );
+  }
 }
 
 for (const source of [reconnect, repair, worldDate, roster]) {
