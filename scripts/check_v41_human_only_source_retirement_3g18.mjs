@@ -34,7 +34,10 @@ for (const marker of [
 for (const proofPath of [
   "scripts/check_v41_wrapper_authority_phase3a.mjs",
   "scripts/check_v41_v37_stack_characterization_3g1.mjs",
+  "scripts/check_v41_wrapper_retirement_3g4.mjs",
   "scripts/check_v41_wrapper_retirement_3g5.mjs",
+  "scripts/check_v41_v37_hotfix_characterization_3g6.mjs",
+  "scripts/check_v41_singleflight_extraction_3g7.mjs",
   "scripts/check_v41_lively_support_consolidation_3g13.mjs",
   "scripts/check_v41_capacity_policy_consolidation_3g14.mjs",
   "scripts/check_v41_human_fallback_consolidation_3g15.mjs",
