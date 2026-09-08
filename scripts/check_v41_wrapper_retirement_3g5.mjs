@@ -12,7 +12,6 @@ function ownsMethod(source, name) {
 }
 
 const providerCompat = read("src/index_v41_free_providers_compat.js");
-const humanOnlyCompat = read("src/index_v41_human_only_compat.js");
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const hotfix = read("src/index_v37_hotfix.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
@@ -29,19 +28,17 @@ const livelyCompat = read("src/index_v41_lively_ambient_compat.js");
 const humanDirectorCompat = read("src/index_v41_human_director_compat.js");
 const legacyDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired v41 human-only residual source must be deleted"
+);
 assert.ok(providerCompat.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(providerCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'));
 assert.ok(!providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(!providerCompat.includes('from "./index_v37_human_only.js"'));
-assert.ok(humanOnlyCompat.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(frozenHumanOnly.includes('from "./index_v37_hotfix.js"'));
 assert.ok(hotfix.includes('from "./index_v37.js"'));
-
-for (const method of [
-  "v37Snapshot"
-]) {
-  assert.equal(ownsMethod(humanOnlyCompat, method), true, `3G.5 must preserve live residual ${method}()`);
-}
 
 for (const retiredMethod of [
   "ambientAiPrompt",
@@ -49,52 +46,38 @@ for (const retiredMethod of [
   "generateBackgroundPlan"
 ]) {
   assert.equal(
-    ownsMethod(humanOnlyCompat, retiredMethod),
-    false,
-    `3G.5 must not copy superseded adaptive-ambient method ${retiredMethod}()`
-  );
-  assert.equal(
     ownsMethod(frozenHumanOnly, retiredMethod),
     true,
     `frozen v37 human-only wrapper must retain ${retiredMethod}()`
   );
+  assert.equal(
+    legacyDiagnostics.includes(`${retiredMethod}(`) || legacyDiagnostics.includes(`async ${retiredMethod}(`),
+    false,
+    `3G.18 diagnostics helper must not copy superseded runtime method ${retiredMethod}()`
+  );
 }
 
 for (const marker of [
-  "this.v37LastAmbientAiAt = 0",
-  "this.v37AdaptiveAmbientStats = {",
+  "room.v37LastAmbientAiAt = 0",
+  "room.v37AdaptiveAmbientStats = {",
   "adaptiveAmbientAi: true",
   "ambientSingleProviderAttempt: true",
-  "ambientSingleCallExchange: true"
+  "ambientSingleCallExchange: true",
+  "humanModelFailureFallsBackBuiltIn: true"
 ]) {
-  assert.ok(humanOnlyCompat.includes(marker), `3G.5 must preserve marker: ${marker}`);
+  assert.ok(legacyDiagnostics.includes(marker), `3G.5/3G.18 helper must preserve marker: ${marker}`);
 }
 
-assert.equal(ownsMethod(humanOnlyCompat, "generateHumanReplan"), false, "3G.15 human-only residual must release generateHumanReplan()");
-assert.equal(humanOnlyCompat.includes('from "./index_v14.js"'), false, "3G.15 human-only residual must release the built-in fallback dependency");
 assert.equal(ownsMethod(humanDirectorCompat, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
 assert.ok(humanDirectorCompat.includes("this.v37HumanFallbackStats.humanModelFallbacks += 1"), "3G.16 Director must own delegated fallback accounting");
 assert.ok(humanDirectorCompat.includes("this.v37HumanFallbackStats = {"), "3G.16 Director must initialize human fallback telemetry");
-assert.equal(
-  humanOnlyCompat.includes("humanModelFallbacks: 0") || humanOnlyCompat.includes("humanModelFallbackMisses: 0"),
-  false,
-  "3G.16 human-only ambient telemetry must no longer initialize live human fallback counters"
-);
-assert.equal(ownsMethod(humanOnlyCompat, "providerCapacityConstrained"), false, "3G.14 human-only residual must release providerCapacityConstrained()");
+assert.ok(legacyDiagnostics.includes("humanModelFallbacks: Number(room.v37HumanFallbackStats?.humanModelFallbacks || 0)"), "3G.16/3G.18 helper must bridge live fallback successes");
+assert.ok(legacyDiagnostics.includes("humanModelFallbackMisses: Number(room.v37HumanFallbackStats?.humanModelFallbackMisses || 0)"), "3G.16/3G.18 helper must bridge live fallback misses");
 assert.equal(ownsMethod(read("src/index_v41_provider_readiness_compat.js"), "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
-assert.equal(ownsMethod(humanOnlyCompat, "activeAmbientCharacters"), false, "3G.13 human-only residual must release activeAmbientCharacters()");
-assert.equal(humanOnlyCompat.includes("this.v37AmbientProviderCursor = 0"), false, "3G.13 human-only residual must release the lively provider cursor");
-assert.equal(humanOnlyCompat.includes('from "./characters.js"'), false, "3G.13 human-only residual must release the character lookup dependency");
 assert.equal(ownsMethod(livelyCompat, "activeAmbientCharacters"), true, "3G.13 lively ambient must own activeAmbientCharacters()");
 assert.ok(livelyCompat.includes("this.v37AmbientProviderCursor = 0"), "3G.13 lively ambient must initialize its own provider cursor");
-assert.ok(
-  livelyCompat.includes("this.v37AmbientProviderCursor % preferred.length"),
-  "lively ambient must consume its locally owned provider cursor"
-);
-assert.ok(
-  livelyCompat.includes("this.activeAmbientCharacters?.()"),
-  "lively ambient must consume its locally owned active-character helper"
-);
+assert.ok(livelyCompat.includes("this.v37AmbientProviderCursor % preferred.length"), "lively ambient must consume its locally owned provider cursor");
+assert.ok(livelyCompat.includes("this.activeAmbientCharacters?.()"), "lively ambient must consume its locally owned active-character helper");
 
 const v41ProductionSpine = [
   generationBase,
@@ -121,7 +104,7 @@ assert.equal(
 assert.equal(
   v41ProductionSpine.includes('from "./index_v41_human_only_compat.js"'),
   false,
-  "3G.17 must remove the v41 human-only residual from every production dependency edge"
+  "3G.17/3G.18 must keep the retired v41 human-only residual out of every production dependency edge"
 );
 
 for (const source of [roster, worldDate, coherence, reconnect]) {
@@ -129,4 +112,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 historical human-only compatibility checks passed after 3G.17 residual retirement");
+console.log("v41 Phase 3G.5 historical human-only compatibility checks passed after 3G.18 source retirement");
