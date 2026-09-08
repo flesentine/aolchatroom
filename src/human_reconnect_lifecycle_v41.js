@@ -182,13 +182,6 @@ export class HumanReconnectLifecycleAuthority {
 
   snapshot(now = Date.now()) {
     const pending = this.legacyPendingHumanDisconnects(now);
-      name,
-      ageMs: Math.max(0, now - Number(row.at || now)),
-      graceRemainingMs: Math.max(0, this.graceMs - (now - Number(row.at || now))),
-      code: row.code,
-      reason: row.reason,
-      wasClean: row.wasClean
-    }));
     return {
       authority: "v41-human-reconnect-lifecycle",
       graceMs: this.graceMs,
