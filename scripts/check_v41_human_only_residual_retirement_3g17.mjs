@@ -10,7 +10,6 @@ function read(path) {
   return fs.readFileSync(new URL(`../${path}`, import.meta.url), "utf8");
 }
 
-const retainedResidual = read("src/index_v41_human_only_compat.js");
 const freeProviders = read("src/index_v41_free_providers_compat.js");
 const helper = read("src/human_only_legacy_diagnostics_v41.js");
 
@@ -36,6 +35,11 @@ const productionOwnerPaths = [
 ];
 const productionSpine = productionOwnerPaths.map(read).join("\n");
 
+assert.equal(
+  fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
+  false,
+  "3G.18 retired human-only residual source must be deleted"
+);
 assert.ok(
   freeProviders.includes('from "./index_v41_production_turn_compat.js"'),
   "3G.17 free providers must inherit/fetch directly from production-turn"
@@ -116,9 +120,4 @@ assert.deepEqual(snapshot.adaptiveAmbientAi.preferredReadyProviders, ["gemini"])
 assert.equal(snapshot.adaptiveAmbientAi.nextIntervalMs, 90000);
 assert.equal(snapshot.adaptiveAmbientAi.lastAmbientAiAgoMs, null);
 
-assert.ok(
-  retainedResidual.includes('from "./index_v41_production_turn_compat.js"'),
-  "retained historical residual source must remain readable for prior-phase proof"
-);
-
-console.log("v41 Phase 3G.17 human-only residual retirement checks passed");
+console.log("v41 Phase 3G.17 human-only residual retirement checks passed after 3G.18 source deletion");
