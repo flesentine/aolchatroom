@@ -87,11 +87,11 @@ for (const method of ["ambientAiPrompt", "generateAdaptiveAmbientAi", "generateB
 }
 
 for (const marker of [
-  "initializeV37HumanOnlyDiagnostics",
+  "V37_RETIRED_ADAPTIVE_AMBIENT_STATS",
   "mergeV37HumanOnlyStatus",
   "mergeV37HumanOnlySnapshot",
-  "room.v37LastAmbientAiAt = 0",
-  "room.v37AdaptiveAmbientStats = {",
+  "ambientAiAttempts: 0",
+  "lastAmbientAiAgoMs: null",
   "humanModelFallbacks: Number(room.v37HumanFallbackStats?.humanModelFallbacks || 0)"
 ]) {
   assert.ok(legacyDiagnostics.includes(marker), `3G.18 legacy diagnostics helper must preserve marker: ${marker}`);
@@ -175,4 +175,4 @@ for (const method of ["runV37BaseProductionTurn", "requestV37ProductionTurn", "t
   assert.equal(ownsMethod(productionTurn, method), true, `3G.7 production-turn owner must retain ${method}()`);
 }
 
-console.log("v41 Phase 3G.1 v37 wrapper-stack characterization checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.1 v37 wrapper-stack characterization checks passed after 3G.19 stateless diagnostics");
