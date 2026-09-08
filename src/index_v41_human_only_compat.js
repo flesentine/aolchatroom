@@ -1,9 +1,8 @@
 // Phase 3G.5 production-only residual compatibility owner.
 // Frozen index_v37_human_only.js remains unchanged for the v37-v40 lineage.
-// V41 preserves only delegated human fallback, legacy adaptive diagnostic state,
-// and the historical status surface; superseded adaptive ambient is omitted.
+// V41 preserves only legacy adaptive diagnostic state and the historical
+// status/snapshot surface; superseded adaptive ambient is omitted.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
-import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { ambientAiIntervalMs } from "./adaptive_ambient_policy_v37.js";
 
 async function json(response) {
@@ -51,23 +50,6 @@ export class ChatRoom extends ProductionTurnChatRoom {
       humanModelFallbacks: 0,
       humanModelFallbackMisses: 0
     };
-  }
-
-  // The Director owns eligible direct-human turns, but still delegates unlocked
-  // or non-direct human packets downward. Preserve the old safety fallback there.
-  async generateHumanReplan(human) {
-    const lines = await super.generateHumanReplan(human);
-    if (Array.isArray(lines) && lines.length) return lines;
-
-    const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
-    if (fallback.length) {
-      this.v37AdaptiveAmbientStats.humanModelFallbacks += 1;
-      this.setAiStatus?.("AI human reply fallback · built-in");
-      return fallback.map((item) => ({ ...item, source: "built-in" }));
-    }
-
-    this.v37AdaptiveAmbientStats.humanModelFallbackMisses += 1;
-    return [];
   }
 
   v37Snapshot() {
