@@ -31,6 +31,12 @@ const productionOwnerPaths = [
 const productionOwners = productionOwnerPaths.map((ownerPath) => [ownerPath, read(ownerPath)]);
 
 assert.equal(
+  legacyDiagnostics.includes("room.v37AdaptiveAmbientStats") || legacyDiagnostics.includes("room.v37LastAmbientAiAt"),
+  false,
+  "3G.19 historical diagnostics helper must not allocate retired ambient room state"
+);
+
+assert.equal(
   fs.existsSync(new URL("../src/index_v41_human_only_compat.js", import.meta.url)),
   false,
   "3G.18 retired human-only residual source must be deleted"
@@ -80,4 +86,4 @@ for (const marker of [
   assert.ok(legacyDiagnostics.includes(marker), `3G.16/3G.18 historical snapshot helper must bridge live Human Director telemetry: ${marker}`);
 }
 
-console.log("v41 Phase 3G.16 human-fallback telemetry ownership checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.16 human-fallback telemetry ownership checks passed after 3G.19 stateless diagnostics");
