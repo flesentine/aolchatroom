@@ -443,6 +443,32 @@ The 3G.19 source gate proves the helper and free-provider constructor no longer 
 No client/browser code changes in this phase.
 
 
+#### 3G.20 — freeze the wrapper-retired v41 production spine
+With 3G.19 complete, every behavioral responsibility formerly carried by the v37 wrapper stack has a named v41 owner, the v41 human-only and hotfix residual sources are deleted, and the remaining human-only diagnostics helper is stateless.
+
+3G.20 is a **closure/freeze phase**, not another behavior extraction. It records the exact v41 inheritance spine from `index_v41_generation_contract.js` down to the intentional frozen `index_v37.js` baseline and fails if a retired wrapper is reintroduced as a production parent.
+
+The closure gate forbids production imports of these retired wrapper boundaries:
+- `index_v40_scene_continuity.js`;
+- `index_v39_world_gate.js`;
+- `index_v39_presence_fix.js`;
+- `index_v39_coherence.js`;
+- `index_v38_quality_guard.js`;
+- `index_v37_lively_ambient.js`;
+- `index_v37_human_director.js`;
+- `index_v37_free_providers.js`;
+- `index_v37_human_only.js`;
+- `index_v37_hotfix.js`.
+
+Those frozen files remain in the repository for v37-v40 lineage and byte-equivalence evidence.
+
+The gate also freezes the bounded set of direct `index_v37.js` callers used by extracted v41 authorities for explicit baseline method delegation. No other v41 production file may silently add a direct baseline dependency.
+
+This closes the Phase 3G wrapper-retirement program. Further work should start from the named v41 owners rather than reopening the retired wrapper chain.
+
+No production behavior or client/browser code changes in this phase.
+
+
 ## Retirement rule
 
 A wrapper can be retired only when:
