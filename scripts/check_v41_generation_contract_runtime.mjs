@@ -139,6 +139,7 @@ const contracts = [
   "reconnect-authority-quick",
   "reconnect-same-name-replacement",
   "reconnect-committed-close",
+  "v41-reconnect-state-ownership",
   "status"
 ];
 
