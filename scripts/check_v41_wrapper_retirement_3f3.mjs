@@ -37,7 +37,8 @@ assert.ok(coherenceCompat.includes('const PASS = "conversation-coherence-v39"'))
 assert.ok(coherenceCompat.includes('url.pathname === "/api/v39-status"'));
 assert.ok(coherenceCompat.includes('url.pathname === "/v39-status"'));
 assert.ok(coherenceCompat.includes("this.v39RecentBotLeaves = new Map()"));
-assert.ok(coherenceCompat.includes("this.v39PendingHumanDisconnects = new Map()"));
+assert.equal(coherenceCompat.includes("this.v39PendingHumanDisconnects = new Map()"), false);
+assert.ok(coherenceCompat.includes("legacyPendingHumanDisconnects"));
 assert.ok(coherenceCompat.includes("this.v39Stats = {"));
 assert.ok(coherenceCompat.includes("this.v39LastTargetRepair = null"));
 assert.ok(coherenceCompat.includes("this.v39LastCoherenceLock = null"));
@@ -106,4 +107,4 @@ for (const retiredImport of [
   );
 }
 
-console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed");
+console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed after 4B reconnect-state ownership");
