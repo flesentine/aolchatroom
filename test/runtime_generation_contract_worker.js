@@ -1,6 +1,6 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
-import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
+import { mergeV37HumanOnlySnapshot, mergeV37HumanOnlyStatus } from "../src/human_only_legacy_diagnostics_v41.js";
 import { ChatRoom as V41LivelyAmbientCompatChatRoom } from "../src/index_v41_lively_ambient_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
@@ -9,7 +9,6 @@ import { ChatRoom as V41PausedShadowChatRoom } from "../src/index_v41_paused_sha
 import { nextUtcDailyQuotaResetAt } from "../src/provider_failover_v37.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
-import { mergeV37HumanOnlySnapshot } from "../src/human_only_legacy_diagnostics_v41.js";
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message);
@@ -34,32 +33,623 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     super(ctx, env);
     this.contractVoiceText = "";
     this.contractVoiceTexts = [];
-    this.contractDirectorResponse = null;
-    this.contractHumanHistoryRow = null;
-    this.contractExplicitErrorChallenge = null;
+    this.contractDirectorDecision = null;
+    this.contractBypassDirector = false;
+    this.contractBrainPlan = null;
+    this.contractBuiltIn = null;
+    this.contractClients = [];
   }
 
-  // NOTE: This file is maintained as a full-file artifact by the repository's
-  // generation-contract test harness. The production behavior below is unchanged
-  // except for focused Phase 3G retirement contracts added alongside existing
-  // contracts.
+  orderedReadyProviders() {
+    return ["gemini"];
+  }
 
-  async contractSemanticReject() { return this.contractSemanticPrimaryReject(); }
-  async contractSemanticScopedReject() { return this.contractSemanticScopedPrimaryReject(); }
-  async contractSemanticPolarityScopeReject() { return this.contractSemanticPolarityScopePrimaryReject(); }
-  async contractSemanticPass() { return this.contractSemanticPrimaryPass(); }
+  hasReadyAi() {
+    return true;
+  }
 
-  async contractSemanticPrimaryReject() {
+  directHumanDirectorEligible(packet) {
+    if (this.contractBypassDirector) return false;
+    return super.directHumanDirectorEligible(packet);
+  }
+
+  async callAuthoritativeHumanDirector(packet) {
+    if (this.contractDirectorDecision) return this.contractDirectorDecision;
+    return super.callAuthoritativeHumanDirector(packet);
+  }
+
+  async callBrainProvider(prompt, activeNames, reason) {
+    if (this.contractBrainPlan && reason === "human-replan") return this.contractBrainPlan;
+    return super.callBrainProvider(prompt, activeNames, reason);
+  }
+
+  builtInHumanReply(human) {
+    // Simulate the provider-aware v19.2 suppression path. Phase 2B must not rely
+    // on this dynamic method when it needs its deterministic emergency fallback.
+    if (Array.isArray(this.contractBuiltIn)) return [];
+    return super.builtInHumanReply(human);
+  }
+
+  v41DeterministicHumanFallback(human) {
+    if (Array.isArray(this.contractBuiltIn)) return this.contractBuiltIn.map((row) => ({ ...row }));
+    return super.v41DeterministicHumanFallback(human);
+  }
+
+  async callProvider(provider, prompt, maxTokens) {
+    const texts = this.contractVoiceTexts.length
+      ? this.contractVoiceTexts
+      : this.contractVoiceText !== "" ? [this.contractVoiceText] : [];
+    if (texts.length) {
+      return {
+        ok: true,
+        status: 200,
+        model: "phase2-contract-model",
+        content: JSON.stringify({ messages: texts.map((text) => ({ text })) })
+      };
+    }
+    return super.callProvider(provider, prompt, maxTokens);
+  }
+
+  reset({ history = [], bots = [] } = {}) {
+    this.loaded = true;
+    this.social = null;
+    this.history = history.map((row) => ({ ...row }));
+    this.activeBotNames = [...bots];
+    this.talkerNames = [...bots];
+    this.aiQueue = [];
+    this.pendingHumans = [];
+    this.nextBotAt = Date.now();
+    this.nextScenePlanAt = 0;
+    this.sceneHydrated = true;
+    this.sceneBoard?.clear?.();
+    this.contractVoiceText = "";
+    this.contractVoiceTexts = [];
+    this.contractDirectorDecision = null;
+    this.contractBypassDirector = false;
+    this.contractBrainPlan = null;
+    this.contractBuiltIn = null;
+  }
+
+  active(name) {
+    const character = getCharacter(name);
+    ensure(character, `missing contract character ${name}`);
+    return [character];
+  }
+
+  acceptContractHuman(name) {
+    const pair = new WebSocketPair();
+    const [client, server] = Object.values(pair);
+    server.serializeAttachment({ name, joinedAt: Date.now() });
+    this.ctx.acceptWebSocket(server);
+    this.contractClients.push(client);
+    return server;
+  }
+
+  async contractSemanticReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much do they cost?",
+      messageId: "m-human",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "nah";
+    const plan = directPlan({
+      goal: "Answer both parts of the human question",
+      meaning: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "Phase 2A must fail closed on the Phase 0 semantic-gap surface");
+    equal(this.v41GenerationStats.primaryVoiceContractsChecked, 1, "semantic contract should execute once");
+    equal(this.v41GenerationStats.primaryVoiceContractsRejected, 1, "bad Voice surface should be rejected");
+    equal(this.v41LastGenerationContract?.reason, "missing-price", "diagnostic should identify the omitted price obligation");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractScopedEvidenceReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much did it cost?",
+      messageId: "m-human-scoped",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "yeah i bought it in 1995";
+    const plan = directPlan({
+      goal: "Answer ownership and price",
+      meaning: "say whether he owns a Neo Geo and how much it cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "a purchase year must not masquerade as price evidence");
+    equal(this.v41LastGenerationContract?.reason, "missing-price", "year-only evidence should leave price unsatisfied");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractPolarityScopeReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much did it cost?",
+      messageId: "m-human-polarity-scope",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "not sure what it costs";
+    const plan = directPlan({
+      goal: "Answer ownership and price",
+      meaning: "say whether he owns a Neo Geo and how much it cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "price-only uncertainty must not satisfy the separate ownership clause");
+    equal(this.v41LastGenerationContract?.reason, "missing-polarity", "uncertainty cue must not leak into multipart polarity");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractSemanticPass() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much do they cost?",
+      messageId: "m-human-good",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "nah i dont own one, they go for like 600 bucks tho";
+    const plan = directPlan({
+      goal: "Answer both parts of the human question",
+      meaning: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 1, "complete Voice surface should survive the contract");
+    equal(voiced[0]?.speaker, "MetallicaFan", "legacy Voice must still preserve Director speaker");
+    equal(voiced[0]?.target, "Crateman", "legacy Voice must still preserve Director target");
+    equal(this.v41GenerationStats.primaryVoiceContractsPassed, 1, "accepted surface should be recorded");
+    return { accepted: true, text: voiced[0]?.text };
+  }
+
+  async contractFullHumanFallback() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "do you own a neo geo and how much do they cost?",
+      messageId: "m-human-fallback",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "nah";
+    this.contractDirectorDecision = {
+      provider: "phase2-director",
+      move: {
+        complete: true,
+        speaker: "MetallicaFan",
+        target: "Crateman",
+        replyTo: "m-human-fallback",
+        subject: "Neo Geo ownership and price",
+        goal: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost",
+        moveType: "answer",
+        sceneAction: "continue",
+        contextEvidence: { source: "phase2-contract" }
+      }
+    };
+
+    const fallback = await this.generateHumanReplan(human);
+    ensure(Array.isArray(fallback) && fallback.length > 0, "semantic rejection must flow through the authoritative human path to a built-in fallback");
+    equal(fallback[0]?.source, "built-in", "rejected Voice must surface through the existing built-in fallback");
+    equal(fallback[0]?._v37DirectHuman, true, "fallback must remain marked as the direct-human response");
+    equal(this.v41GenerationStats.primaryVoiceContractsRejected, 1, "full human path must record the Voice rejection");
+    equal(this.v41LastGenerationContract?.reason, "missing-price", "full human path must preserve semantic rejection diagnostics");
+    ensure(Number(this.v37HumanDirectorStats?.voiceFallbacks || 0) >= 1, "v37 must record that its established Voice fallback path was used");
+    return { fallback: true, text: fallback[0]?.text, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractEraPrimaryReject() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "how much did the PS5 cost?",
+      messageId: "m-human-era-primary",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "$499";
+    const plan = directPlan({
+      goal: "Give the PS5 price",
+      meaning: "answer how much the PS5 cost"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), human);
+    equal(voiced.length, 0, "production Voice must reject a context-only confident answer to a future-world premise");
+    equal(this.v41LastGenerationContract?.reason, "era-boundary-confident-answer", "future premise rejection should be diagnosed at the semantic boundary");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason, eraDate: this.currentEraDate() };
+  }
+
+  async contractEraFallbackSafe() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "how much did the PS5 cost?",
+      messageId: "m-human-era-fallback",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan"] });
+    this.contractVoiceText = "$499";
+    this.contractDirectorDecision = {
+      provider: "phase2-director",
+      move: {
+        complete: true,
+        speaker: "MetallicaFan",
+        target: "Crateman",
+        replyTo: "m-human-era-fallback",
+        subject: "PS5 price",
+        goal: "answer how much the PS5 cost",
+        moveType: "answer",
+        sceneAction: "continue",
+        contextEvidence: { source: "phase2-era-contract" }
+      }
+    };
+
+    const fallback = await this.generateHumanReplan(human);
+    equal(fallback.length, 1, "future-premise Voice rejection should recover with one period-safe direct-human fallback");
+    equal(fallback[0]?.speaker, "MetallicaFan", "era fallback must preserve required responder");
+    equal(fallback[0]?.target, "Crateman", "era fallback must preserve human target");
+    equal(fallback[0]?.source, "built-in", "era fallback must remain provider-independent built-in output");
+    equal(fallback[0]?.text, "what? never heard of that", "v14 topic/question fallback must be made period-safe after future-premise rejection");
+    equal(fallback[0]?._v37DirectHuman, true, "era fallback must preserve v37 direct-human marking");
+    equal(fallback[0]?._v41EraSafeFallback, true, "era fallback should expose the v41 sealed-world repair marker");
+    equal(this.v41LastGenerationContract?.reason, "era-boundary-confident-answer", "the primary semantic rejection should remain observable after fallback recovery");
+    ensure(Number(this.v37HumanDirectorStats?.voiceFallbacks || 0) >= 1, "v37 fallback counter must still record recovery");
+    return { fallback: true, text: fallback[0]?.text, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  configureLegacyHumanPlan(human, { answerFirst = false, validFallback = true } = {}) {
+    this.contractBypassDirector = true;
+    const answer = {
+      speaker: "MetallicaFan",
+      target: "Crateman",
+      intent: "answer",
+      topic: "general",
+      meaning: "answer Crateman directly"
+    };
+    const side = {
+      speaker: "SegaMan",
+      target: "room",
+      intent: "ambient",
+      topic: "gaming",
+      meaning: "make an unrelated Saturn comment"
+    };
+    this.contractBrainPlan = {
+      provider: "phase2-legacy-brain",
+      reason: "human-replan",
+      subject: "legacy-human-replan",
+      goal: "answer the human with optional room overlap",
+      moves: answerFirst ? [answer, side] : [side, answer],
+      createdAt: Date.now()
+    };
+    this.contractVoiceTexts = answerFirst
+      ? ["yeah its cool", "saturn still rules tho"]
+      : ["saturn still rules tho", "yeah its cool"];
+    this.contractBuiltIn = validFallback
+      ? [{ speaker: "MetallicaFan", target: "Crateman", text: "yeah maybe", source: "built-in", intent: "reply", topic: "general" }]
+      : [{ speaker: "SegaMan", target: "room", text: "saturn rules", source: "built-in", intent: "ambient", topic: "gaming" }];
+    this.history = [{ ...human }];
+  }
+
+  async contractHumanTailFailClosed() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "what do you think?",
+      messageId: "m-human-tail",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan", "SegaMan"] });
+    this.configureLegacyHumanPlan(human, { answerFirst: false, validFallback: true });
+
+    equal(this.builtInHumanReply(human).length, 0, "test must simulate provider-aware dynamic built-in suppression");
+    const result = await this.generateHumanReplan(human);
+    equal(result.length, 1, "side-first human replan must collapse to one provider-independent validated fallback");
+    equal(result[0]?.speaker, "MetallicaFan", "fallback must restore the required responder");
+    equal(result[0]?.target, "Crateman", "fallback must target the human");
+    equal(result[0]?.text, "yeah maybe", "discarded side chatter must not survive");
+    equal(result[0]?._v41PrimaryFailClosed, true, "fallback should expose the Phase 2B fail-closed path");
+    equal(this.v41LastHumanReplanContract?.reason, "required-responder-not-first", "diagnostic should identify the first-slot ownership failure");
+    equal(this.v41LastHumanReplanContract?.discardedLines, 2, "both generated tail lines must be discarded together");
+    equal(this.v41GenerationStats.humanReplanSideLinesDiscarded, 2, "discard counter should include the entire failed batch");
+    equal(this.v41GenerationStats.humanReplanFallbacks, 1, "provider-independent deterministic fallback should be counted");
+    return { failClosed: true, providerSuppressionBypassed: true, discarded: 2, text: result[0]?.text };
+  }
+
+  async contractHumanAnswerFirstPass() {
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "what do you think?",
+      messageId: "m-human-answer-first",
+      at: Date.now()
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan", "SegaMan"] });
+    this.configureLegacyHumanPlan(human, { answerFirst: true, validFallback: true });
+
+    const result = await this.generateHumanReplan(human);
+    equal(result.length, 2, "correct primary answer may retain later natural room overlap");
+    equal(result[0]?.speaker, "MetallicaFan", "required responder must own first slot");
+    equal(result[0]?.target, "Crateman", "required first line must address the human");
+    equal(result[1]?.speaker, "SegaMan", "side chatter may survive only after the required response");
+    equal(this.v41GenerationStats.humanReplanPrimaryPassed, 1, "valid ordering should pass the Phase 2B contract");
+    equal(this.v41GenerationStats.humanReplanFallbacks, 0, "valid ordering must not invoke fallback");
+    return { accepted: true, lines: result.length };
+  }
+
+  async contractHumanBadFallbackReject() {
+    const now = Date.now();
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "MetallicaFan",
+      text: "what do you think?",
+      messageId: "m-human-bad-fallback",
+      at: now,
+      _replyDueAt: now - 1,
+      _timingRecorded: true
+    };
+    this.reset({ history: [human], bots: ["MetallicaFan", "SegaMan"] });
+    this.configureLegacyHumanPlan(human, { answerFirst: false, validFallback: false });
+    this.pendingHumans = [human];
+
+    const result = await this.handlePendingHumanWithAi(now);
+    equal(result, "failed-closed", "invalid validated fallback should be consumed instead of entering the legacy provider retry loop");
+    equal(this.pendingHumans.length, 0, "failed-closed human must not be requeued for another provider attempt");
+    equal(this.v41GenerationStats.humanReplanFallbackRejects, 1, "bad deterministic fallback should be observable");
+    equal(this.v41GenerationStats.humanReplanFailClosedConsumes, 1, "legacy retry suppression should be observable");
+    equal(this.v41LastHumanReplanContract?.discardedLines, 2, "failed generated tail remains discarded even when fallback also fails");
+    return { rejected: true, consumed: true, discarded: 2 };
+  }
+
+  async contractClarificationReject() {
+    const now = Date.now();
+    const anchor = {
+      kind: "bot",
+      from: "JennJenn",
+      target: "Crateman",
+      text: "the hotel night shift was nuts",
+      messageId: "m-hotel",
+      at: now - 1000
+    };
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "JennJenn",
+      text: "what do you mean by hotel?",
+      replyTo: "m-hotel",
+      messageId: "m-clarify",
+      at: now
+    };
+    this.reset({ history: [anchor, human], bots: ["JennJenn"] });
+    this.contractVoiceText = "that mtv video was weird";
+    const plan = directPlan({
+      speaker: "JennJenn",
+      intent: "clarify",
+      meaning: "explain what she meant about the hotel night shift"
+    });
+    const voiced = await this.voiceBrainPlan(plan, this.active("JennJenn"), human);
+    equal(voiced.length, 0, "clarification tangent must fail closed");
+    equal(this.v41LastGenerationContract?.reason, "clarification-ungrounded", "clarification rejection should be diagnosed");
+    return { rejected: true, reason: this.v41LastGenerationContract?.reason };
+  }
+
+  async contractBackgroundUntouched() {
+    this.reset({ bots: ["MetallicaFan"] });
+    this.contractVoiceText = "nah";
+    const plan = {
+      ...directPlan({ meaning: "say whether he owns a Neo Geo and answer how much Neo Geo systems cost" }),
+      reason: "background"
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("MetallicaFan"), null);
+    equal(voiced.length, 1, "Phase 2A semantic contract must not apply to background Voice");
+    equal(this.v41GenerationStats.primaryVoiceContractsChecked, 0, "background Voice should not affect contract counters");
+    return { untouched: true, text: voiced[0]?.text };
+  }
+
+
+
+  contractV37StackCharacterization() {
+    const snapshot = this.v37Snapshot();
+
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "v37 hotfix singleflight surface must remain visible");
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "v37 human-only compatibility mode must remain visible");
+    equal(snapshot?.mode?.extendedFreeProviderPool, true, "v37 extended-provider layer must remain visible");
+    equal(snapshot?.mode?.directHumanDirectorAuthoritative, true, "v37 direct-human Director must remain authoritative");
+    equal(snapshot?.mode?.livelyAmbientAi, true, "v37 lively ambient must remain authoritative");
+
+    ensure(snapshot?.productionTurn?.gate, "v37 hotfix production-turn gate diagnostics must survive");
+    ensure(snapshot?.providerFailover, "v37 provider failover diagnostics must survive");
+    ensure(snapshot?.adaptiveAmbientAi, "v37 adaptive ambient compatibility diagnostics must survive");
+    ensure(snapshot?.extendedFreeProviders, "v37 extended provider diagnostics must survive");
+    ensure(snapshot?.humanDirector, "v37 human Director diagnostics must survive");
+    ensure(snapshot?.livelyAmbientAi, "v37 lively ambient diagnostics must survive");
+
+    ensure(Number.isFinite(Number(this.v37AmbientProviderCursor)), "lively-owned ambient provider cursor must exist");
+    ensure(typeof this.providerCapacityConstrained === "function", "live v37 capacity policy must remain callable");
+    ensure(typeof this.callProvider === "function", "live v37 extended provider dispatch must remain callable");
+    ensure(typeof this.generateHumanReplan === "function", "live v37 human Director path must remain callable");
+    ensure(typeof this.generateBackgroundPlan === "function", "live v37 lively ambient path must remain callable");
+
+    return {
+      characterized: true,
+      layers: ["hotfix", "human-only", "free-providers", "human-director", "lively-ambient"],
+      productionTurnGate: true,
+      providerFailover: true,
+      humanDirector: true,
+      livelyAmbient: true
+    };
+  }
+
+
+  async contractRetiredV37LivelyCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
-    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "how much is a Sega Saturn?", at: Date.now() };
-    const result = await this.evaluatePrimaryVoiceContract?.([{ speaker: "SegaMan", target: "Crateman", text: "yeah it is cool" }], human);
-    ensure(result !== undefined, "semantic-reject contract unavailable");
-    return { ok: true };
+    const beforeHumanSkips = Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0);
+    const beforePauses = Number(this.v37LivelyAmbientStats?.naturalPauses || 0);
+
+    this.pendingHumans.push({
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "hold on",
+      at: Date.now()
+    });
+
+    const plan = await this.generateBackgroundPlan();
+    equal(plan.length, 0, "lively ambient must yield to a pending human without a provider call");
+    equal(
+      Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0),
+      beforeHumanSkips + 1,
+      "lively ambient human-priority skip counter must survive wrapper retirement"
+    );
+    equal(
+      Number(this.v37LivelyAmbientStats?.naturalPauses || 0),
+      beforePauses + 1,
+      "lively ambient natural-pause counter must survive wrapper retirement"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.livelyAmbientAi, true, "v37 lively ambient authoritative mode must remain visible");
+    equal(snapshot?.mode?.ambientLivelySingleCallAuthoritative, true, "single-call lively ambient authority flag must remain visible");
+    ensure(snapshot?.livelyAmbientAi, "lively ambient diagnostics must survive wrapper retirement");
+    equal(
+      snapshot?.livelyAmbientAi?.humanPrioritySkips,
+      Number(this.v37LivelyAmbientStats?.humanPrioritySkips || 0),
+      "lively ambient snapshot must reflect live compatibility-owner counters"
+    );
+
+    return {
+      retired: true,
+      pendingHumanYield: true,
+      livelyAmbientAuthoritative: true,
+      humanPrioritySkips: snapshot?.livelyAmbientAi?.humanPrioritySkips
+    };
   }
 
-  async contractSemanticScopedPrimaryReject() { return { ok: true }; }
-  async contractSemanticPolarityScopePrimaryReject() { return { ok: true }; }
-  async contractSemanticPrimaryPass() { return { ok: true }; }
+
+  contractRetiredV37HumanDirectorCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const repaired = this.repairedHumanTrigger({
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "you mean the saturn?",
+      replyTo: "m-prior",
+      at: Date.now()
+    });
+    equal(repaired.from, "Crateman", "Director compatibility owner must preserve repaired human sender");
+    equal(repaired.target, "SegaMan", "Director compatibility owner must preserve repaired human target");
+
+    equal(
+      this.directHumanDirectorEligible({ obligation: { locked: true, speaker: "SegaMan", target: "Crateman" } }),
+      true,
+      "locked direct-human obligation must remain Director-eligible"
+    );
+    equal(
+      this.directHumanDirectorEligible({ obligation: { locked: false, speaker: "SegaMan", target: "Crateman" } }),
+      false,
+      "unlocked obligation must remain Director-ineligible"
+    );
+
+    equal(
+      this.sceneForMessage({ _v37ForceNewScene: true, target: "Crateman", text: "fresh pivot" }, Date.now()),
+      null,
+      "Director replace/pivot marker must still force a fresh scene"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.directHumanDirectorAuthoritative, true, "direct-human Director must remain authoritative");
+    equal(snapshot?.mode?.legacyBrainGetsSecondVoteOnDirectHuman, false, "legacy planner must remain excluded from a second direct-human vote");
+    ensure(snapshot?.humanDirector, "human Director diagnostics must survive wrapper retirement");
+    ensure(this.v37HumanDirectorStats, "human Director counters must initialize on the replacement owner");
+
+    return {
+      retired: true,
+      directHumanDirectorAuthoritative: true,
+      freshPivotScene: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  contractRetiredV37FreeProviderCompatibility() {
+    this.reset({ bots: ["SegaMan"] });
+    ensure(this.v37ExtendedProviderStats && typeof this.v37ExtendedProviderStats === "object", "3G.4 must initialize extended-provider counters");
+
+    const originalConfigured = this.configuredProviders;
+    const originalHardReady = this.hardReadyProviders;
+    const originalSoftReady = this.softReadyProviders;
+    this.configuredProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+    this.hardReadyProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+    this.softReadyProviders = () => ["gemini", "mistral", "groq", "openrouter"];
+
+    const preferred = V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, Date.now());
+    equal(preferred.length, 1, "routine ambient provider policy must still select exactly one preferred provider");
+    equal(preferred[0], "gemini", "healthy Gemini must remain the routine ambient provider");
+
+    const effective = V41FreeProviderChatRoom.prototype.effectiveStructuredReadyProviders.call(this, Date.now());
+    equal(effective[0], "gemini", "effective provider ordering must still start with Gemini");
+    ensure(effective.includes("mistral"), "effective provider ordering must retain Mistral");
+    ensure(effective.includes("groq"), "effective provider ordering must retain Groq");
+    ensure(effective.includes("openrouter"), "effective provider ordering must retain OpenRouter");
+
+    this.configuredProviders = originalConfigured;
+    this.hardReadyProviders = originalHardReady;
+    this.softReadyProviders = originalSoftReady;
+
+    const beforeCalls = Number(this.v37ExtendedProviderStats.calls || 0);
+    V41FreeProviderChatRoom.prototype.noteExtendedProvider.call(this, "mistral", true);
+    V41FreeProviderChatRoom.prototype.noteExtendedProvider.call(this, "mistral", false);
+    equal(this.v37ExtendedProviderStats.calls, beforeCalls + 2, "extended provider accounting must survive wrapper retirement");
+    ensure(Number(this.v37ExtendedProviderStats.byProvider?.mistral?.successes || 0) >= 1, "Mistral success accounting must survive");
+    ensure(Number(this.v37ExtendedProviderStats.byProvider?.mistral?.failures || 0) >= 1, "Mistral failure accounting must survive");
+
+    const originalMistral = this.callMistralProvider;
+    this.callMistralProvider = async (prompt, maxTokens) => ({ ok: true, provider: "mistral", prompt, maxTokens });
+    return V41FreeProviderChatRoom.prototype.callProvider.call(this, "mistral", "provider-dispatch-probe", 77)
+      .then((result) => {
+        this.callMistralProvider = originalMistral;
+        equal(result?.provider, "mistral", "3G.4 provider dispatch must still route Mistral to its implementation");
+        equal(result?.maxTokens, 77, "provider dispatch must preserve max token budget");
+
+        const before = this.history.length;
+        V41FreeProviderChatRoom.prototype.say.call(this, "SegaMan", "provider metadata probe", "bot", "mistral", { topic: "gaming" });
+        equal(this.history.length, before + 1, "extended-provider source normalization must still emit the bot line");
+        const row = this.history.at(-1);
+        equal(row?.source, "ai", "new provider sources must remain normalized to generic ai for legacy layers");
+        equal(row?.aiProvider, "mistral", "concrete provider metadata must remain attached");
+        equal(row?.provider, "mistral", "provider metadata alias must remain attached");
+
+        const snapshot = this.v37Snapshot();
+        equal(snapshot?.mode?.extendedFreeProviderPool, true, "extended provider mode flag must survive retirement");
+        equal(snapshot?.mode?.cohereTrialProductionDisabledByDefault, true, "Cohere trial production boundary must remain visible");
+        ensure(snapshot?.extendedFreeProviders, "extended provider diagnostics must survive wrapper retirement");
+
+        return {
+          retired: true,
+          preferredProvider: preferred[0],
+          effectiveProviders: effective,
+          providerDispatch: result?.provider,
+          metadataNormalized: true,
+          diagnosticsPreserved: true
+        };
+      });
+  }
+
 
   contractRetiredV37HumanOnlyCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
@@ -72,10 +662,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       V41ProductionTurnChatRoom.prototype.v37Snapshot.call(this)
     );
     const snapshot = this.v37Snapshot();
-    equal(directSnapshot?.mode?.humanOnlyModelBudget, false, "3G.17 helper-owned human-only compatibility mode must remain visible");
-    equal(directSnapshot?.mode?.adaptiveAmbientAi, true, "3G.17 helper must preserve the historical adaptive-ambient compatibility flag");
-    equal(directSnapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "3G.17 helper must preserve delegated human fallback policy diagnostics");
-    equal(snapshot?.mode?.adaptiveAmbientAi, false, "full production snapshot must keep higher lively ambient authority over the historical compatibility mode flag");
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "human-only compatibility mode must remain visible after residual retirement");
+    equal(snapshot?.mode?.adaptiveAmbientAi, true, "historical adaptive-ambient compatibility flag must remain visible below lively authority");
+    equal(snapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "delegated human fallback policy must remain visible");
     ensure(snapshot?.adaptiveAmbientAi, "adaptive-ambient compatibility diagnostics must survive residual retirement");
     equal(
       JSON.stringify(snapshot?.adaptiveAmbientAi),
@@ -93,6 +682,1523 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
   }
 
-  // The remainder of the existing contract suite is intentionally preserved.
-  // This sentinel is replaced below by the branch's current full source body.
+
+  async contractV41LivelySupportConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const cursorBefore = Number(this.v37AmbientProviderCursor);
+    ensure(Number.isFinite(cursorBefore), "3G.13 lively owner must expose a finite ambient provider cursor");
+
+    const active = V41LivelyAmbientCompatChatRoom.prototype.activeAmbientCharacters.call(this)
+      .map((character) => character?.name)
+      .filter(Boolean);
+    const dynamicallyDispatchedActive = this.activeAmbientCharacters()
+      .map((character) => character?.name)
+      .filter(Boolean);
+    ensure(active.includes("SegaMan"), "3G.13 lively active-character helper must retain SegaMan");
+    ensure(active.includes("MetallicaFan"), "3G.13 lively active-character helper must retain MetallicaFan");
+    equal(
+      JSON.stringify(dynamicallyDispatchedActive),
+      JSON.stringify(active),
+      "3G.13 full production dispatch must resolve activeAmbientCharacters() to the lively owner"
+    );
+
+    const originalPreferred = this.preferredStructuredReadyProviders;
+    const originalCallProvider = this.callProvider;
+    const originalNoteFailure = this.noteProviderFailure;
+    this.preferredStructuredReadyProviders = () => ["gemini", "groq"];
+    this.callProvider = async (provider) => ({
+      ok: false,
+      status: 503,
+      provider,
+      error: new Error("3g13 provider probe")
+    });
+    this.noteProviderFailure = () => undefined;
+    this.v37LastLivelyAmbientAiAt = 0;
+    this.pendingHumans = [];
+    this.aiQueue = [];
+
+    let result;
+    try {
+      result = await V41LivelyAmbientCompatChatRoom.prototype.generateLivelyAmbientAi.call(
+        this,
+        Date.UTC(2026, 8, 7, 6, 30, 0)
+      );
+    } finally {
+      this.preferredStructuredReadyProviders = originalPreferred;
+      this.callProvider = originalCallProvider;
+      this.noteProviderFailure = originalNoteFailure;
+    }
+
+    const preferred = ["gemini", "groq"];
+    equal(
+      result?.provider,
+      preferred[cursorBefore % preferred.length],
+      "3G.13 lively owner must select from its locally owned cursor"
+    );
+    equal(
+      this.v37AmbientProviderCursor,
+      (cursorBefore + 1) % 1000000,
+      "3G.13 lively generation must advance its locally owned cursor"
+    );
+    equal(result?.reason, "provider-failure", "3G.13 probe must reach the provider attempt path");
+
+    return {
+      consolidated: true,
+      owner: "lively-ambient",
+      ambientCharacters: active,
+      cursorAdvanced: true,
+      humanOnlyResidualReleasedSupport: true
+    };
+  }
+
+
+  contractV41CapacityPolicyConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    const originalPreferred = this.preferredStructuredReadyProviders;
+
+    try {
+      this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+      this.providerReady = (provider) => provider === "gemini" || provider === "workers-ai";
+      this.softReady = (provider) => provider === "gemini" || provider === "workers-ai";
+      this.preferredStructuredReadyProviders = () => ["gemini"];
+
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
+        false,
+        "3G.14 one healthy preferred provider must clear the consolidated capacity constraint"
+      );
+      equal(
+        this.providerCapacityConstrained(Date.now()),
+        false,
+        "3G.14 full production dispatch must resolve the one-preferred-provider policy through readiness"
+      );
+
+      this.providerReady = (provider) => provider === "workers-ai";
+      this.softReady = (provider) => provider === "workers-ai";
+      this.preferredStructuredReadyProviders = () => [];
+
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now()),
+        true,
+        "3G.14 zero preferred providers must fall through to the preserved hotfix capacity baseline"
+      );
+      equal(
+        this.providerCapacityConstrained(Date.now()),
+        true,
+        "3G.14 dynamic production dispatch must preserve the zero-preferred constrained state"
+      );
+      equal(
+        V41ProviderReadinessChatRoom.prototype.providerPoolDegraded.call(this, Date.now()),
+        false,
+        "3G.14 Workers AI fallback availability must remain non-degraded while preferred capacity is constrained"
+      );
+    } finally {
+      this.configuredProviders = originalConfigured;
+      this.providerReady = originalReady;
+      this.softReady = originalSoftReady;
+      this.preferredStructuredReadyProviders = originalPreferred;
+    }
+
+    return {
+      consolidated: true,
+      owner: "provider-readiness",
+      onePreferredClearsConstraint: true,
+      zeroPreferredUsesHotfixBaseline: true,
+      workersFallbackRemainsNonDegraded: true
+    };
+  }
+
+
+  async contractV41HumanFallbackConsolidation() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const human = {
+      kind: "human",
+      from: "Crateman",
+      target: "SegaMan",
+      text: "how old are you?",
+      at: Date.now()
+    };
+
+    const originalPacket = this.humanDirectorPacket;
+    const originalActiveCharacters = this.activeCharacters;
+    const originalCallBrainProvider = this.callBrainProvider;
+    const originalCallGroq = this.callGroq;
+
+    const fallbackBefore = Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0);
+    let lowerLines = [];
+    let fallbackLines = [];
+
+    try {
+      this.humanDirectorPacket = () => ({
+        trigger: human,
+        obligation: { locked: false, speaker: "", target: "" },
+        onlineBots: ["SegaMan", "MetallicaFan"]
+      });
+      this.callBrainProvider = async () => null;
+      this.callGroq = async () => [{
+        speaker: "SegaMan",
+        text: "lower planner reply",
+        target: "Crateman",
+        intent: "reply",
+        topic: "general",
+        source: "groq"
+      }];
+
+      lowerLines = await this.generateHumanReplan(human);
+      equal(lowerLines?.[0]?.text, "lower planner reply", "3G.15 delegated path must preserve a successful lower planner result");
+      equal(
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
+        fallbackBefore,
+        "3G.15 built-in fallback must not run when the lower planner succeeds"
+      );
+
+      this.activeCharacters = () => [];
+      fallbackLines = await this.generateHumanReplan(human);
+      ensure(Array.isArray(fallbackLines) && fallbackLines.length >= 1, "3G.15 empty lower planner must reach built-in human fallback");
+      equal(fallbackLines[0]?.speaker, "SegaMan", "3G.15 built-in fallback must preserve the directed target speaker");
+      equal(fallbackLines[0]?.target, "Crateman", "3G.15 built-in fallback must reply to the human");
+      equal(fallbackLines[0]?.source, "built-in", "3G.15 delegated fallback source must remain built-in");
+      equal(
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
+        fallbackBefore + 1,
+        "3G.15 delegated fallback must preserve the legacy humanModelFallbacks counter"
+      );
+    } finally {
+      this.humanDirectorPacket = originalPacket;
+      this.activeCharacters = originalActiveCharacters;
+      this.callBrainProvider = originalCallBrainProvider;
+      this.callGroq = originalCallGroq;
+    }
+
+    return {
+      consolidated: true,
+      owner: "human-director",
+      lowerPlannerPreserved: true,
+      fallbackReachedOnlyAfterEmptyLowerPlan: true,
+      fallbackCounterPreserved: true,
+      humanOnlyResidualReleasedBehavior: true
+    };
+  }
+
+
+  async contractV41HumanFallbackTelemetry() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v37HumanFallbackStats && typeof this.v37HumanFallbackStats === "object", "3G.16 Human Director must initialize live fallback telemetry");
+    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbacks"), false, "3G.16 legacy ambient stats must no longer own human fallback successes");
+    equal(Object.prototype.hasOwnProperty.call(this.v37AdaptiveAmbientStats || {}, "humanModelFallbackMisses"), false, "3G.16 legacy ambient stats must no longer own human fallback misses");
+
+    const originalPacket = this.humanDirectorPacket;
+    const originalActiveCharacters = this.activeCharacters;
+    const before = Number(this.v37HumanFallbackStats.humanModelFallbacks || 0);
+
+    try {
+      this.humanDirectorPacket = () => ({
+        trigger: {
+          kind: "human",
+          from: "Crateman",
+          target: "SegaMan",
+          text: "how old are you?",
+          at: Date.now()
+        },
+        obligation: { locked: false, speaker: "", target: "" },
+        onlineBots: ["SegaMan", "MetallicaFan"]
+      });
+      this.activeCharacters = () => [];
+
+      const lines = await this.generateHumanReplan({
+        kind: "human",
+        from: "Crateman",
+        target: "SegaMan",
+        text: "how old are you?",
+        at: Date.now()
+      });
+
+      ensure(Array.isArray(lines) && lines.length >= 1, "3G.16 telemetry probe must reach the delegated built-in fallback");
+      equal(lines[0]?.source, "built-in", "3G.16 telemetry probe must exercise the built-in fallback path");
+      equal(
+        Number(this.v37HumanFallbackStats.humanModelFallbacks || 0),
+        before + 1,
+        "3G.16 Human Director fallback counter must increment exactly once"
+      );
+
+      const legacySnapshot = this.v37Snapshot();
+      equal(
+        Number(legacySnapshot?.adaptiveAmbientAi?.humanModelFallbacks || 0),
+        before + 1,
+        "3G.16 historical adaptiveAmbientAi snapshot must bridge the live fallback counter"
+      );
+      equal(
+        Number(legacySnapshot?.adaptiveAmbientAi?.humanModelFallbackMisses || 0),
+        Number(this.v37HumanFallbackStats.humanModelFallbackMisses || 0),
+        "3G.16 historical adaptiveAmbientAi snapshot must bridge fallback misses"
+      );
+    } finally {
+      this.humanDirectorPacket = originalPacket;
+      this.activeCharacters = originalActiveCharacters;
+    }
+
+    return {
+      consolidated: true,
+      telemetryOwner: "human-director",
+      legacyAmbientCountersSeparated: true,
+      historicalSnapshotBridged: true
+    };
+  }
+
+
+  contractV41HumanOnlyResidualRetirement() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    equal(
+      Object.getPrototypeOf(V41FreeProviderChatRoom.prototype),
+      V41ProductionTurnChatRoom.prototype,
+      "3G.17 free-provider class must inherit directly from production-turn after human-only residual retirement"
+    );
+    equal(this.v37LastAmbientAiAt, 0, "3G.17 diagnostic helper must initialize the historical ambient timestamp");
+    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.17 diagnostic helper must initialize historical ambient counters");
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "3G.17 full production snapshot must preserve humanOnlyModelBudget");
+    equal(snapshot?.mode?.ambientModelGenerationDisabled, false, "3G.17 full production snapshot must preserve ambientModelGenerationDisabled");
+    equal(snapshot?.mode?.adaptiveAmbientAi, true, "3G.17 full production snapshot must preserve adaptiveAmbientAi");
+    equal(snapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "3G.17 full production snapshot must preserve human fallback policy");
+    ensure(snapshot?.adaptiveAmbientAi, "3G.17 full production snapshot must preserve adaptiveAmbientAi diagnostics");
+
+    const status = mergeV37HumanOnlyStatus({ v37: { sentinel: true } });
+    equal(status?.v37?.sentinel, true, "3G.17 status helper must preserve existing v37 fields");
+    equal(status?.v37?.humanOnlyModelBudget, false, "3G.17 status helper must preserve human-only budget flag");
+    equal(status?.v37?.humanModelFailureFallsBackBuiltIn, true, "3G.17 status helper must preserve human fallback flag");
+
+    return {
+      retired: true,
+      wrapperBoundaryRemoved: true,
+      directProductionTurnInheritance: true,
+      diagnosticStatePreserved: true,
+      snapshotPreserved: true,
+      statusPreserved: true
+    };
+  }
+
+
+  contractV37HotfixCharacterization() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v37ProductionTurnStats && typeof this.v37ProductionTurnStats === "object", "3G.6 must retain production-turn counters");
+    ensure(this.v37ProductionTurnGate && typeof this.v37ProductionTurnGate.snapshot === "function", "3G.6 must retain the coalescing turn gate");
+    equal(this.v37ProductionTurnGate.snapshot().maxReplays, 2, "3G.6 must retain the bounded two-replay singleflight policy");
+    ensure(Number.isFinite(Number(this.v37WorkersDailyQuotaResetAt)), "3G.6 must retain Workers AI daily quota state");
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+    this.providerReady = (provider) => provider !== "groq";
+    this.softReady = (provider) => provider === "gemini";
+
+    const hardReady = V41ProviderReadinessChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V41ProviderReadinessChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    equal(hardReady.includes("gemini"), true, "3G.6 hard readiness must retain healthy Gemini");
+    equal(hardReady.includes("workers-ai"), true, "3G.6 hard readiness must retain hard-healthy Workers AI");
+    equal(hardReady.includes("groq"), false, "3G.6 hard readiness must exclude cooled Groq");
+    equal(softReady.length, 1, "3G.6 soft readiness must filter hard-ready providers");
+    equal(softReady[0], "gemini", "3G.6 soft readiness must retain only soft-healthy Gemini");
+
+    this.configuredProviders = originalConfigured;
+    this.providerReady = originalReady;
+    this.softReady = originalSoftReady;
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "3G.6 singleflight mode must remain visible");
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.6 output-hygiene mode must remain visible");
+    equal(snapshot?.mode?.providerDegradedModeBuiltInFallback, true, "3G.6 degraded fallback mode must remain visible");
+    ensure(snapshot?.productionTurn?.gate, "3G.6 production-turn gate diagnostics must remain visible");
+    ensure(snapshot?.providerFailover, "3G.6 provider failover diagnostics must remain visible");
+
+    return {
+      characterized: true,
+      maxReplays: this.v37ProductionTurnGate.snapshot().maxReplays,
+      hardReady,
+      softReady,
+      authorities: [
+        "production-turn-singleflight",
+        "provider-readiness-and-degraded-fallback",
+        "provider-failure-and-quota-diagnostics",
+        "output-hygiene",
+        "paused-shadow"
+      ]
+    };
+  }
+
+
+  async contractV41ProductionTurnSingleflightExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const gateBefore = this.v37ProductionTurnGate?.snapshot?.();
+    ensure(gateBefore, "3G.7 must expose the production-turn gate");
+    equal(gateBefore.active, false, "3G.7 contract must begin with an idle production-turn gate");
+    equal(gateBefore.maxReplays, 2, "3G.7 must preserve the bounded two-replay policy");
+
+    const beforeStats = { ...this.v37ProductionTurnStats };
+    const calls = [];
+    let concurrent = 0;
+    let maxConcurrent = 0;
+    let releaseFirst;
+    const firstBlocked = new Promise((resolve) => { releaseFirst = resolve; });
+    const originalRun = this.runV37BaseProductionTurn;
+
+    this.runV37BaseProductionTurn = async (source, forceSoon) => {
+      concurrent += 1;
+      maxConcurrent = Math.max(maxConcurrent, concurrent);
+      calls.push({ source, forceSoon: Boolean(forceSoon) });
+      try {
+        if (calls.length === 1) await firstBlocked;
+        return calls.length;
+      } finally {
+        concurrent -= 1;
+      }
+    };
+
+    try {
+      const first = V41ProductionTurnChatRoom.prototype.tick.call(this, false);
+      const overlappingAlarm = V41ProductionTurnChatRoom.prototype.alarm.call(this);
+      const overlappingForcedTick = V41ProductionTurnChatRoom.prototype.tick.call(this, true);
+
+      await Promise.resolve();
+      equal(calls.length, 1, "overlapping production-turn requests must not start parallel work");
+      equal(maxConcurrent, 1, "singleflight owner must keep base-turn concurrency at one");
+
+      const queued = this.v37ProductionTurnGate.snapshot();
+      equal(queued.coalesced, 2, "alarm + forced tick must coalesce behind the active turn");
+      equal(queued.replayRequested, true, "coalesced requests must request one replay");
+      equal(queued.replayForce, true, "forced tick signal must survive coalescing");
+
+      releaseFirst();
+      await Promise.all([first, overlappingAlarm, overlappingForcedTick]);
+    } finally {
+      this.runV37BaseProductionTurn = originalRun;
+    }
+
+    equal(calls.length, 2, "overlapping requests must collapse into exactly one replay");
+    equal(calls[0]?.source, "tick", "first production turn must preserve tick source");
+    equal(calls[0]?.forceSoon, false, "first production turn must preserve force flag");
+    equal(calls[1]?.source, "replay", "coalesced work must run as a replay");
+    equal(calls[1]?.forceSoon, true, "coalesced forced tick must force the replay");
+    equal(maxConcurrent, 1, "replay must remain serialized with the first turn");
+
+    const gateAfter = this.v37ProductionTurnGate.snapshot();
+    equal(gateAfter.active, false, "gate must return idle after replay");
+    equal(gateAfter.maxConcurrent, 1, "gate diagnostics must report max concurrency one");
+    equal(gateAfter.replays, 1, "gate diagnostics must report one replay");
+
+    equal(
+      this.v37ProductionTurnStats.outerRequests - Number(beforeStats.outerRequests || 0),
+      3,
+      "production-turn owner must count all outer requests"
+    );
+    equal(
+      this.v37ProductionTurnStats.tickRequests - Number(beforeStats.tickRequests || 0),
+      2,
+      "production-turn owner must count both tick requests"
+    );
+    equal(
+      this.v37ProductionTurnStats.alarmRequests - Number(beforeStats.alarmRequests || 0),
+      1,
+      "production-turn owner must count the alarm request"
+    );
+    equal(
+      this.v37ProductionTurnStats.forceRequests - Number(beforeStats.forceRequests || 0),
+      1,
+      "production-turn owner must count the forced request"
+    );
+    equal(
+      this.v37ProductionTurnStats.coalescedRequests - Number(beforeStats.coalescedRequests || 0),
+      2,
+      "production-turn owner must preserve coalesced-request telemetry"
+    );
+    equal(
+      this.v37ProductionTurnStats.replayTurns - Number(beforeStats.replayTurns || 0),
+      1,
+      "production-turn owner must preserve replay telemetry"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.productionTurnSingleFlight, true, "singleflight mode must remain visible after extraction");
+    equal(snapshot?.mode?.productionTurnReplayCoalescing, true, "replay-coalescing mode must remain visible after extraction");
+    ensure(snapshot?.productionTurn?.gate, "production-turn diagnostics must remain visible after extraction");
+    equal(snapshot.productionTurn.gate.maxConcurrent, 1, "merged snapshot must report serialized execution");
+
+    return {
+      extracted: true,
+      calls,
+      maxConcurrent,
+      coalesced: gateAfter.coalesced,
+      replays: gateAfter.replays,
+      forcePreserved: calls[1]?.forceSoon === true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  async contractV41ProviderReadinessExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    this.configuredProviders = () => ["gemini", "groq", "workers-ai"];
+    this.providerReady = (provider) => provider !== "groq";
+    this.softReady = (provider) => provider === "gemini";
+
+    const hardReady = V41ProviderReadinessChatRoom.prototype.hardReadyProviders.call(this, Date.now());
+    const softReady = V41ProviderReadinessChatRoom.prototype.softReadyProviders.call(this, Date.now());
+    const preferred = V41ProviderReadinessChatRoom.prototype.preferredStructuredReadyProviders.call(this, Date.now());
+    const effective = V41ProviderReadinessChatRoom.prototype.effectiveStructuredReadyProviders.call(this, Date.now());
+    const constrained = V41ProviderReadinessChatRoom.prototype.providerCapacityConstrained.call(this, Date.now());
+    const degraded = V41ProviderReadinessChatRoom.prototype.providerPoolDegraded.call(this, Date.now());
+
+    equal(hardReady.includes("gemini"), true, "3G.8 hard readiness must retain Gemini");
+    equal(hardReady.includes("workers-ai"), true, "3G.8 hard readiness must retain hard-ready Workers AI");
+    equal(hardReady.includes("groq"), false, "3G.8 hard readiness must exclude cooled Groq");
+    equal(softReady.length, 1, "3G.8 soft readiness must filter the hard-ready set");
+    equal(softReady[0], "gemini", "3G.8 soft readiness must retain Gemini");
+    equal(preferred.length, 1, "3G.8 preferred readiness must contain one healthy preferred provider");
+    equal(preferred[0], "gemini", "3G.8 preferred readiness must preserve Gemini priority");
+    equal(effective[0], "gemini", "3G.8 effective structured routing must preserve Gemini");
+    equal(constrained, false, "3G.14 live readiness owner must clear capacity constraint with one healthy preferred provider");
+    equal(degraded, false, "3G.8 a healthy effective provider must not activate degraded mode");
+
+    this.configuredProviders = originalConfigured;
+    this.providerReady = originalReady;
+    this.softReady = originalSoftReady;
+
+    const originalCapacity = this.providerCapacityConstrained;
+    const beforeSuppressed = Number(this.v37ProductionTurnStats.backgroundAiPlansSuppressed || 0);
+    this.providerCapacityConstrained = () => true;
+    const refill = await V41ProviderReadinessChatRoom.prototype.refillSceneAi.call(this, Date.now(), false);
+    this.providerCapacityConstrained = originalCapacity;
+    equal(refill, false, "3G.8 constrained capacity must suppress background AI refill");
+    equal(
+      Number(this.v37ProductionTurnStats.backgroundAiPlansSuppressed || 0),
+      beforeSuppressed + 1,
+      "3G.8 constrained refill suppression telemetry must survive extraction"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.providerDegradedModeBuiltInFallback, true, "3G.8 degraded fallback mode must remain visible");
+    equal(snapshot?.mode?.effectiveStructuredProviderReadiness, true, "3G.8 effective readiness mode must remain visible");
+    equal(snapshot?.mode?.humanPriorityProviderBudget, true, "3G.8 human-priority capacity policy must remain visible");
+    equal(snapshot?.mode?.ambientAiCapacityShedding, true, "3G.8 ambient capacity shedding mode must remain visible");
+
+    return { extracted: true, hardReady, softReady, preferred, effective, constrained, degraded, backgroundSuppressed: true };
+  }
+
+
+  contractV41ProviderFailoverExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(Number.isFinite(Number(this.v37WorkersDailyQuotaResetAt)), "3G.9 must initialize Workers AI daily-quota state");
+
+    const beforeLocalRejects = Number(this.v37ProductionTurnStats.requestLocalProviderRejects || 0);
+    const beforeGeminiCooldown = Number(this.providerCooldownUntil?.get("gemini") || 0);
+    const originalNoteOutputReject = this.noteOutputReject;
+    let localReject = null;
+    this.noteOutputReject = (provider, detail) => {
+      localReject = { provider, detail };
+      return localReject;
+    };
+    try {
+      V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(
+        this,
+        "gemini",
+        422,
+        null,
+        "request schema rejected"
+      );
+    } finally {
+      this.noteOutputReject = originalNoteOutputReject;
+    }
+    equal(localReject?.provider, "gemini", "3G.9 request-local rejection must remain provider-local");
+    ensure(localReject?.detail?.includes("HTTP 422"), "3G.9 request-local rejection must retain HTTP status detail");
+    equal(
+      Number(this.v37ProductionTurnStats.requestLocalProviderRejects || 0),
+      beforeLocalRejects + 1,
+      "3G.9 request-local rejection telemetry must increment"
+    );
+    equal(
+      Number(this.providerCooldownUntil?.get("gemini") || 0),
+      beforeGeminiCooldown,
+      "3G.9 request-local rejection must not trip the hard provider cooldown"
+    );
+
+    const fixedNow = Date.UTC(2026, 8, 6, 12, 34, 56);
+    const expectedReset = nextUtcDailyQuotaResetAt(fixedNow);
+    const beforeQuota = Number(this.v37ProductionTurnStats.workersDailyQuotaExhaustions || 0);
+    const originalDateNow = Date.now;
+    this.providerCooldownUntil?.delete?.("workers-ai");
+    this.providerLastDetail?.delete?.("workers-ai");
+    Date.now = () => fixedNow;
+    try {
+      V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(
+        this,
+        "workers-ai",
+        0,
+        null,
+        "used up your daily free allocation of 10,000 neurons"
+      );
+    } finally {
+      Date.now = originalDateNow;
+    }
+    equal(this.v37WorkersDailyQuotaResetAt, expectedReset, "3G.9 Workers AI quota must cool until next UTC midnight");
+    equal(
+      Number(this.providerCooldownUntil?.get("workers-ai") || 0),
+      expectedReset,
+      "3G.9 Workers AI hard cooldown must be extended to the daily reset"
+    );
+    ensure(
+      String(this.providerLastDetail?.get?.("workers-ai") || "").includes(new Date(expectedReset).toISOString()),
+      "3G.9 Workers AI failure detail must expose the UTC reset"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.workersDailyQuotaExhaustions || 0),
+      beforeQuota + 1,
+      "3G.9 daily-quota telemetry must increment"
+    );
+
+    const originalConfigured = this.configuredProviders;
+    const originalReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    const originalDepth = this.v35StructuredGenerationDepth;
+    const beforeEmergencyCounter = Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0);
+
+    this.configuredProviders = () => ["workers-ai"];
+    this.providerReady = () => true;
+    this.softReady = () => true;
+    try {
+      this.v35StructuredGenerationDepth = 1;
+      const structuredOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredOnlyWorkers.length, 1, "3G.9 must preserve live 3G.4 ordering when Workers AI is the only healthy provider");
+      equal(structuredOnlyWorkers[0], "workers-ai", "3G.9 must preserve Workers AI as the only-provider structured fallback");
+
+      this.v35StructuredGenerationDepth = 0;
+      const routineOnlyWorkers = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(routineOnlyWorkers.length, 1, "3G.9 must not rewrite the higher routine provider-ordering policy");
+      equal(routineOnlyWorkers[0], "workers-ai", "3G.4 remains allowed to return Workers AI when it is the only healthy provider");
+
+      this.configuredProviders = () => ["openrouter", "workers-ai"];
+      this.v35StructuredGenerationDepth = 1;
+      const structuredAlternative = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, fixedNow);
+      equal(structuredAlternative.includes("openrouter"), true, "3G.4 structured ordering must retain a healthy non-Workers alternative");
+      equal(structuredAlternative.includes("workers-ai"), false, "3G.4 structured ordering must suppress Workers AI when a non-Workers alternative exists");
+    } finally {
+      this.configuredProviders = originalConfigured;
+      this.providerReady = originalReady;
+      this.softReady = originalSoftReady;
+      this.v35StructuredGenerationDepth = originalDepth;
+    }
+    equal(
+      Number(this.v37ProductionTurnStats.emergencyWorkersBrainRoutes || 0),
+      beforeEmergencyCounter,
+      "3G.9 must not invent lower-layer emergency-route telemetry for ordering owned by 3G.4"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.requestLocalProviderFailuresDoNotTripGlobalCooldown, true, "3G.9 request-local failure mode must remain visible");
+    equal(snapshot?.mode?.emergencyWorkersBrainFallback, true, "3G.9 emergency fallback mode must remain visible");
+    equal(snapshot?.mode?.workersAiDailyQuotaState, true, "3G.9 daily-quota mode must remain visible");
+    ensure(snapshot?.providerFailover, "3G.9 merged provider-failover diagnostics must remain visible");
+    equal(snapshot.providerFailover?.emergencyBrainProvider, "workers-ai", "3G.9 snapshot must retain emergency provider identity");
+    equal(snapshot.providerFailover?.rateLimitRetryAfterPreserved, true, "3G.9 snapshot must retain rate-limit retry policy");
+
+    return {
+      extracted: true,
+      requestLocalRejectPreserved: true,
+      quotaResetAt: expectedReset,
+      liveOrderingOwnerPreserved: "v41-free-providers",
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  contractV41OutputHygieneExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const beforeStrips = Number(this.v37ProductionTurnStats.internalMetadataStrips || 0);
+    const beforeDrops = Number(this.v37ProductionTurnStats.internalMetadataDroppedLines || 0);
+    const beforeVisible = this.history.length;
+
+    V41FreeProviderChatRoom.prototype.say.call(
+      this,
+      "SegaMan",
+      "hey {t12/gaming} there",
+      "bot",
+      "mistral",
+      { topic: "gaming" }
+    );
+
+    equal(this.history.length, beforeVisible + 1, "3G.10 live free-provider path must still emit sanitized bot output");
+    const visible = this.history.at(-1);
+    equal(String(visible?.text || "").includes("{t12/gaming}"), false, "3G.10 internal metadata must not reach visible bot chat");
+    equal(visible?.source, "ai", "3G.10 must preserve higher extended-provider source normalization");
+    equal(visible?.aiProvider, "mistral", "3G.10 must preserve concrete provider metadata");
+    equal(visible?.provider, "mistral", "3G.10 must preserve provider metadata alias");
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataStrips || 0),
+      beforeStrips + 1,
+      "3G.10 strip telemetry must increment on sanitized bot output"
+    );
+
+    const beforeDropHistory = this.history.length;
+    const dropped = V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "MetallicaFan",
+      "{t9/general}",
+      "bot",
+      "built-in",
+      { topic: "general" }
+    );
+    equal(dropped, false, "3G.10 metadata-only bot output must be dropped");
+    equal(this.history.length, beforeDropHistory, "3G.10 dropped metadata-only bot output must not enter history");
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataDroppedLines || 0),
+      beforeDrops + 1,
+      "3G.10 dropped-line telemetry must increment"
+    );
+
+    const beforeHuman = this.history.length;
+    V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "Crateman",
+      "human {t7/general} text",
+      "human",
+      "human",
+      { topic: "general" }
+    );
+    equal(this.history.length, beforeHuman + 1, "3G.10 human output must continue through the lower pipeline");
+    equal(
+      this.history.at(-1)?.text,
+      "human {t7/general} text",
+      "3G.10 human text must bypass internal-metadata stripping"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.internalMetadataStrips || 0),
+      beforeStrips + 2,
+      "3G.10 metadata-only bot drop must count as a strip while human text must not"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.10 hygiene mode must remain visible");
+    equal(snapshot?.mode?.liveAiShadowPausedForProviderStability, true, "3G.10 must leave paused-shadow mode intact");
+
+    return {
+      extracted: true,
+      liveProviderPathSanitized: true,
+      metadataOnlyDropped: true,
+      humanBypassPreserved: true,
+      providerMetadataPreserved: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  contractV41PausedShadowExtraction() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const now = Date.UTC(2026, 8, 6, 21, 0, 0);
+    const shadow = {
+      id: "shadow-3g11",
+      at: now - 1000,
+      completedAt: 0,
+      ai: {
+        status: "queued",
+        deferReason: "",
+        error: ""
+      }
+    };
+    this.v37PendingShadows = [{ packet: { probe: true }, shadow, queuedAt: now }];
+    this.v37ShadowHistory = [];
+    this.lastV37Shadow = null;
+
+    const beforePauses = Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0);
+    const beforeExpired = Number(this.v37Stats?.aiShadowExpired || 0);
+
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now);
+
+    equal(this.v37PendingShadows.length, 1, "3G.11 paused shadow must remain queued for observational history");
+    equal(shadow.ai.status, "deferred-production-priority", "3G.11 paused shadow must be marked production-priority deferred");
+    equal(shadow.ai.deferReason, "live-model-shadow-paused", "3G.11 paused shadow must retain the frozen defer reason");
+    equal(
+      shadow.ai.error,
+      "live Director model calls paused after provider retry recurrence",
+      "3G.11 paused shadow must retain the frozen diagnostic error"
+    );
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 first pause transition must increment telemetry exactly once"
+    );
+    equal(Number(this.v37Stats?.aiShadowExpired || 0), beforeExpired, "3G.11 fresh queued shadow must not be expired");
+    equal(this.v37ShadowHistory.length, 1, "3G.11 pause transition must replace/record shadow history");
+    equal(this.v37ShadowHistory[0]?.id, "shadow-3g11", "3G.11 shadow history must retain shadow identity");
+    equal(this.lastV37Shadow?.ai?.deferReason, "live-model-shadow-paused", "3G.11 last-shadow diagnostics must reflect paused state");
+
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now + 1);
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 repeated pause observation must be idempotent"
+    );
+    equal(this.v37ShadowHistory.length, 1, "3G.11 idempotent pause must not duplicate shadow history");
+
+    this.v37PendingShadows = [];
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now + 2);
+    equal(
+      Number(this.v37ProductionTurnStats.liveAiShadowPauses || 0),
+      beforePauses + 1,
+      "3G.11 no-pending call must be a telemetry no-op"
+    );
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.liveAiShadowPausedForProviderStability, true, "3G.11 paused-shadow mode must remain visible");
+    equal(snapshot?.mode?.liveAiShadowResumedAfterSingleFlightValidation, false, "3G.11 shadow-resume mode must remain false");
+    equal(snapshot?.mode?.shadowPacketsStillRecordedWhileModelPaused, true, "3G.11 shadow-packet recording flag must remain visible");
+    equal(snapshot?.mode?.internalMetadataOutputHygiene, true, "3G.11 must preserve higher output-hygiene diagnostics");
+
+    return {
+      extracted: true,
+      firstPauseRecorded: true,
+      idempotent: true,
+      pendingPreserved: true,
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  async contractV41HotfixResidualRetirement() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    const stats = this.v37ProductionTurnStats;
+    ensure(stats && typeof stats === "object", "3G.12 shared production-turn stats must exist");
+    const statsIdentity = stats;
+
+    const expectedKeys = [
+      "outerRequests",
+      "tickRequests",
+      "alarmRequests",
+      "forceRequests",
+      "baseTurnsStarted",
+      "baseTurnsCompleted",
+      "coalescedRequests",
+      "replayTurns",
+      "deferredAfterReplayCap",
+      "maxConcurrentBaseTurns",
+      "liveAiShadowPauses",
+      "internalMetadataStrips",
+      "internalMetadataDroppedLines",
+      "requestLocalProviderRejects",
+      "emergencyWorkersBrainRoutes",
+      "workersDailyQuotaExhaustions",
+      "degradedModeTicks",
+      "degradedHumanFallbacksQueued",
+      "degradedAmbientFallbacksQueued",
+      "degradedFallbackMisses",
+      "constrainedModeTicks",
+      "backgroundAiPlansSuppressed",
+      "capacitySheddingAmbientQueued"
+    ].sort();
+    equal(JSON.stringify(Object.keys(stats).sort()), JSON.stringify(expectedKeys), "3G.12 shared stats schema must remain exact");
+
+    const beforeOuter = stats.outerRequests;
+    const beforeTick = stats.tickRequests;
+    const beforeForce = stats.forceRequests;
+    const originalGateRequest = this.v37ProductionTurnGate.request;
+    this.v37ProductionTurnGate.request = () => "3g12-gate-probe";
+    try {
+      equal(
+        V41ProductionTurnChatRoom.prototype.requestV37ProductionTurn.call(this, "tick", true),
+        "3g12-gate-probe",
+        "3G.12 singleflight owner must still use the live gate"
+      );
+    } finally {
+      this.v37ProductionTurnGate.request = originalGateRequest;
+    }
+    equal(stats.outerRequests, beforeOuter + 1, "3G.12 singleflight must mutate shared outer-request telemetry");
+    equal(stats.tickRequests, beforeTick + 1, "3G.12 singleflight must mutate shared tick telemetry");
+    equal(stats.forceRequests, beforeForce + 1, "3G.12 singleflight must mutate shared force telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 singleflight must preserve shared stats identity");
+
+    const beforeSuppressed = stats.backgroundAiPlansSuppressed;
+    const originalCapacity = this.providerCapacityConstrained;
+    this.providerCapacityConstrained = () => true;
+    try {
+      equal(
+        await V41ProviderReadinessChatRoom.prototype.refillSceneAi.call(this, Date.UTC(2026, 8, 6, 22, 0, 0), false),
+        false,
+        "3G.12 readiness probe must take the constrained suppression path"
+      );
+    } finally {
+      this.providerCapacityConstrained = originalCapacity;
+    }
+    equal(stats.backgroundAiPlansSuppressed, beforeSuppressed + 1, "3G.12 readiness must mutate shared suppression telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 readiness must preserve shared stats identity");
+
+    const beforeRejects = stats.requestLocalProviderRejects;
+    const originalOutputReject = this.noteOutputReject;
+    this.noteOutputReject = () => "3g12-request-local";
+    try {
+      equal(
+        V41ProviderFailoverChatRoom.prototype.noteProviderFailure.call(this, "gemini", 422, null, "retirement probe"),
+        "3g12-request-local",
+        "3G.12 failover must preserve request-local handling"
+      );
+    } finally {
+      this.noteOutputReject = originalOutputReject;
+    }
+    equal(stats.requestLocalProviderRejects, beforeRejects + 1, "3G.12 failover must mutate shared rejection telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 failover must preserve shared stats identity");
+
+    const beforeStrips = stats.internalMetadataStrips;
+    V41OutputHygieneChatRoom.prototype.say.call(
+      this,
+      "SegaMan",
+      "shared {t12/gaming} stats",
+      "bot",
+      "built-in",
+      { topic: "gaming" }
+    );
+    equal(stats.internalMetadataStrips, beforeStrips + 1, "3G.12 hygiene must mutate shared strip telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 hygiene must preserve shared stats identity");
+
+    const now = Date.UTC(2026, 8, 6, 22, 1, 0);
+    const beforePauses = stats.liveAiShadowPauses;
+    this.v37PendingShadows = [{
+      packet: { probe: "3g12" },
+      queuedAt: now,
+      shadow: {
+        id: "shadow-3g12",
+        at: now,
+        completedAt: 0,
+        ai: { status: "queued", deferReason: "", error: "" }
+      }
+    }];
+    this.v37ShadowHistory = [];
+    V41PausedShadowChatRoom.prototype.maybeRunV37Shadow.call(this, now);
+    equal(stats.liveAiShadowPauses, beforePauses + 1, "3G.12 shadow must mutate shared pause telemetry");
+    equal(this.v37ProductionTurnStats, statsIdentity, "3G.12 shadow must preserve shared stats identity");
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.productionTurn?.outerRequests, stats.outerRequests, "3G.12 production-turn snapshot must expose the shared object state");
+    equal(snapshot?.productionTurn?.internalMetadataStrips, stats.internalMetadataStrips, "3G.12 snapshot must expose hygiene telemetry");
+    equal(snapshot?.productionTurn?.liveAiShadowPauses, stats.liveAiShadowPauses, "3G.12 snapshot must expose shadow telemetry");
+
+    return {
+      retired: true,
+      oneSharedStatsObject: true,
+      ownersVerified: ["singleflight", "readiness", "failover", "hygiene", "paused-shadow"],
+      diagnosticsPreserved: true
+    };
+  }
+
+
+  async contractRetiredV38QualityCompatibility() {
+    const now = Date.now();
+    const history = [];
+    for (let i = 0; i < 8; i += 1) {
+      history.push({
+        kind: "bot",
+        from: i % 2 ? "SegaMan" : "MetallicaFan",
+        topic: "gaming",
+        text: i % 2 ? "saturn again" : "playstation vs n64 again",
+        sceneId: `game-${i % 3}`,
+        at: now - 40000 + i * 1000
+      });
+    }
+    for (let i = 0; i < 4; i += 1) {
+      history.push({
+        kind: "bot",
+        from: "CoolChick17",
+        topic: "school",
+        text: "homework tonight",
+        sceneId: `school-${i}`,
+        at: now - 30000 + i * 1000
+      });
+    }
+    this.reset({ history, bots: ["SegaMan", "MetallicaFan", "CoolChick17"] });
+
+    ensure(this.v38TopicCooling instanceof Map, "3F.4 must initialize the v38 topic-cooling map without the retired quality constructor");
+    ensure(this.v38QualityStats && typeof this.v38QualityStats === "object", "3F.4 must initialize legacy v38 quality counters");
+    this.v38TopicCooling.clear();
+
+    const detected = this.detectRoomTopicFatigue(now);
+    equal(detected.topics.some((row) => row.topic === "gaming"), true, "3F.4 must preserve room-wide gaming fatigue detection");
+
+    const originalSceneLifecycleAuthority = this.sceneLifecycleAuthority;
+    let closeCalls = 0;
+    let delegatedTopics = [];
+    this.sceneLifecycleAuthority = () => ({
+      closeTopicFatigueScenes: (rows) => {
+        closeCalls += 1;
+        delegatedTopics = rows.map((row) => row.topic);
+        return [{ sceneId: "fatigue-scene", topic: "gaming", turns: 9 }];
+      }
+    });
+    const beforeActivations = this.v38QualityStats.topicFatigueActivations;
+    const beforeCloses = this.v38QualityStats.topicFatigueSceneCloses;
+    this.applyRoomTopicFatigue(now);
+    this.sceneLifecycleAuthority = originalSceneLifecycleAuthority;
+
+    equal(closeCalls, 1, "3F.4 topic fatigue must continue delegating scene closure to the v41 coordinator");
+    equal(delegatedTopics.includes("gaming"), true, "3F.4 coordinator delegation must receive the fatigued gaming topic");
+    equal(this.v38QualityStats.topicFatigueActivations, beforeActivations + 1, "3F.4 must preserve topic-fatigue activation accounting");
+    equal(this.v38QualityStats.topicFatigueSceneCloses, beforeCloses + 1, "3F.4 must preserve delegated fatigue-close accounting");
+    equal(this.activeV38TopicCooling(now).some((row) => row.topic === "gaming"), true, "3F.4 must preserve the three-minute topic cooling map");
+
+    const beforeBlocked = this.v38QualityStats.fatiguedBackgroundLinesBlocked;
+    const beforeFiltered = this.v38QualityStats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn again" },
+      { speaker: "CoolChick17", target: "room", intent: "ambient", topic: "school", text: "anyone finish homework" }
+    ], "background");
+    equal(this.v38QualityStats.fatiguedBackgroundLinesBlocked, beforeBlocked + 1, "3F.4 must filter fatigued topics from background plans");
+    equal(this.v38QualityStats.backgroundPlansFiltered, beforeFiltered + 1, "3F.4 must preserve filtered-background-plan accounting");
+    ensure(!(this.aiQueue || []).some((row) => row?.text === "saturn again"), "3F.4 fatigued gaming line must not reach the inherited queue");
+    ensure((this.aiQueue || []).some((row) => row?.text === "anyone finish homework"), "3F.4 non-fatigued background line must survive");
+
+    const blockedAfterBackground = this.v38QualityStats.fatiguedBackgroundLinesBlocked;
+    const filteredAfterBackground = this.v38QualityStats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "MetallicaFan", target: "Crateman", intent: "reply", topic: "gaming", text: "human path stays authoritative" }
+    ], "human-replan");
+    equal(this.v38QualityStats.fatiguedBackgroundLinesBlocked, blockedAfterBackground, "3F.4 topic filtering must remain background-only");
+    equal(this.v38QualityStats.backgroundPlansFiltered, filteredAfterBackground, "3F.4 human replans must not increment the topic-filter counter");
+
+    const snapshot = this.v38Snapshot(now);
+    equal(snapshot.pass, "quality-guard-v38", "3F.4 must preserve v38 snapshot identity");
+    equal(snapshot.policy?.backgroundTopicCoolingOnly, true, "3F.4 snapshot must preserve background-only cooling policy");
+    equal(snapshot.policy?.directHumanPlansNeverFilteredForTopicFatigue, true, "3F.4 snapshot must preserve human-plan exemption");
+    equal(snapshot.activeTopicCooling.some((row) => row.topic === "gaming"), true, "3F.4 snapshot must expose active cooling");
+    equal(snapshot.detectedTopicFatigue.topics.some((row) => row.topic === "gaming"), true, "3F.4 snapshot must expose detected fatigue");
+
+    const statusResponse = await this.fetch(new Request("https://room.internal/v38-status"));
+    equal(statusResponse.status, 200, "3F.4 must preserve the internal v38 status endpoint");
+    const status = await statusResponse.json();
+    equal(status?.pass, "quality-guard-v38", "3F.4 status must retain legacy v38 pass identity");
+    equal(status?.diagnostics?.policy?.backgroundTopicCoolingOnly, true, "3F.4 status must retain topic-cooling diagnostics");
+
+    return {
+      retiredV38Quality: true,
+      detectedGamingFatigue: true,
+      coordinatorCloseDelegated: true,
+      backgroundFiltered: true,
+      humanReplanExempt: true,
+      statusPreserved: true
+    };
+  }
+
+  async contractRetiredV39CoherenceCompatibility() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    ensure(this.v39RecentBotLeaves instanceof Map, "3F.3 must initialize the legacy bot-leave map without the retired coherence constructor");
+    ensure(this.v39PendingHumanDisconnects instanceof Map, "3F.3 must initialize the legacy reconnect map without the retired coherence constructor");
+    ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize legacy v39 counters");
+    equal(this.v39LastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline");
+    equal(this.v39LastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline");
+
+    const beforeBlocked = this.v39Stats.selfDialogueLinesBlocked;
+    const beforeFiltered = this.v39Stats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "SegaMan", target: "SegaMan", intent: "reply", topic: "gaming", text: "yeah SegaMan totally" },
+      { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn is still my pick" },
+      { speaker: "SegaMan", target: "room", intent: "react", topic: "gaming", text: "exactly what i just said" }
+    ], "background");
+
+    equal(this.v39Stats.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 must preserve both v39 self-dialogue rejection modes");
+    equal(this.v39Stats.backgroundPlansFiltered, beforeFiltered + 1, "3F.3 must preserve the legacy filtered-background-plan counter");
+    ensure(
+      !(this.aiQueue || []).some((row) => row?.text === "yeah SegaMan totally" || row?.text === "exactly what i just said"),
+      "3F.3 blocked self-dialogue lines must not reach the inherited queue"
+    );
+    ensure(
+      (this.aiQueue || []).some((row) => row?.text === "saturn is still my pick"),
+      "3F.3 must retain a valid background line from the same filtered plan"
+    );
+
+    const blockedAfterBackground = this.v39Stats.selfDialogueLinesBlocked;
+    const filteredAfterBackground = this.v39Stats.backgroundPlansFiltered;
+    this.queueScenePlan([
+      { speaker: "MetallicaFan", target: "MetallicaFan", intent: "reply", topic: "music", text: "direct path probe" }
+    ], "human-replan");
+    equal(this.v39Stats.selfDialogueLinesBlocked, blockedAfterBackground, "3F.3 self-dialogue filtering must remain background-only");
+    equal(this.v39Stats.backgroundPlansFiltered, filteredAfterBackground, "non-background plans must not increment the v39 filter counter");
+
+    const statusResponse = await this.fetch(new Request("https://room.internal/v39-status"));
+    equal(statusResponse.status, 200, "3F.3 must preserve the internal v39 status endpoint");
+    const status = await statusResponse.json();
+    equal(status?.pass, "conversation-coherence-v39", "3F.3 status must retain the legacy v39 pass identity");
+    equal(status?.diagnostics?.policy?.selfDialogueFilteringBackgroundOnly, true, "3F.3 status must preserve background-only policy diagnostics");
+    equal(status?.diagnostics?.stats?.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 status must expose the preserved self-dialogue counter");
+
+    return {
+      retiredV39Coherence: true,
+      blocked: status?.diagnostics?.stats?.selfDialogueLinesBlocked,
+      backgroundOnly: true,
+      statusPreserved: true
+    };
+  }
+
+  async contractRetiredV39PresenceCompatibility() {
+    const now = Date.now();
+    this.reset();
+
+    ensure(this.v39HumanReplacementAt instanceof Map, "3F.2 must initialize the legacy replacement map without the retired presence constructor");
+    ensure(this.v39PresenceFixStats && typeof this.v39PresenceFixStats === "object", "3F.2 must initialize legacy presence counters");
+    ensure(this.v39CaptureFixStats && typeof this.v39CaptureFixStats === "object", "3F.2 must initialize legacy capture counters");
+
+    const first = this.acceptContractHuman("Crateman");
+    const second = this.acceptContractHuman("Crateman");
+    equal(this.humanNames().length, 1, "3F.2 logical-human helper must dedupe same-name sockets");
+    equal(this.humanNames()[0], "Crateman", "3F.2 logical-human helper must preserve the screen name");
+    equal(this.activeHumanConnectionCount("Crateman"), 2, "3F.2 active connection count must still see both active sockets");
+
+    const secondAttachment = second.deserializeAttachment();
+    second.serializeAttachment({ ...secondAttachment, v39DisconnectPending: true, v39DisconnectPendingAt: now });
+    equal(this.activeHumanConnectionCount("Crateman"), 1, "pending socket must be excluded from active logical connection count");
+    equal(this.humanNames().length, 1, "one remaining active same-name socket must preserve one logical human");
+
+    const beforeQuick = this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed;
+    const quick = await this.generateGroqBatch();
+    equal(Array.isArray(quick), true, "3F.2 quick-background compatibility must return an array");
+    equal(quick.length, 0, "3F.2 must keep legacy quick-background provider path disabled");
+    equal(
+      this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed,
+      beforeQuick + 1,
+      "3F.2 must preserve the legacy quick-background suppression counter"
+    );
+
+    const snapshot = this.v39Snapshot(now);
+    equal(snapshot.humanPresenceIdentity?.logicalHumanCount, 1, "3F.2 v39 snapshot must preserve logical-human diagnostics");
+    equal(snapshot.humanPresenceIdentity?.rawSocketCount >= 2, true, "3F.2 v39 snapshot must expose raw socket count");
+    equal(snapshot.humanPresenceIdentity?.pendingCloseSocketCount >= 1, true, "3F.2 v39 snapshot must expose pending-close sockets");
+    equal(snapshot.captureFixPolicy?.legacyQuickBackgroundDisabled, true, "3F.2 v39 snapshot must preserve quick-background policy");
+    equal(snapshot.captureFixPolicy?.explicitErrorChallengeRepair, true, "3F.2 v39 snapshot must preserve extracted error-repair compatibility flag");
+    equal(snapshot.captureFixPolicy?.relativePublicDateClaimsValidated, true, "3F.2 v39 snapshot must preserve extracted relative-date compatibility flag");
+    equal(snapshot.presenceFixStats?.humanSessionReplacements, 0, "3F.2 must preserve presence-fix counter surface");
+
+    const hookOld = this.acceptContractHuman("HookUser");
+    const replacementBefore = this.v39PresenceFixStats.humanSessionReplacements;
+    const hookResponse = await this.fetch(new Request("https://room.internal/ws?name=HookUser", {
+      headers: { Upgrade: "websocket" }
+    }));
+    equal(hookResponse.status, 101, "3F.2 /ws compatibility hook must still delegate into the base WebSocket admission path");
+    ensure(hookOld.deserializeAttachment().v39Superseded, "3F.2 /ws hook must dynamically dispatch same-name replacement through Phase 3B");
+    equal(
+      this.v39PresenceFixStats.humanSessionReplacements,
+      replacementBefore + 1,
+      "3F.2 /ws hook must preserve the legacy replacement counter through the Phase 3B authority"
+    );
+    equal(
+      this.humanNames().filter((name) => name === "HookUser").length,
+      1,
+      "3F.2 /ws replacement must leave exactly one logical HookUser"
+    );
+
+    first.close(1000, "contract cleanup");
+    second.close(1000, "contract cleanup");
+    return {
+      retiredV39Presence: true,
+      logicalHumans: snapshot.humanPresenceIdentity?.logicalHumanCount,
+      quickBackgroundSuppressed: true
+    };
+  }
+
+  async contractRetiredV39WorldDiagnostics() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+
+    ensure(this.v39WorldGateStats && typeof this.v39WorldGateStats === "object", "3F.1 must initialize legacy v39 world-gate counters without the retired wrapper constructor");
+    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 0, "3F.1 world-gate counter baseline must remain zero");
+
+    const v39 = this.v39Snapshot(now);
+    ensure(v39?.worldGateStats, "3F.1 must preserve v39 world-gate snapshot diagnostics");
+    equal(v39.worldGatePolicy?.futureGameProductBoundary, true, "3F.1 must preserve the future-game world policy");
+    equal(v39.worldGatePolicy?.auditedPublicClaimsBlockedBeforeDisplay, true, "3F.1 must preserve audited public-claim policy");
+    equal(v39.worldGatePolicy?.ps1BackLabelNormalizedToPlayStation, true, "3F.1 must preserve console-label normalization policy");
+
+    const v40 = this.v40Snapshot(now);
+    equal(v40?.pass, "scene-continuity-v40", "3F.1 compatibility layer must preserve the legacy v40 snapshot identity");
+    equal(v40?.policy?.legacyV40CounterSemanticsPreserved, true, "3F.1 must preserve legacy v40 counter semantics");
+    equal(v40?.policy?.phase0ObservationCountersAreAdditiveOnly, true, "3F.1 must preserve Phase 0 observation semantics");
+
+    const v41 = this.v41Snapshot(now);
+    equal(v41.policy.worldDateGuardAuthority, true, "3F.1 retirement must leave Phase 3D authoritative");
+    equal(v41.worldDateGuard?.authority, "v41-world-date-guard", "3F.1 retirement must retain the Phase 3D snapshot");
+
+    return { retiredV39World: true, v39DiagnosticsPreserved: true, v40CompatibilityPreserved: true };
+  }
+
+  async contractBotRosterCooldownFiltering() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
+    const authority = this.botRosterReentryAuthority();
+
+    const filtered = authority.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
+    equal(filtered.length, 1, "3E should filter an inactive bot still inside re-entry cooldown");
+    equal(filtered[0], "SegaMan", "3E should preserve eligible roster members");
+
+    this.activeBotNames = ["CoolChick17", "SegaMan"];
+    const activePreserved = authority.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
+    equal(activePreserved.length, 2, "3E must not evict a currently active bot merely because retained leave history is still inside cooldown");
+    equal(this.v39ReentryRemaining("CoolChick17", now) > 0, true, "production v39ReentryRemaining must dispatch through 3E");
+    return { filteredInactive: true, activePreserved: true };
+  }
+
+  async contractBotRosterLeaveBookkeeping() {
+    const now = Date.now();
+    this.reset({ bots: ["CoolChick17", "SegaMan"] });
+    const authority = this.botRosterReentryAuthority();
+    let delegated = 0;
+    authority.announceBotLeave("CoolChick17", now, () => {
+      delegated += 1;
+      this.activeBotNames = ["SegaMan"];
+      return true;
+    });
+    equal(delegated, 1, "3E leave bookkeeping must delegate exactly once");
+    equal(this.v39RecentBotLeaves.get("CoolChick17"), now, "3E must remember a successful departure");
+    equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "remembered departure must immediately activate cooldown");
+
+    this.v39RecentBotLeaves.clear();
+    this.history = [{ kind: "system", from: "", text: "CoolChick17 has left the room.", at: now }];
+    equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "retained leave history must independently preserve cooldown");
+    return { rememberedLeave: true, historyFallback: true };
+  }
+
+  async contractBotRosterBlockedReentry() {
+    const now = Date.now();
+    this.reset({ bots: ["SegaMan"] });
+    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
+    const before = this.v39Stats.botReentryBlocks;
+    const result = this.announceBotEnter("CoolChick17", now);
+    equal(result, false, "production 3E wrapper must reject re-entry inside cooldown");
+    equal(this.activeBotNames.includes("CoolChick17"), false, "blocked bot must remain absent");
+    equal(this.v39Stats.botReentryBlocks, before + 1, "legacy v39 bot-reentry counter must increment");
+
+    const snapshot = this.v41Snapshot(now);
+    equal(snapshot.botRosterReentry?.authority, "v41-bot-roster-reentry", "status must expose 3E roster authority");
+    equal(snapshot.botRosterReentry?.cooldownMs, 180000, "3E must preserve the 3-minute cooldown");
+    equal(snapshot.policy.botRosterReentryAuthority, true, "status must expose 3E production ownership");
+    equal(snapshot.botRosterReentry?.recentlyDeparted?.some?.((row) => row.name === "CoolChick17"), true, "snapshot must expose blocked recent departure");
+    return { blocked: true, cooldownMs: snapshot.botRosterReentry?.cooldownMs };
+  }
+
+  async contractWorldDateGuardOrder() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({ bots: ["SegaMan"] });
+
+    const cases = [
+      ["oh it was goldeneye for the n64", "future-game-product"],
+      ["independence day got released last friday <g>", "historical-date-mismatch"],
+      ["phoenix lights man yeah in ninety seven", "future-era-event"],
+      ["playstation 4 looks better", "future-era-technology"]
+    ];
+
+    for (const [text, expectedKind] of cases) {
+      const violation = this.lineViolation(text, now, "gaming movies news", "SegaMan");
+      equal(violation?.kind, expectedKind, `3D must preserve guard precedence for ${text}`);
+      this.noteViolation(violation, "pre-display", "SegaMan");
+    }
+
+    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 1, "future-game counter must remain legacy-compatible");
+    equal(this.v39CaptureFixStats.historicalDateClaimsBlocked, 1, "relative-date counter must remain legacy-compatible");
+    equal(this.v39Stats.futureEventLinesBlocked, 1, "future-event counter must remain legacy-compatible");
+    equal(this.v38QualityStats.eraLinesBlocked, 1, "hard-era counter must remain legacy-compatible");
+
+    const safe = this.lineViolation("playstation rules", now, "", "SegaMan");
+    equal(safe, null, "period-safe PlayStation wording must still pass");
+    return { ordered: true, kinds: cases.map((row) => row[1]) };
+  }
+
+  async contractWorldDateConsoleNormalization() {
+    this.reset({ bots: ["SegaMan"] });
+    const before = this.history.length;
+
+    // The real lower pipeline includes v7 typing style, whose deliberate random
+    // emoticons/typos can make an exact normalization assertion flaky. Pin its
+    // random branches off for this contract so only the world/date rewrite is
+    // under test; production randomness remains untouched.
+    const originalRandom = Math.random;
+    Math.random = () => 0.999999;
+    try {
+      this.say("SegaMan", "PS1 has good games", "bot", "gemini", { topic: "gaming" });
+    } finally {
+      Math.random = originalRandom;
+    }
+
+    equal(this.history.length, before + 1, "bot normalization contract must emit one line");
+    equal(this.history.at(-1)?.text, "playstation has good games", "3D must preserve the existing lower-pipeline surface after PS1 normalization");
+    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
+
+    this.say("Crateman", "PS1 has good games", "human", "human", { topic: "gaming" });
+    equal(this.history.at(-1)?.text, "PS1 has good games", "human text must never be rewritten by console normalization");
+    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "human text must not affect normalization counter");
+    return { normalizedBotOnly: true, typingRandomnessPinned: true };
+  }
+
+  async contractWorldDateHistoricalAudit() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({
+      bots: ["SegaMan"],
+      history: [
+        { kind: "bot", from: "SegaMan", text: "playstation 4 looks better", topic: "gaming", at: now - 4000 },
+        { kind: "bot", from: "SegaMan", text: "phoenix lights man yeah in ninety seven", topic: "general", at: now - 3000 },
+        { kind: "bot", from: "SegaMan", text: "independence day got released last friday <g>", topic: "movies", at: now - 2000 },
+        { kind: "bot", from: "SegaMan", text: "oh it was goldeneye for the n64", topic: "gaming", at: now - 1000 }
+      ]
+    });
+    const audit = this.historicalAudit(true);
+    ensure(Number(audit.v38EraViolations || 0) >= 1, "3D combined audit must preserve v38 era violations");
+    ensure(Number(audit.v39FutureEventViolations || 0) >= 1, "3D combined audit must preserve v39 future-event violations");
+    ensure(Number(audit.v39HistoricalDateViolations || 0) >= 1, "3D combined audit must preserve v39 relative-date violations");
+    ensure(Number(audit.v39FutureGameProductViolations || 0) >= 1, "3D combined audit must preserve v39 future-game violations");
+    ensure(Number(audit.blockers || 0) >= 4, "3D combined audit must accumulate layered blockers");
+    const snapshot = this.v41Snapshot(now);
+    equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "status must expose 3D world/date authority");
+    equal(snapshot.policy.layeredWorldDateOrderPreserved, true, "status must expose preserved guard ordering");
+    return { audit: true, blockers: audit.blockers };
+  }
+
+  async contractCoherenceTargetRepair() {
+    const now = Date.now();
+    this.reset({
+      bots: ["MoonChild", "RaveChick", "SegaMan"],
+      history: [
+        { kind: "bot", from: "MoonChild", text: "aint heard it yet, is it seriously that bad", target: "room", messageId: "m1", at: now - 18000 },
+        { kind: "bot", from: "RaveChick", text: "haha yeah we had that at our hotel last week ;)", target: "room", messageId: "m2", at: now - 5000 }
+      ]
+    });
+    this.pendingHumanReplyTo?.clear?.();
+    const target = this.resolveDirectTarget("had what at your hotel?", "Crateman");
+    equal(target, "RaveChick", "3C should preserve clarification target repair");
+    equal(this.pendingHumanReplyTo?.get?.("Crateman"), "m2", "3C repair should preserve reply anchor");
+    equal(this.v39Stats.clarificationTargetRepairs, 1, "legacy clarification counter should increment");
+    equal(this.v39LastTargetRepair?.repairedTarget, "RaveChick", "legacy last-target diagnostic should be preserved");
+
+    const explicit = this.resolveDirectTarget("SegaMan, had what at your hotel?", "Crateman");
+    equal(explicit, "SegaMan", "explicit bot mention must outrank semantic repair");
+    equal(this.v39Stats.clarificationTargetRepairs, 1, "explicit target must not increment repair counter");
+    return { repaired: target, explicit };
+  }
+
+  async contractCoherenceVoiceLock() {
+    const now = Date.now();
+    const anchor = { kind: "bot", from: "JennJenn", target: "Crateman", text: "the hotel night shift was nuts", messageId: "m-hotel-lock", at: now - 1000 };
+    const human = { kind: "human", from: "Crateman", target: "JennJenn", text: "what do you mean by hotel?", replyTo: "m-hotel-lock", messageId: "m-human-lock", at: now };
+    this.reset({ history: [anchor, human], bots: ["JennJenn"] });
+    this.contractVoiceText = "i meant the hotel night shift was chaotic";
+    const plan = {
+      provider: "gemini",
+      reason: "v37-human-director",
+      subject: "hotel clarification",
+      goal: "clarify the hotel wording",
+      moves: [{ speaker: "JennJenn", target: "Crateman", intent: "clarify", topic: "general", meaning: "explain what she meant about the hotel night shift" }]
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("JennJenn"), human);
+    equal(voiced.length, 1, "3C coherence-locked Voice should survive a grounded clarification");
+    equal(this.v39Stats.coherenceVoiceLocks, 1, "legacy coherence-lock counter should increment");
+    equal(this.v39LastCoherenceLock?.mode, "clarify", "legacy lock mode should remain clarify");
+    equal(this.v39LastCoherenceLock?.anchorFrom, "JennJenn", "exact reply anchor should be retained");
+    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 0, "normal clarification must not count as error challenge");
+    return { locked: true, mode: this.v39LastCoherenceLock?.mode };
+  }
+
+  async contractExplicitErrorChallengeRepair() {
+    const now = Date.now();
+    const anchor = { kind: "bot", from: "SegaMan", target: "Crateman", text: "saturn is definitely a video", messageId: "m-bad-claim", at: now - 1000 };
+    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "you got that wrong, you just said it was a video", replyTo: "m-bad-claim", messageId: "m-error-challenge", at: now };
+    this.reset({ history: [anchor, human], bots: ["SegaMan"] });
+    this.contractVoiceText = "my bad, saturn isnt a video, i mixed that up";
+    const plan = {
+      provider: "gemini",
+      reason: "v37-human-director",
+      subject: "error challenge",
+      goal: "respond to the human challenge",
+      moves: [{ speaker: "SegaMan", target: "Crateman", intent: "clarify", topic: "gaming", meaning: "acknowledge and correct the mistake" }]
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("SegaMan"), human);
+    equal(voiced.length, 1, "3C explicit error repair should produce one accepted response");
+    equal(this.v39Stats.coherenceVoiceLocks, 1, "challenge should still pass through coherence lock");
+    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 1, "legacy explicit-error repair counter should increment");
+    equal(this.v39LastCoherenceLock?.mode, "challenge", "challenge mode should remain visible in legacy diagnostics");
+    return { repaired: true, mode: this.v39LastCoherenceLock?.mode };
+  }
+
+  async contractReconnectAuthorityQuick() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    equal(this.humanNames().length, 1, "accepted socket should count as one logical human");
+
+    this.webSocketClose(oldSocket, 1006, "network changed", false);
+    ensure(oldSocket.deserializeAttachment().v39DisconnectPending, "3B close must mark the old socket pending immediately");
+    equal(this.humanNames().length, 0, "pending old socket must immediately leave logical presence");
+    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "3B authority must own the pending grace token");
+
+    this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    const result = this.system("Crateman has entered the room.");
+    equal(result, false, "quick reconnect must suppress duplicate enter");
+    equal(this.history.length, before, "quick reconnect must not add a system enter line");
+    equal(this.humanNames().length, 1, "replacement socket must restore exactly one logical human");
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "quick reconnect must clear the pending close");
+    equal(this.v39Stats.transientHumanReconnects, 1, "legacy transient reconnect counter must be preserved");
+
+    const snapshot = this.v41Snapshot(Date.now());
+    equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "status must expose 3B reconnect authority");
+    equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "status must expose v39 reconnect bypass");
+    equal(snapshot.humanReconnectLifecycle?.authority, "v41-human-reconnect-lifecycle", "snapshot must identify the 3B authority");
+    return { quickReconnect: true, logicalHumans: 1, transient: this.v39Stats.transientHumanReconnects };
+  }
+
+  async contractReconnectSameNameReplacement() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    equal(this.replaceExistingHumanSessions("Crateman", Date.now()), 1, "new session must supersede one active same-name socket");
+    ensure(oldSocket.deserializeAttachment().v39Superseded, "old same-name socket must be marked superseded");
+    equal(this.v39PresenceFixStats.humanSessionReplacements, 1, "legacy replacement counter must be preserved");
+
+    this.webSocketClose(oldSocket, 4001, "replaced by newer session", true);
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "superseded close must not enter reconnect grace");
+    ensure(this.v39PresenceFixStats.supersededCloseCallbacksIgnored >= 1, "superseded close callback must be ignored");
+
+    this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    const result = this.system("Crateman has entered the room.");
+    equal(result, false, "same-name replacement must suppress duplicate enter");
+    equal(this.history.length, before, "replacement must not create a duplicate enter system line");
+    equal(this.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed, 1, "legacy duplicate-enter counter must be preserved");
+    return { replaced: true, duplicateEnterSuppressed: true };
+  }
+
+  async contractReconnectCommittedClose() {
+    this.reset();
+    const oldSocket = this.acceptContractHuman("Crateman");
+    const before = this.history.length;
+    this.webSocketClose(oldSocket, 1006, "gone", false);
+    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "committed-close contract must begin inside grace");
+
+    await new Promise((resolve) => setTimeout(resolve, 5200));
+
+    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "expired grace token must be removed");
+    equal(this.v39Stats.humanDisconnectsCommitted, 1, "expired disconnect must commit exactly once");
+    const leaveLines = this.history.slice(before).filter((row) =>
+      row?.kind === "system" && row?.text === "Crateman has left the room."
+    );
+    equal(leaveLines.length, 1, "expired disconnect must emit exactly one leave line");
+    return { committed: true, leaveLines: leaveLines.length };
+  }
+
+  contractStatus() {
+    const snapshot = this.v41Snapshot(Date.now());
+    equal(snapshot.phase, "2B", "production snapshot should expose Phase 2B");
+    equal(snapshot.policy.primaryHumanVoiceSemanticContract, true, "status should expose Phase 2A semantic authority beneath 2B");
+    equal(snapshot.policy.requiredHumanReplanPrimaryResponseMustBeFirst, true, "status should expose Phase 2B first-slot authority");
+    equal(snapshot.policy.missingRequiredHumanReplanResponseDropsEntireTail, true, "status should expose whole-tail fail-closed behavior");
+    equal(snapshot.policy.failedHumanReplanUsesProviderIndependentV14Fallback, true, "status should expose provider-independent Phase 2B fallback");
+    equal(snapshot.policy.invalidValidatedFallbackConsumesLegacyRetry, true, "status should expose retry-loop suppression for failed-closed humans");
+    equal(snapshot.policy.semanticCompletenessDefersToSealed1996World, true, "status should expose the finding-94 semantic/world bridge");
+    equal(snapshot.policy.deterministicFallbackDefersToSealed1996World, true, "status should expose the finding-95 fallback/world bridge");
+    equal(snapshot.policy.phase1DOwnershipPolicyUnchanged, true, "Phase 1D ownership remains frozen beneath Phase 2");
+    equal(snapshot.policy.botRosterReentryAuthority, true, "Phase 3E bot roster/re-entry authority must remain active beneath Phase 2");
+    equal(snapshot.botRosterReentry?.cooldownMs, 180000, "Phase 3E must preserve the 3-minute bot re-entry cooldown");
+    equal(snapshot.policy.worldDateGuardAuthority, true, "Phase 3D world/date authority must remain active beneath Phase 2");
+    equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "Phase 3D snapshot must identify the world/date authority");
+    equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "Phase 3B reconnect authority must remain active beneath Phase 2");
+    equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "production v41 must bypass the two legacy reconnect overrides");
+    equal(snapshot.humanReconnectLifecycle?.graceMs, 5000, "Phase 3B must preserve the 5-second reconnect grace");
+    equal(snapshot.policy.noAdditionalProviderCall, true, "Phase 2 must not add a judge-model call");
+    return { phase: snapshot.phase, pass: snapshot.pass };
+  }
+
+  async runContract(name) {
+    if (name === "semantic-reject") return this.contractSemanticReject();
+    if (name === "semantic-scoped-reject") return this.contractScopedEvidenceReject();
+    if (name === "semantic-polarity-scope-reject") return this.contractPolarityScopeReject();
+    if (name === "semantic-pass") return this.contractSemanticPass();
+    if (name === "human-fallback") return this.contractFullHumanFallback();
+    if (name === "era-primary-reject") return this.contractEraPrimaryReject();
+    if (name === "era-fallback-safe") return this.contractEraFallbackSafe();
+    if (name === "human-tail-fail-closed") return this.contractHumanTailFailClosed();
+    if (name === "human-answer-first-pass") return this.contractHumanAnswerFirstPass();
+    if (name === "human-bad-fallback-reject") return this.contractHumanBadFallbackReject();
+    if (name === "clarification-reject") return this.contractClarificationReject();
+    if (name === "background-untouched") return this.contractBackgroundUntouched();
+    if (name === "v37-stack-characterization") return this.contractV37StackCharacterization();
+    if (name === "wrapper-retirement-v37-lively") return this.contractRetiredV37LivelyCompatibility();
+    if (name === "wrapper-retirement-v37-human-director") return this.contractRetiredV37HumanDirectorCompatibility();
+    if (name === "wrapper-retirement-v37-free-providers") return this.contractRetiredV37FreeProviderCompatibility();
+    if (name === "wrapper-retirement-v37-human-only") return this.contractRetiredV37HumanOnlyCompatibility();
+    if (name === "v41-lively-support-consolidation") return this.contractV41LivelySupportConsolidation();
+    if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
+    if (name === "v41-human-fallback-consolidation") return this.contractV41HumanFallbackConsolidation();
+    if (name === "v41-human-fallback-telemetry") return this.contractV41HumanFallbackTelemetry();
+    if (name === "v41-human-only-residual-retirement") return this.contractV41HumanOnlyResidualRetirement();
+    if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
+    if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
+    if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
+    if (name === "v41-provider-failover-extraction") return this.contractV41ProviderFailoverExtraction();
+    if (name === "v41-output-hygiene-extraction") return this.contractV41OutputHygieneExtraction();
+    if (name === "v41-paused-shadow-extraction") return this.contractV41PausedShadowExtraction();
+    if (name === "v41-hotfix-residual-retirement") return this.contractV41HotfixResidualRetirement();
+    if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
+    if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
+    if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
+    if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
+    if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
+    if (name === "bot-roster-leave-bookkeeping") return this.contractBotRosterLeaveBookkeeping();
+    if (name === "bot-roster-blocked-reentry") return this.contractBotRosterBlockedReentry();
+    if (name === "world-date-guard-order") return this.contractWorldDateGuardOrder();
+    if (name === "world-date-console-normalization") return this.contractWorldDateConsoleNormalization();
+    if (name === "world-date-historical-audit") return this.contractWorldDateHistoricalAudit();
+    if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
+    if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
+    if (name === "explicit-error-challenge-repair") return this.contractExplicitErrorChallengeRepair();
+    if (name === "reconnect-authority-quick") return this.contractReconnectAuthorityQuick();
+    if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
+    if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
+    if (name === "status") return this.contractStatus();
+    throw new Error(`unknown generation contract: ${name}`);
+  }
+
+  async fetch(request) {
+    const url = new URL(request.url);
+    if (!url.pathname.startsWith("/contract/")) return super.fetch(request);
+    const name = decodeURIComponent(url.pathname.slice("/contract/".length));
+    try {
+      const detail = await this.runContract(name);
+      return Response.json({ ok: true, contract: name, detail });
+    } catch (error) {
+      return Response.json({
+        ok: false,
+        contract: name,
+        error: String(error?.message || error),
+        stack: String(error?.stack || "").split("\n").slice(0, 8)
+      }, { status: 500 });
+    }
+  }
 }
+
+export default {
+  async fetch(request, env) {
+    const url = new URL(request.url);
+    if (url.pathname === "/health") return Response.json({ ok: true, runtime: "workerd", phase: "2B" });
+    if (!url.pathname.startsWith("/contract/")) return new Response("generation contract only", { status: 404 });
+    const name = decodeURIComponent(url.pathname.slice("/contract/".length));
+    const id = env.CONTRACT_ROOMS.idFromName(`v41-generation-${name}`);
+    return env.CONTRACT_ROOMS.get(id).fetch(new Request(`https://room.internal/contract/${encodeURIComponent(name)}`));
+  }
+};
