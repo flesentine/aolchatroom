@@ -58,9 +58,14 @@ const sources = new Map(chain.map(([path]) => [path, read(path)]));
 
 for (const [path, parentImport, parentAlias] of chain) {
   const source = sources.get(path);
+  const parentImportLine = source.split("\n").find((line) =>
+    line.startsWith("import ") &&
+    line.includes(parentImport) &&
+    line.includes(`ChatRoom as ${parentAlias}`)
+  );
   assert.ok(
-    source.includes(`from "${parentImport}"`),
-    `3G.20 production spine parent import drifted: ${path} -> ${parentImport}`
+    parentImportLine,
+    `3G.20 production spine parent binding drifted: ${path} must bind ChatRoom as ${parentAlias} from ${parentImport}`
   );
   assert.ok(
     source.includes(`export class ChatRoom extends ${parentAlias} {`),
@@ -68,18 +73,28 @@ for (const [path, parentImport, parentAlias] of chain) {
   );
 }
 
-for (const [path, source] of sources) {
+const srcDir = new URL("../src/", import.meta.url);
+const productionSourcePaths = fs.readdirSync(srcDir)
+  .filter((name) => name.endsWith(".js"))
+  .map((name) => `src/${name}`)
+  .filter((path) => !frozenLineageFiles.includes(path));
+const productionSources = new Map(productionSourcePaths.map((path) => [path, read(path)]));
+
+for (const [path, source] of productionSources) {
   for (const retiredImport of retiredWrapperImports) {
     assert.equal(
-      source.includes(`from "${retiredImport}"`),
+      source.includes(`from "${retiredImport}"`) || source.includes(`from '${retiredImport}'`),
       false,
-      `3G.20 retired wrapper must not re-enter v41 production: ${path} imports ${retiredImport}`
+      `3G.20 retired wrapper must not re-enter production anywhere under src/: ${path} imports ${retiredImport}`
     );
   }
 }
 
-const directBaselineImporters = [...sources]
-  .filter(([, source]) => source.includes('from "./index_v37.js"'))
+const directBaselineImporters = [...productionSources]
+  .filter(([, source]) =>
+    source.includes('from "./index_v37.js"') ||
+    source.includes("from './index_v37.js'")
+  )
   .map(([path]) => path)
   .sort();
 
