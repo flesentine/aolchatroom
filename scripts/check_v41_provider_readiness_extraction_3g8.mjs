@@ -59,18 +59,18 @@ for (const signature of [
   );
 }
 
-const liveCapacity = extractMethod(readiness, "providerCapacityConstrained(now = Date.now()) {");
-assert.ok(liveCapacity.includes("const preferred = this.preferredStructuredReadyProviders?.(now) || []"));
-assert.ok(liveCapacity.includes("if (preferred.length >= 1) return false"), "3G.14 must preserve the one-preferred-provider live override");
-for (const marker of [
-  "return providerBudgetConstrained({",
-  "configuredProviders: this.configuredProviders?.() || []",
-  "hardReadyProviders: this.hardReadyProviders(now)",
-  "softReadyProviders: this.softReadyProviders(now)",
-  "minimumPreferredReady: 2"
-]) {
-  assert.ok(liveCapacity.includes(marker), `3G.8 frozen capacity baseline must remain as the 3G.14 fallback: ${marker}`);
-}
+const capacitySignature = "providerCapacityConstrained(now = Date.now()) {";
+const frozenCapacity = extractMethod(frozen, capacitySignature);
+const liveCapacity = extractMethod(readiness, capacitySignature);
+const expectedLiveCapacity = frozenCapacity.replace(
+  `  ${capacitySignature}\n`,
+  `  ${capacitySignature}\n    const preferred = this.preferredStructuredReadyProviders?.(now) || [];\n    if (preferred.length >= 1) return false;\n`
+);
+assert.equal(
+  liveCapacity,
+  expectedLiveCapacity,
+  "3G.14 live capacity policy must equal the frozen 3G.8 hotfix baseline plus only the one-preferred-provider override"
+);
 
 for (const marker of [
   "providerDegradedModeBuiltInFallback: true",
