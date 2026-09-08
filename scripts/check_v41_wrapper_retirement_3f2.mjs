@@ -19,6 +19,7 @@ const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
 const coherence = read("src/index_v41_coherence_repair.js");
 const reconnect = read("src/index_v41_human_reconnect.js");
+const reconnectAuthority = read("src/human_reconnect_lifecycle_v41.js");
 
 assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(ambient.includes('from "./index_v41_presence_compat.js"'));
@@ -62,9 +63,12 @@ for (const retiredOverride of [
   );
 }
 
-assert.ok(presenceCompat.includes("this.v39HumanReplacementAt = new Map()"));
-assert.ok(presenceCompat.includes("this.v39PresenceFixStats = {"));
+assert.equal(presenceCompat.includes("this.v39HumanReplacementAt = new Map()"), false);
+assert.equal(presenceCompat.includes("this.v39PresenceFixStats = {"), false);
 assert.ok(presenceCompat.includes("this.v39CaptureFixStats = {"));
+assert.ok(presenceCompat.includes("legacyPresenceFixStats"));
+assert.ok(reconnectAuthority.includes("this.humanReplacementAt = new Map()"));
+assert.ok(reconnectAuthority.includes("this.presenceFixStats = {"));
 assert.ok(presenceCompat.includes("legacyQuickBackgroundCallsSuppressed"));
 assert.ok(presenceCompat.includes("logicalHumanPresenceDeduplication: true"));
 assert.ok(presenceCompat.includes("this.replaceExistingHumanSessions(name, Date.now())"));
@@ -97,4 +101,4 @@ assert.equal(v41ProductionSpine.includes('from "./index_v39_world_gate.js"'), fa
 assert.equal(v41ProductionSpine.includes('from "./index_v39_presence_fix.js"'), false);
 assert.equal(v41ProductionSpine.includes('from "./index_v39_coherence.js"'), false);
 
-console.log("v41 Phase 3F.2 v39 presence-wrapper retirement checks passed");
+console.log("v41 Phase 3F.2 v39 presence-wrapper retirement checks passed after 4B reconnect-state ownership");
