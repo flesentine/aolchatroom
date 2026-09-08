@@ -50,7 +50,7 @@ This phase is **characterization only**. It must not change provider routing, st
 | Shared v37 production-turn telemetry | `production_turn_stats_v41.js`, initialized by `index_v41_paused_shadow_compat.js` | 3G.12 preserves the exact frozen counter schema as state-only data; all extracted owners mutate the same per-room object. The old hotfix residual compatibility file is retired. |
 | Provider capacity decision | `index_v41_provider_readiness_compat.js` in v41 production; frozen v37 policies remain for v37-v40 | 3G.14 consolidates the one-preferred-provider live override with the already-extracted hotfix capacity baseline in the readiness owner. |
 | Delegated human fallback | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_only.js` remains for v37-v40 | 3G.15 preserves lower-planner-first behavior and moves only the empty-result built-in fallback into the Human Director owner. 3G.16 also moves the two live fallback counters here. |
-| Legacy human-only diagnostics/status | `human_only_legacy_diagnostics_v41.js`, composed by `index_v41_free_providers_compat.js` | 3G.17 retires the human-only residual from the production inheritance/fetch spine while preserving historical ambient state, status flags, snapshot shape, and the Human Director fallback-counter bridge. 3G.18 deletes the obsolete v41 residual source; frozen `index_v37_human_only.js` remains for lineage. |
+| Legacy human-only diagnostics/status | `human_only_legacy_diagnostics_v41.js`, composed by `index_v41_free_providers_compat.js` | 3G.17 extracts the compatibility surface; 3G.18 deletes the obsolete v41 residual source; 3G.19 removes the retired ambient timestamp/counter fields from room state while rendering the same zero-valued historical snapshot/status payload. Frozen `index_v37_human_only.js` remains for lineage. |
 | Provider ordering / implementations | `index_v41_free_providers_compat.js` in v41 production; frozen `index_v37_free_providers.js` remains for v37-v40 | 3G.4 preserves provider configuration, ordering, implementations, source normalization, diagnostics, and `/ai-status` augmentation while production bypasses the v37 wrapper. |
 | Direct-human Director | `index_v41_human_director_compat.js` in v41 production; frozen `index_v37_human_director.js` remains for v37-v40 | 3G.3 preserves the authoritative Director while production bypasses the frozen wrapper. 3G.15 also consolidates delegated empty-plan fallback here. |
 | Routine ambient generation | `index_v41_lively_ambient_compat.js` in v41 production; frozen `index_v37_lively_ambient.js` remains for v37-v40 | 3G.2 preserves authoritative lively ambient behavior while production bypasses the frozen wrapper. 3G.13 also consolidates its provider cursor and active-character helper here. |
@@ -386,12 +386,14 @@ After 3G.16, `index_v41_human_only_compat.js` no longer owned live behavior or l
 - adding legacy human-only status flags to `/api/health`, `/api/everything`, and `/api/full-status`;
 - preserving the historical `adaptiveAmbientAi` snapshot shape while bridging the two live fallback counters from the Human Director.
 
-3G.17 extracts that shell into `human_only_legacy_diagnostics_v41.js` and makes `index_v41_free_providers_compat.js` inherit/fetch directly from `index_v41_production_turn_compat.js`.
+3G.17 extracts that shell into `human_only_legacy_diagnostics_v41.js` and makes `index_v41_free_providers_compat.js` inherit/fetch directly from `index_v41_production_turn_compat.js`. 3G.19 later removes the obsolete room-state allocation from this helper while preserving its output.
 
-The helper owns only state/status shaping:
-- `initializeV37HumanOnlyDiagnostics(room)`;
+The helper owns only historical status/snapshot shaping. After 3G.19 it exports:
+- immutable `V37_RETIRED_ADAPTIVE_AMBIENT_STATS` for the frozen zero-valued ambient telemetry payload;
 - `mergeV37HumanOnlyStatus(data)`;
 - `mergeV37HumanOnlySnapshot(room, base)`.
+
+It no longer initializes `v37LastAmbientAiAt` or `v37AdaptiveAmbientStats` on live room instances.
 
 No production file imports `index_v41_human_only_compat.js` after this phase. 3G.18 subsequently deletes that obsolete v41 residual source; frozen v37-v40 lineage files remain available for historical checks.
 
@@ -418,6 +420,27 @@ The dedicated 3G.18 gate requires:
 - prior 3G.1/3G.5/3G.13–3G.17 proof scripts to stop reading the deleted source.
 
 No production behavior or client/browser code changes in this phase.
+
+
+#### 3G.19 — retire obsolete adaptive-ambient diagnostic room state
+After 3G.18, the remaining human-only compatibility helper still allocated two pieces of state on every live v41 room solely to reproduce an old diagnostic surface:
+- `v37LastAmbientAiAt = 0`;
+- `v37AdaptiveAmbientStats` containing eight counters that no longer had any live v41 writer.
+
+Those fields were historical data, not live authority. Their observable production values were permanently the same: every ambient counter remained zero and `lastAmbientAiAgoMs` remained `null`.
+
+3G.19 removes that room-state allocation. The helper now renders the historical payload from immutable `V37_RETIRED_ADAPTIVE_AMBIENT_STATS` and continues bridging the two live Human Director fallback counters from `v37HumanFallbackStats`.
+
+Preserved external compatibility:
+- all eight historical ambient counters remain present and zero-valued in `adaptiveAmbientAi`;
+- `humanModelFallbacks` and `humanModelFallbackMisses` still reflect the live Human Director telemetry;
+- preferred-ready providers and historical interval calculation remain unchanged;
+- `lastAmbientAiAgoMs` remains `null`;
+- legacy human-only mode/status flags remain unchanged.
+
+The 3G.19 source gate proves the helper and free-provider constructor no longer read or write the retired room fields. The real-Worker contract proves the fields are absent on a production room while the historical snapshot/status payload remains intact.
+
+No client/browser code changes in this phase.
 
 
 ## Retirement rule
