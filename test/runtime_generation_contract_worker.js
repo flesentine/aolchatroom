@@ -1,6 +1,6 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
-import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
+import { mergeV37HumanOnlySnapshot, mergeV37HumanOnlyStatus } from "../src/human_only_legacy_diagnostics_v41.js";
 import { ChatRoom as V41LivelyAmbientCompatChatRoom } from "../src/index_v41_lively_ambient_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
@@ -654,18 +654,28 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   contractRetiredV37HumanOnlyCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
-    equal(this.v37LastAmbientAiAt, 0, "3G.5 must initialize the legacy adaptive-ambient timestamp");
-    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5 must initialize adaptive-ambient compatibility counters");
+    equal(this.v37LastAmbientAiAt, 0, "3G.5/3G.17 must initialize the legacy adaptive-ambient timestamp");
+    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.5/3G.17 must initialize adaptive-ambient compatibility counters");
 
-    const snapshot = V41HumanOnlyCompatChatRoom.prototype.v37Snapshot.call(this);
-    equal(snapshot?.mode?.humanOnlyModelBudget, false, "human-only compatibility mode must remain visible");
+    const directSnapshot = mergeV37HumanOnlySnapshot(
+      this,
+      V41ProductionTurnChatRoom.prototype.v37Snapshot.call(this)
+    );
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "human-only compatibility mode must remain visible after residual retirement");
     equal(snapshot?.mode?.adaptiveAmbientAi, true, "historical adaptive-ambient compatibility flag must remain visible below lively authority");
     equal(snapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "delegated human fallback policy must remain visible");
-    ensure(snapshot?.adaptiveAmbientAi, "adaptive-ambient compatibility diagnostics must survive wrapper retirement");
+    ensure(snapshot?.adaptiveAmbientAi, "adaptive-ambient compatibility diagnostics must survive residual retirement");
+    equal(
+      JSON.stringify(snapshot?.adaptiveAmbientAi),
+      JSON.stringify(directSnapshot?.adaptiveAmbientAi),
+      "3G.17 full production snapshot must preserve the helper-owned adaptiveAmbientAi compatibility surface"
+    );
 
     return {
       retired: true,
-      residualOwner: true,
+      residualOwner: false,
+      diagnosticsHelperOwner: true,
       livelySupportReleased: true,
       capacityPolicyReleased: true,
       diagnosticsPreserved: true
@@ -918,7 +928,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
         "3G.16 Human Director fallback counter must increment exactly once"
       );
 
-      const legacySnapshot = V41HumanOnlyCompatChatRoom.prototype.v37Snapshot.call(this);
+      const legacySnapshot = this.v37Snapshot();
       equal(
         Number(legacySnapshot?.adaptiveAmbientAi?.humanModelFallbacks || 0),
         before + 1,
@@ -939,6 +949,40 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       telemetryOwner: "human-director",
       legacyAmbientCountersSeparated: true,
       historicalSnapshotBridged: true
+    };
+  }
+
+
+  contractV41HumanOnlyResidualRetirement() {
+    this.reset({ bots: ["SegaMan", "MetallicaFan"] });
+
+    equal(
+      Object.getPrototypeOf(V41FreeProviderChatRoom.prototype),
+      V41ProductionTurnChatRoom.prototype,
+      "3G.17 free-provider class must inherit directly from production-turn after human-only residual retirement"
+    );
+    equal(this.v37LastAmbientAiAt, 0, "3G.17 diagnostic helper must initialize the historical ambient timestamp");
+    ensure(this.v37AdaptiveAmbientStats && typeof this.v37AdaptiveAmbientStats === "object", "3G.17 diagnostic helper must initialize historical ambient counters");
+
+    const snapshot = this.v37Snapshot();
+    equal(snapshot?.mode?.humanOnlyModelBudget, false, "3G.17 full production snapshot must preserve humanOnlyModelBudget");
+    equal(snapshot?.mode?.ambientModelGenerationDisabled, false, "3G.17 full production snapshot must preserve ambientModelGenerationDisabled");
+    equal(snapshot?.mode?.adaptiveAmbientAi, true, "3G.17 full production snapshot must preserve adaptiveAmbientAi");
+    equal(snapshot?.mode?.humanModelFailureFallsBackBuiltIn, true, "3G.17 full production snapshot must preserve human fallback policy");
+    ensure(snapshot?.adaptiveAmbientAi, "3G.17 full production snapshot must preserve adaptiveAmbientAi diagnostics");
+
+    const status = mergeV37HumanOnlyStatus({ v37: { sentinel: true } });
+    equal(status?.v37?.sentinel, true, "3G.17 status helper must preserve existing v37 fields");
+    equal(status?.v37?.humanOnlyModelBudget, false, "3G.17 status helper must preserve human-only budget flag");
+    equal(status?.v37?.humanModelFailureFallsBackBuiltIn, true, "3G.17 status helper must preserve human fallback flag");
+
+    return {
+      retired: true,
+      wrapperBoundaryRemoved: true,
+      directProductionTurnInheritance: true,
+      diagnosticStatePreserved: true,
+      snapshotPreserved: true,
+      statusPreserved: true
     };
   }
 
@@ -2102,6 +2146,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-capacity-policy-consolidation") return this.contractV41CapacityPolicyConsolidation();
     if (name === "v41-human-fallback-consolidation") return this.contractV41HumanFallbackConsolidation();
     if (name === "v41-human-fallback-telemetry") return this.contractV41HumanFallbackTelemetry();
+    if (name === "v41-human-only-residual-retirement") return this.contractV41HumanOnlyResidualRetirement();
     if (name === "v37-hotfix-characterization") return this.contractV37HotfixCharacterization();
     if (name === "v41-production-turn-singleflight-extraction") return this.contractV41ProductionTurnSingleflightExtraction();
     if (name === "v41-provider-readiness-extraction") return this.contractV41ProviderReadinessExtraction();
