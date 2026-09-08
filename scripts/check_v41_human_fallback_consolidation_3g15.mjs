@@ -112,8 +112,8 @@ for (const marker of [
 }
 
 for (const marker of [
-  "room.v37LastAmbientAiAt = 0",
-  "room.v37AdaptiveAmbientStats = {",
+  "V37_RETIRED_ADAPTIVE_AMBIENT_STATS",
+  "ambientAiAttempts: 0",
   "humanModelFallbacks",
   "humanModelFallbackMisses",
   "humanModelFailureFallsBackBuiltIn: true",
@@ -122,4 +122,4 @@ for (const marker of [
   assert.ok(legacyDiagnostics.includes(marker), `3G.15/3G.18 helper must retain legacy diagnostic marker: ${marker}`);
 }
 
-console.log("v41 Phase 3G.15 delegated-human-fallback consolidation checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.15 delegated-human-fallback consolidation checks passed after 3G.19 stateless diagnostics");
