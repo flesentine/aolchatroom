@@ -30,6 +30,19 @@ export class HumanReconnectLifecycleAuthority {
     this.graceMs = graceMs;
     this.replacementWindowMs = replacementWindowMs;
     this.sleepFn = sleepFn;
+    this.pendingHumanDisconnects = new Map();
+    this.humanReplacementAt = new Map();
+    this.presenceFixStats = {
+      humanSessionReplacements: 0,
+      duplicateEnterAnnouncementsSuppressed: 0,
+      pendingCloseSocketsMarked: 0,
+      supersededCloseCallbacksIgnored: 0
+    };
+    this.reconnectStats = {
+      humanDisconnectsDeferred: 0,
+      transientHumanReconnects: 0,
+      humanDisconnectsCommitted: 0
+    };
   }
 
   humanSocketRows() {
@@ -45,20 +58,18 @@ export class HumanReconnectLifecycleAuthority {
     );
     if (!rows.length) return 0;
 
-    this.room.v39HumanReplacementAt?.set?.(target, now);
+    this.humanReplacementAt.set(target, now);
     for (const row of rows) {
       try { row.ws.serializeAttachment(markHumanSuperseded(row.attachment, now)); } catch {}
       try { row.ws.close(4001, "replaced by newer session"); } catch {}
     }
-    if (this.room.v39PresenceFixStats) {
-      this.room.v39PresenceFixStats.humanSessionReplacements += rows.length;
-    }
+    this.presenceFixStats.humanSessionReplacements += rows.length;
     return rows.length;
   }
 
   noteTransientReconnect(name, pending, now = Date.now()) {
-    this.room.v39PendingHumanDisconnects?.delete?.(name);
-    if (this.room.v39Stats) this.room.v39Stats.transientHumanReconnects += 1;
+    this.pendingHumanDisconnects.delete(name);
+    this.reconnectStats.transientHumanReconnects += 1;
     this.room.broadcast?.({
       type: "connection_guard",
       action: "v39-transient-human-reconnect",
@@ -76,15 +87,13 @@ export class HumanReconnectLifecycleAuthority {
 
     const now = Date.now();
     const name = cleanLogicalHumanName(match[1]);
-    const pending = this.room.v39PendingHumanDisconnects?.get?.(name) || null;
-    const replacedAt = Number(this.room.v39HumanReplacementAt?.get?.(name) || 0);
+    const pending = this.pendingHumanDisconnects.get(name) || null;
+    const replacedAt = Number(this.humanReplacementAt.get(name) || 0);
     const replacedRecently = replacedAt && now - replacedAt <= this.replacementWindowMs;
 
     if (replacedRecently) {
-      this.room.v39HumanReplacementAt.delete(name);
-      if (this.room.v39PresenceFixStats) {
-        this.room.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed += 1;
-      }
+      this.humanReplacementAt.delete(name);
+      this.presenceFixStats.duplicateEnterAnnouncementsSuppressed += 1;
 
       if (pending && now - Number(pending.at || 0) <= this.graceMs) {
         this.noteTransientReconnect(name, pending, now);
@@ -109,9 +118,7 @@ export class HumanReconnectLifecycleAuthority {
   webSocketClose(ws, code = 1005, reason = "", wasClean = false, commit) {
     const attachment = attachmentOf(ws);
     if (attachment?.v39Superseded) {
-      if (this.room.v39PresenceFixStats) {
-        this.room.v39PresenceFixStats.supersededCloseCallbacksIgnored += 1;
-      }
+      this.presenceFixStats.supersededCloseCallbacksIgnored += 1;
       return;
     }
 
@@ -119,9 +126,7 @@ export class HumanReconnectLifecycleAuthority {
     const disconnectToken = token(now);
     try {
       ws.serializeAttachment(markHumanDisconnectPending(attachment, disconnectToken, now));
-      if (this.room.v39PresenceFixStats) {
-        this.room.v39PresenceFixStats.pendingCloseSocketsMarked += 1;
-      }
+      this.presenceFixStats.pendingCloseSocketsMarked += 1;
     } catch {}
 
     const name = cleanLogicalHumanName(attachment?.name);
@@ -132,22 +137,22 @@ export class HumanReconnectLifecycleAuthority {
       reason: String(reason || "").slice(0, 160),
       wasClean: Boolean(wasClean)
     };
-    this.room.v39PendingHumanDisconnects?.set?.(name, pending);
-    if (this.room.v39Stats) this.room.v39Stats.humanDisconnectsDeferred += 1;
+    this.pendingHumanDisconnects.set(name, pending);
+    this.reconnectStats.humanDisconnectsDeferred += 1;
 
     const settle = async () => {
       await this.sleepFn(this.graceMs);
-      const current = this.room.v39PendingHumanDisconnects?.get?.(name);
+      const current = this.pendingHumanDisconnects.get(name);
       if (!current || current.token !== disconnectToken) return;
 
       const stillConnected = (this.room.humanNames?.() || []).includes(name);
-      this.room.v39PendingHumanDisconnects.delete(name);
+      this.pendingHumanDisconnects.delete(name);
       if (stillConnected) {
-        if (this.room.v39Stats) this.room.v39Stats.transientHumanReconnects += 1;
+        this.reconnectStats.transientHumanReconnects += 1;
         return;
       }
 
-      if (this.room.v39Stats) this.room.v39Stats.humanDisconnectsCommitted += 1;
+      this.reconnectStats.humanDisconnectsCommitted += 1;
       return commit();
     };
 
@@ -156,8 +161,27 @@ export class HumanReconnectLifecycleAuthority {
     else task.catch(() => {});
   }
 
+  legacyV39Stats() {
+    return { ...this.reconnectStats };
+  }
+
+  legacyPresenceFixStats() {
+    return { ...this.presenceFixStats };
+  }
+
+  legacyPendingHumanDisconnects(now = Date.now()) {
+    return [...this.pendingHumanDisconnects.entries()].map(([name, row]) => ({
+      name,
+      ageMs: Math.max(0, now - Number(row.at || now)),
+      graceRemainingMs: Math.max(0, this.graceMs - (now - Number(row.at || now))),
+      code: row.code,
+      reason: row.reason,
+      wasClean: row.wasClean
+    }));
+  }
+
   snapshot(now = Date.now()) {
-    const pending = [...(this.room.v39PendingHumanDisconnects?.entries?.() || [])].map(([name, row]) => ({
+    const pending = this.legacyPendingHumanDisconnects(now);
       name,
       ageMs: Math.max(0, now - Number(row.at || now)),
       graceRemainingMs: Math.max(0, this.graceMs - (now - Number(row.at || now))),
@@ -170,6 +194,9 @@ export class HumanReconnectLifecycleAuthority {
       graceMs: this.graceMs,
       replacementWindowMs: this.replacementWindowMs,
       pendingHumanDisconnects: pending,
+      reconnectStats: this.legacyV39Stats(),
+      presenceFixStats: this.legacyPresenceFixStats(),
+      stateOwnedByAuthority: true,
       legacyV39CountersPreserved: true,
       finalCommittedCloseDelegatesBelowV39ReconnectOverrides: true
     };
