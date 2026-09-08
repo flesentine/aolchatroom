@@ -26,28 +26,16 @@ function filesContaining(paths, marker) {
 }
 
 
-function escapeRegExp(value) {
-  return String(value).replace(/[.*+?^$()|[\]\\]/g, "\\function filesContaining(paths, marker) {
-  return paths
-    .filter((path) => read(path).includes(marker))
-    .sort();
-}
-");
-}
-
 function filesAssigningSurface(paths, surface) {
-  const name = escapeRegExp(surface);
   const assignment = new RegExp(
-    `(?:this|this\\.room)\\.${name}\\s*(?:=|\\?\\?=|\\|\\|=|&&=)`
+    `(?:this|this\\.room)\\.${surface}\\s*(?:=|\\?\\?=|\\|\\|=|&&=)`
   );
   return paths.filter((path) => assignment.test(read(path))).sort();
 }
 
 function filesWritingCounter(paths, surface, counter) {
-  const surfaceName = escapeRegExp(surface);
-  const counterName = escapeRegExp(counter);
   const write = new RegExp(
-    `(?:this|this\\.room)\\.${surfaceName}\\??\\.${counterName}\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|=)`
+    `(?:this|this\\.room)\\.${surface}\\??\\.${counter}\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|=)`
   );
   return paths.filter((path) => write.test(read(path))).sort();
 }
