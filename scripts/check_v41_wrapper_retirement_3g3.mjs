@@ -44,7 +44,9 @@ const qualityCompat = read("src/index_v41_quality_compat.js");
 assert.ok(livelyCompat.includes('from "./index_v41_human_director_compat.js"'));
 assert.ok(!livelyCompat.includes('from "./index_v37_human_director.js"'));
 assert.ok(humanCompat.includes('from "./index_v41_free_providers_compat.js"'));
-assert.ok(providerCompat.includes('from "./index_v41_human_only_compat.js"'));
+assert.ok(providerCompat.includes('from "./index_v41_production_turn_compat.js"'));
+assert.ok(providerCompat.includes('from "./human_only_legacy_diagnostics_v41.js"'));
+assert.ok(!providerCompat.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenHuman.includes('from "./index_v37_free_providers.js"'));
 
 for (const method of [
