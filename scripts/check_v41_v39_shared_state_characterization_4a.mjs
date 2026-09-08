@@ -33,6 +33,15 @@ function filesAssigningSurface(paths, surface) {
   return paths.filter((path) => assignment.test(read(path))).sort();
 }
 
+
+function surfaceAssignmentCount(source, surface) {
+  const assignment = new RegExp(
+    `(?:this|this\\.room)\\.${surface}\\s*(?:=|\\?\\?=|\\|\\|=|&&=)`,
+    "g"
+  );
+  return [...source.matchAll(assignment)].length;
+}
+
 function filesWritingCounter(paths, surface, counter) {
   const write = new RegExp(
     `(?:this|this\\.room)\\.${surface}\\??\\.${counter}\\s*(?:\\+\\+|--|\\+=|-=|\\*=|/=|=)`
@@ -139,23 +148,48 @@ for (const [marker, expected] of Object.entries(initializers)) {
   );
 }
 
-const initializerOwners = {
-  v39Stats: ["src/index_v41_coherence_compat.js"],
-  v39RecentBotLeaves: ["src/index_v41_coherence_compat.js"],
-  v39PendingHumanDisconnects: ["src/index_v41_coherence_compat.js"],
-  v39LastTargetRepair: ["src/index_v41_coherence_compat.js"],
-  v39LastCoherenceLock: ["src/index_v41_coherence_compat.js"],
-  v39PresenceFixStats: ["src/index_v41_presence_compat.js"],
-  v39CaptureFixStats: ["src/index_v41_presence_compat.js"],
-  v39HumanReplacementAt: ["src/index_v41_presence_compat.js"]
+const wholeSurfaceAssignments = {
+  v39Stats: {
+    "src/index_v41_coherence_compat.js": 1
+  },
+  v39RecentBotLeaves: {
+    "src/index_v41_coherence_compat.js": 1
+  },
+  v39PendingHumanDisconnects: {
+    "src/index_v41_coherence_compat.js": 1
+  },
+  v39LastTargetRepair: {
+    "src/coherence_repair_v41.js": 1,
+    "src/index_v41_coherence_compat.js": 1
+  },
+  v39LastCoherenceLock: {
+    "src/coherence_repair_v41.js": 1,
+    "src/index_v41_coherence_compat.js": 1
+  },
+  v39PresenceFixStats: {
+    "src/index_v41_presence_compat.js": 1
+  },
+  v39CaptureFixStats: {
+    "src/index_v41_presence_compat.js": 1
+  },
+  v39HumanReplacementAt: {
+    "src/index_v41_presence_compat.js": 1
+  }
 };
 
-for (const [surface, expected] of Object.entries(initializerOwners)) {
+for (const [surface, expectedCounts] of Object.entries(wholeSurfaceAssignments)) {
   assert.deepEqual(
     filesAssigningSurface(sources, surface),
-    expected,
-    `4A v39 shared-state assignment ownership drifted for ${surface}`
+    Object.keys(expectedCounts).sort(),
+    `4A v39 whole-surface assignment ownership drifted for ${surface}`
   );
+  for (const path of Object.keys(expectedCounts)) {
+    assert.equal(
+      surfaceAssignmentCount(read(path), surface),
+      expectedCounts[path],
+      `4A v39 whole-surface assignment count drifted for ${surface} in ${path}`
+    );
+  }
 }
 
 assert.deepEqual(
