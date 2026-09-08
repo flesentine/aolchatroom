@@ -71,7 +71,6 @@ for (const method of [
 }
 
 for (const method of [
-  "generateHumanReplan",
   "v37Snapshot"
 ]) {
   assert.equal(ownsMethod(humanOnly, method), true, `v41 human-only residual owner must retain ${method}()`);
@@ -146,10 +145,9 @@ assert.ok(
     && !ownsMethod(humanOnly, "generateBackgroundPlan"),
   "lively ambient must own production background generation while frozen v37 retains the older adaptive method"
 );
-assert.ok(
-  ownsMethod(humanOnly, "generateHumanReplan") && ownsMethod(humanDirector, "generateHumanReplan"),
-  "human Director must own eligible turns while the residual human-only fallback remains available for delegated packets"
-);
+assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-only residual must release delegated fallback behavior");
+assert.equal(ownsMethod(humanDirector, "generateHumanReplan"), true, "human Director must remain the human-turn authority");
+assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must consolidate delegated fallback behavior");
 assert.equal(ownsMethod(humanOnly, "providerCapacityConstrained"), false, "3G.14 human-only residual must release capacity authority");
 assert.equal(ownsMethod(providerReadiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must consolidate live capacity authority");
 for (const method of ["noteProviderFailure", "v37ProviderFailoverSnapshot"]) {
