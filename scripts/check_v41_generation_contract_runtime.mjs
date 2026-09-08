@@ -116,6 +116,7 @@ const contracts = [
   "v41-capacity-policy-consolidation",
   "v41-human-fallback-consolidation",
   "v41-human-fallback-telemetry",
+  "v41-human-only-residual-retirement",
   "v37-hotfix-characterization",
   "v41-production-turn-singleflight-extraction",
   "v41-provider-readiness-extraction",
