@@ -40,3 +40,37 @@ The 4A gate:
 The legacy `v39Snapshot()` and presence snapshot surfaces should continue composing the same externally visible data from the new owner.
 
 No production behavior or browser/client changes in 4A.
+
+## 4B — consolidate reconnect state and telemetry ownership
+
+Phase 4B moves all reconnect-specific mutable state out of the v39 compatibility shells and into `HumanReconnectLifecycleAuthority`.
+
+Authority-owned state:
+- `pendingHumanDisconnects`;
+- `humanReplacementAt`;
+- `presenceFixStats` with the four historical replacement/pending-close counters;
+- `reconnectStats` with `humanDisconnectsDeferred`, `transientHumanReconnects`, and `humanDisconnectsCommitted`.
+
+The live room no longer carries:
+- `v39PendingHumanDisconnects`;
+- `v39HumanReplacementAt`;
+- `v39PresenceFixStats`.
+
+The mixed `v39Stats` object in `index_v41_coherence_compat.js` no longer stores the three reconnect counters. It retains only the still-shared non-reconnect v39 counters.
+
+External compatibility is preserved by composition:
+- `index_v41_coherence_compat.js::v39Snapshot()` merges `legacyV39Stats()` and `legacyPendingHumanDisconnects()` from the reconnect authority into the same historical `stats` / `pendingHumanDisconnects` fields;
+- `index_v41_presence_compat.js::v39Snapshot()` reads `legacyPresenceFixStats()` from the reconnect authority and preserves the same `presenceFixStats` field;
+- the authority's own v41 snapshot exposes the new ownership explicitly.
+
+Behavior remains unchanged:
+- same-name replacement still supersedes the old socket;
+- quick reconnect still suppresses the duplicate enter;
+- transient reconnect still avoids a fake leave/re-enter pair;
+- committed disconnect still delegates exactly once after the 5-second grace;
+- all legacy broadcast actions and externally visible counters remain intact.
+
+The 4B real-Worker contract additionally proves the retired room fields are absent on a production room while the legacy v39 snapshot still reports the authority-owned values.
+
+No client/browser code changes in this phase.
+
