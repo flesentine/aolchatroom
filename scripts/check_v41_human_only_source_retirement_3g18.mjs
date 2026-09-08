@@ -32,6 +32,7 @@ for (const marker of [
 }
 
 for (const proofPath of [
+  "scripts/check_v41_wrapper_authority_phase3a.mjs",
   "scripts/check_v41_v37_stack_characterization_3g1.mjs",
   "scripts/check_v41_wrapper_retirement_3g5.mjs",
   "scripts/check_v41_lively_support_consolidation_3g13.mjs",
