@@ -33,7 +33,9 @@ assert.ok(livelyAmbient.includes('from "./index_v41_human_director_compat.js"'))
 assert.ok(frozenLivelyAmbient.includes('from "./index_v37_human_director.js"'));
 assert.ok(humanDirector.includes('from "./index_v41_free_providers_compat.js"'));
 assert.ok(frozenHumanDirector.includes('from "./index_v37_free_providers.js"'));
-assert.ok(freeProviders.includes('from "./index_v41_human_only_compat.js"'));
+assert.ok(freeProviders.includes('from "./index_v41_production_turn_compat.js"'));
+assert.ok(freeProviders.includes('from "./human_only_legacy_diagnostics_v41.js"'));
+assert.ok(!freeProviders.includes('from "./index_v41_human_only_compat.js"'));
 assert.ok(frozenFreeProviders.includes('from "./index_v37_human_only.js"'));
 assert.ok(humanOnly.includes('from "./index_v41_production_turn_compat.js"'));
 assert.ok(productionTurn.includes('from "./index_v41_provider_readiness_compat.js"'));
