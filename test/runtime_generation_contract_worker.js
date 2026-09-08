@@ -820,7 +820,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const originalCallBrainProvider = this.callBrainProvider;
     const originalCallGroq = this.callGroq;
 
-    const fallbackBefore = Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0);
+    const fallbackBefore = Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0);
     let lowerLines = [];
     let fallbackLines = [];
 
@@ -843,7 +843,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       lowerLines = await this.generateHumanReplan(human);
       equal(lowerLines?.[0]?.text, "lower planner reply", "3G.15 delegated path must preserve a successful lower planner result");
       equal(
-        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
         fallbackBefore,
         "3G.15 built-in fallback must not run when the lower planner succeeds"
       );
@@ -855,7 +855,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       equal(fallbackLines[0]?.target, "Crateman", "3G.15 built-in fallback must reply to the human");
       equal(fallbackLines[0]?.source, "built-in", "3G.15 delegated fallback source must remain built-in");
       equal(
-        Number(this.v37AdaptiveAmbientStats?.humanModelFallbacks || 0),
+        Number(this.v37HumanFallbackStats?.humanModelFallbacks || 0),
         fallbackBefore + 1,
         "3G.15 delegated fallback must preserve the legacy humanModelFallbacks counter"
       );
