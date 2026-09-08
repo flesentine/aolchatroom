@@ -2,8 +2,13 @@
 // Frozen index_v37_free_providers.js remains unchanged for the v37-v40 lineage.
 // V41 production preserves provider configuration, ordering, implementations, source
 // normalization, failover diagnostics, and /ai-status augmentation here.
-import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v41_human_only_compat.js";
+import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
+import {
+  initializeV37HumanOnlyDiagnostics,
+  mergeV37HumanOnlySnapshot,
+  mergeV37HumanOnlyStatus
+} from "./human_only_legacy_diagnostics_v41.js";
 import {
   EXTENDED_ONLY_PROVIDERS,
   PROVIDER_LABELS_V37,
@@ -41,15 +46,16 @@ function openAiContent(data) {
 
 export default {
   async fetch(request, env) {
-    const response = await baseWorker.fetch(request, env);
+    const response = await productionTurnWorker.fetch(request, env);
     const url = new URL(request.url);
     if (url.pathname !== "/api/health" && url.pathname !== "/api/everything" && url.pathname !== "/api/full-status") return response;
     const data = await json(response);
     if (!data) return response;
+    const legacy = mergeV37HumanOnlyStatus(data);
     return Response.json({
-      ...data,
+      ...legacy,
       v37: {
-        ...(data.v37 || {}),
+        ...(legacy.v37 || {}),
         extendedFreeProviderPool: true,
         cohereTrialProductionDisabledByDefault: true,
         extendedProviderSummary: providerPoolSummary(env)
@@ -58,9 +64,10 @@ export default {
   }
 };
 
-export class ChatRoom extends AdaptiveChatRoom {
+export class ChatRoom extends ProductionTurnChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
+    initializeV37HumanOnlyDiagnostics(this);
     this.v37ExtendedProviderStats = {
       calls: 0,
       successes: 0,
@@ -313,7 +320,7 @@ export class ChatRoom extends AdaptiveChatRoom {
   }
 
   v37Snapshot() {
-    const base = super.v37Snapshot();
+    const base = mergeV37HumanOnlySnapshot(this, super.v37Snapshot());
     return {
       ...base,
       mode: {
