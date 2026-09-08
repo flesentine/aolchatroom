@@ -84,7 +84,6 @@ for (const marker of [
 
 const headerLines = 5;
 const diagnosticsImport = `import {
-  initializeV37HumanOnlyDiagnostics,
   mergeV37HumanOnlySnapshot,
   mergeV37HumanOnlyStatus
 } from "./human_only_legacy_diagnostics_v41.js";
@@ -108,7 +107,6 @@ const compatBody = providerCompat.split("\n").slice(headerLines).join("\n")
         ...(data.v37 || {}),`
   )
   .replace("export class ChatRoom extends ProductionTurnChatRoom {", "export class ChatRoom extends AdaptiveChatRoom {")
-  .replace("    initializeV37HumanOnlyDiagnostics(this);\n", "")
   .replace(
     "    const base = mergeV37HumanOnlySnapshot(this, super.v37Snapshot());",
     "    const base = super.v37Snapshot();"
@@ -116,7 +114,7 @@ const compatBody = providerCompat.split("\n").slice(headerLines).join("\n")
 assert.equal(
   compatBody,
   frozenProvider,
-  "3G.4 provider behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.17 diagnostic composition and direct-parent change"
+  "3G.4 provider behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.17 diagnostic composition and direct-parent change; 3G.19 adds no provider behavior"
 );
 
 const v41ProductionSpine = [
