@@ -1,7 +1,6 @@
 import { ChatRoom as ProductionChatRoom } from "../src/index_v41_generation_contract.js";
 import { ChatRoom as V41FreeProviderChatRoom } from "../src/index_v41_free_providers_compat.js";
 import { ChatRoom as V41HumanOnlyCompatChatRoom } from "../src/index_v41_human_only_compat.js";
-import { ChatRoom as V41HumanDirectorCompatChatRoom } from "../src/index_v41_human_director_compat.js";
 import { ChatRoom as V41LivelyAmbientCompatChatRoom } from "../src/index_v41_lively_ambient_compat.js";
 import { ChatRoom as V41ProviderReadinessChatRoom } from "../src/index_v41_provider_readiness_compat.js";
 import { ChatRoom as V41ProviderFailoverChatRoom } from "../src/index_v41_provider_failover_compat.js";
