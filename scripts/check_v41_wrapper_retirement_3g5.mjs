@@ -58,8 +58,8 @@ for (const retiredMethod of [
 }
 
 for (const marker of [
-  "room.v37LastAmbientAiAt = 0",
-  "room.v37AdaptiveAmbientStats = {",
+  "V37_RETIRED_ADAPTIVE_AMBIENT_STATS",
+  "ambientAiAttempts: 0",
   "adaptiveAmbientAi: true",
   "ambientSingleProviderAttempt: true",
   "ambientSingleCallExchange: true",
@@ -112,4 +112,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_human_only.js"'));
 }
 
-console.log("v41 Phase 3G.5 historical human-only compatibility checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.5 historical human-only compatibility checks passed after 3G.19 stateless diagnostics");
