@@ -29,6 +29,30 @@ function ownsMethod(source, name) {
 const frozenHumanOnly = read("src/index_v37_human_only.js");
 const humanOnly = read("src/index_v41_human_only_compat.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
+const generationBase = read("src/index_v41_generation_contract_base.js");
+
+const productionOwnerPaths = [
+  "src/index_v41_generation_contract_base.js",
+  "src/index_v41_bot_roster_reentry.js",
+  "src/index_v41_world_date_guard.js",
+  "src/index_v41_coherence_repair.js",
+  "src/index_v41_human_reconnect.js",
+  "src/index_v41_scene_coordinator.js",
+  "src/index_v41_ambient_continuity_compat.js",
+  "src/index_v41_presence_compat.js",
+  "src/index_v41_coherence_compat.js",
+  "src/index_v41_quality_compat.js",
+  "src/index_v41_lively_ambient_compat.js",
+  "src/index_v41_human_director_compat.js",
+  "src/index_v41_free_providers_compat.js",
+  "src/index_v41_human_only_compat.js",
+  "src/index_v41_production_turn_compat.js",
+  "src/index_v41_provider_readiness_compat.js",
+  "src/index_v41_provider_failover_compat.js",
+  "src/index_v41_output_hygiene_compat.js",
+  "src/index_v41_paused_shadow_compat.js"
+];
+const productionOwners = productionOwnerPaths.map((ownerPath) => [ownerPath, read(ownerPath)]);
 
 const frozenFallback = extractMethod(frozenHumanOnly, "async generateHumanReplan(human) {");
 const delegatedFallback = extractMethod(humanDirector, "async generateDelegatedHumanReplan(human) {")
@@ -43,6 +67,32 @@ assert.equal(ownsMethod(humanOnly, "generateHumanReplan"), false, "3G.15 human-o
 assert.equal(humanOnly.includes('from "./index_v14.js"'), false, "3G.15 human-only residual must release the built-in fallback dependency");
 assert.equal(ownsMethod(humanDirector, "generateHumanReplan"), true, "3G.15 human Director must remain the human-turn authority");
 assert.equal(ownsMethod(humanDirector, "generateDelegatedHumanReplan"), true, "3G.15 human Director must own delegated fallback");
+
+const humanReplanOwners = productionOwners
+  .filter(([, source]) => ownsMethod(source, "generateHumanReplan"))
+  .map(([ownerPath]) => ownerPath);
+assert.deepEqual(
+  humanReplanOwners,
+  [
+    "src/index_v41_generation_contract_base.js",
+    "src/index_v41_human_director_compat.js"
+  ],
+  "3G.15 v41 production must retain only the generation-contract wrapper and Human Director as generateHumanReplan() owners"
+);
+
+const delegatedFallbackOwners = productionOwners
+  .filter(([, source]) => ownsMethod(source, "generateDelegatedHumanReplan"))
+  .map(([ownerPath]) => ownerPath);
+assert.deepEqual(
+  delegatedFallbackOwners,
+  ["src/index_v41_human_director_compat.js"],
+  "3G.15 Human Director must be the only v41 production owner of generateDelegatedHumanReplan()"
+);
+
+assert.ok(
+  generationBase.includes("const lines = await super.generateHumanReplan(human);"),
+  "3G.15 generation-contract wrapper must continue delegating to the Human Director chain before enforcing its semantic contract"
+);
 assert.ok(
   humanDirector.includes("if (!this.directHumanDirectorEligible(packet)) return this.generateDelegatedHumanReplan(human);"),
   "3G.15 Director-ineligible packets must route through the consolidated delegated fallback"
