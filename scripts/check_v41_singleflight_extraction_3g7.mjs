@@ -61,8 +61,20 @@ assert.ok(pausedShadow.includes('from "./production_turn_stats_v41.js"'));
 assert.ok(sharedStats.includes("createV37ProductionTurnStats"));
 assert.ok(!productionTurn.includes('from "./index_v37_hotfix.js"'));
 
+const productionRunSignature = "async runV37BaseProductionTurn(source, forceSoon = false) {";
+const normalizedProductionRun = extractMethod(productionTurn, productionRunSignature)
+  .replace("    let providerReadinessToken = null;\n", "")
+  .replace("      providerReadinessToken = this.beginV41ProviderReadinessTurn?.(now) ?? null;\n", "")
+  .replace("      this.endV41ProviderReadinessTurn?.(providerReadinessToken);\n", "");
+assert.equal(
+  normalizedProductionRun,
+  extractMethod(frozen, productionRunSignature),
+  "3G.7 production-turn behavior must remain byte-for-byte equivalent after subtracting only O3 readiness-scope hooks"
+);
+assert.ok(productionTurn.includes("providerReadinessToken = this.beginV41ProviderReadinessTurn?.(now) ?? null;"));
+assert.ok(productionTurn.includes("this.endV41ProviderReadinessTurn?.(providerReadinessToken);"));
+
 for (const signature of [
-  "async runV37BaseProductionTurn(source, forceSoon = false) {",
   "requestV37ProductionTurn(source, forceSoon = false) {",
   "async tick(forceSoon = false) {",
   "async alarm() {"
@@ -154,4 +166,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_hotfix.js"'));
 }
 
-console.log("v41 Phase 3G.7 production-turn singleflight extraction checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.7 singleflight checks passed with O3 readiness-scope hooks");

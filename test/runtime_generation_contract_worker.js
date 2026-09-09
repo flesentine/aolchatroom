@@ -2509,6 +2509,106 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
   }
 
+  async contractProviderReadinessSnapshotsO3() {
+    this.reset();
+    const cache = this.v41ProviderReadinessCache;
+    ensure(cache, "O3 provider readiness cache must be installed");
+
+    const originalConfigured = this.configuredProviders;
+    const originalProviderReady = this.providerReady;
+    const originalSoftReady = this.softReady;
+    const originalDepth = this.v35StructuredGenerationDepth;
+    let configuredCalls = 0;
+    let hardChecks = 0;
+    let softChecks = 0;
+    const now = 1700000000000;
+
+    this.configuredProviders = () => {
+      configuredCalls += 1;
+      return ["gemini", "groq", "workers-ai"];
+    };
+    this.providerReady = () => {
+      hardChecks += 1;
+      return true;
+    };
+    this.softReady = () => {
+      softChecks += 1;
+      return true;
+    };
+    this.v35StructuredGenerationDepth = 0;
+
+    const before = cache.snapshot();
+    const token = this.beginV41ProviderReadinessTurn(now);
+    try {
+      const preferred = V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now);
+      const effective = V41FreeProviderChatRoom.prototype.effectiveStructuredReadyProviders.call(this, now);
+      const degraded = V41FreeProviderChatRoom.prototype.providerPoolDegraded.call(this, now);
+      const constrained = V41FreeProviderChatRoom.prototype.providerCapacityConstrained.call(this, now);
+      const hard = V41FreeProviderChatRoom.prototype.hardReadyProviders.call(this, now);
+      const soft = V41FreeProviderChatRoom.prototype.softReadyProviders.call(this, now);
+
+      equal(preferred.join(","), "gemini", "O3 must preserve ambient provider priority");
+      equal(effective.join(","), "gemini,groq,workers-ai", "O3 must preserve depth-0 extended provider ordering");
+      equal(degraded, false, "O3 must preserve healthy-pool classification");
+      equal(constrained, false, "O3 must preserve unconstrained classification while a preferred provider is ready");
+      equal(hard.length, 3, "O3 hard-ready set must remain intact");
+      equal(soft.length, 3, "O3 soft-ready set must remain intact");
+      equal(configuredCalls, 1, "same-timestamp O3 checks must evaluate configured providers once");
+      equal(hardChecks, 3, "same-timestamp O3 checks must hard-evaluate each provider once");
+      equal(softChecks, 3, "same-timestamp O3 checks must soft-evaluate each provider once");
+
+      V41FreeProviderChatRoom.prototype.providerPoolDegraded.call(this, now);
+      V41FreeProviderChatRoom.prototype.providerCapacityConstrained.call(this, now);
+      V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now);
+      equal(configuredCalls, 1, "repeated same-time classification must hit O3 cache");
+      equal(hardChecks, 3, "repeated same-time hard checks must hit O3 cache");
+      equal(softChecks, 3, "repeated same-time soft checks must hit O3 cache");
+
+      this.v35StructuredGenerationDepth = 1;
+      const structured = V41FreeProviderChatRoom.prototype.orderedReadyProviders.call(this, now);
+      equal(structured.join(","), "gemini,groq", "O3 must preserve structured Workers-AI boundary");
+      equal(configuredCalls, 1, "structured-depth change must reuse the same base readiness evaluation");
+      equal(hardChecks, 3, "structured-depth change must not repeat hard readiness checks");
+      equal(softChecks, 3, "structured-depth change must not repeat soft readiness checks");
+
+      V41FreeProviderChatRoom.prototype.noteOutputReject.call(this, "gemini", "O3 invalidation probe");
+      V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now);
+      equal(configuredCalls, 2, "provider-state mutation must invalidate same-timestamp O3 readiness");
+      equal(hardChecks, 6, "provider-state invalidation must rerun hard readiness");
+      equal(softChecks, 6, "provider-state invalidation must rerun soft readiness");
+
+      V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now + 1);
+      equal(configuredCalls, 3, "new timestamp must build a fresh O3 base snapshot");
+      equal(hardChecks, 9, "new timestamp must re-evaluate hard readiness");
+      equal(softChecks, 9, "new timestamp must re-evaluate soft readiness");
+    } finally {
+      this.endV41ProviderReadinessTurn(token);
+      this.configuredProviders = originalConfigured;
+      this.providerReady = originalProviderReady;
+      this.softReady = originalSoftReady;
+      this.v35StructuredGenerationDepth = originalDepth;
+    }
+
+    const after = cache.snapshot();
+    equal(after.active, false, "O3 production-turn cache must clear after the scope");
+    equal(after.baseSnapshotsBuilt - before.baseSnapshotsBuilt, 3, "O3 contract must rebuild the invalidated timestamp plus the later timestamp");
+    equal(after.derivedSnapshotsBuilt - before.derivedSnapshotsBuilt, 2, "O3 contract must build depth-0 and depth-1 derived snapshots");
+    equal(after.invalidations - before.invalidations, 1, "O3 must invalidate once after the output-reject readiness mutation");
+    ensure(after.baseCacheHits > before.baseCacheHits, "O3 must record base cache hits");
+    ensure(after.derivedCacheHits > before.derivedCacheHits, "O3 must record derived cache hits");
+
+    return {
+      timestampScoped: true,
+      structuredDepthScoped: true,
+      configuredEvaluations: configuredCalls,
+      hardChecks,
+      softChecks,
+      invalidations: after.invalidations - before.invalidations,
+      baseSnapshotsBuilt: after.baseSnapshotsBuilt - before.baseSnapshotsBuilt,
+      derivedSnapshotsBuilt: after.derivedSnapshotsBuilt - before.derivedSnapshotsBuilt
+    };
+  }
+
   contractStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.phase, "2B", "production snapshot should expose Phase 2B");
@@ -2584,6 +2684,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
     if (name === "v41-reconnect-state-ownership") return this.contractV41ReconnectStateOwnership();
     if (name === "history-persistence-coalescing") return this.contractHistoryPersistenceCoalescing();
+    if (name === "provider-readiness-snapshots-o3") return this.contractProviderReadinessSnapshotsO3();
     if (name === "status") return this.contractStatus();
     throw new Error(`unknown generation contract: ${name}`);
   }

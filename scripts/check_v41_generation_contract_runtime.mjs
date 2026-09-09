@@ -145,6 +145,7 @@ const contracts = [
   "reconnect-committed-close",
   "v41-reconnect-state-ownership",
   "history-persistence-coalescing",
+  "provider-readiness-snapshots-o3",
   "status"
 ];
 

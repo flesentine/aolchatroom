@@ -42,8 +42,10 @@ export class ChatRoom extends ProviderReadinessChatRoom {
 
   async runV37BaseProductionTurn(source, forceSoon = false) {
     this.v37ProductionTurnStats.baseTurnsStarted += 1;
+    let providerReadinessToken = null;
     try {
       const now = Date.now();
+      providerReadinessToken = this.beginV41ProviderReadinessTurn?.(now) ?? null;
       this.queueV37DegradedFallback(now, Boolean(forceSoon));
       this.queueV37CapacitySheddingAmbient(now, Boolean(forceSoon));
 
@@ -54,6 +56,7 @@ export class ChatRoom extends ProviderReadinessChatRoom {
       }
       return await super.tick(Boolean(forceSoon));
     } finally {
+      this.endV41ProviderReadinessTurn?.(providerReadinessToken);
       this.v37ProductionTurnStats.baseTurnsCompleted += 1;
       const gate = this.v37ProductionTurnGate?.snapshot?.();
       if (gate) {
