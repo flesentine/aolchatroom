@@ -107,11 +107,9 @@ assert.deepEqual(
   objectKeys(coherenceCompat, "this.v39Stats = {"),
   [
     "backgroundPlansFiltered",
-    "botReentryBlocks",
-    "futureEventLinesBlocked",
     "selfDialogueLinesBlocked"
   ],
-  "4C mixed v39Stats must contain only still-shared non-repair counters"
+  "4C mixed v39Stats must contain only compatibility-shell counters after 4D"
 );
 
 assert.deepEqual(
@@ -126,10 +124,9 @@ assert.deepEqual(
 assert.deepEqual(
   objectKeys(presenceCompat, "this.v39CaptureFixStats = {"),
   [
-    "historicalDateClaimsBlocked",
     "legacyQuickBackgroundCallsSuppressed"
   ],
-  "4C presence capture stats must contain only non-repair counters"
+  "4C presence capture stats must contain only compatibility-shell counters after 4D"
 );
 
 for (const marker of [
@@ -137,7 +134,7 @@ for (const marker of [
   "legacyV39Stats",
   "legacyLastTargetRepair",
   "legacyLastCoherenceLock",
-  "stats: { ...this.v39Stats, ...repairStats, ...reconnectStats }"
+  "stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4C coherence compatibility must compose legacy repair diagnostics: ${marker}`);
 }
@@ -162,4 +159,4 @@ assert.ok(runtime.includes('"v41-coherence-repair-state-ownership"'));
 assert.ok(phase4a.includes("after 4C coherence consolidation"));
 assert.ok(phase4b.includes("after 4C coherence consolidation"));
 
-console.log("v41 Phase 4C coherence repair state ownership checks passed");
+console.log("v41 Phase 4C coherence repair state ownership checks passed after 4D world/roster consolidation");
