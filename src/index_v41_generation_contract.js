@@ -115,6 +115,15 @@ export class ChatRoom extends Phase2ChatRoom {
     return super.handlePendingHumanWithAi(now);
   }
 
+  async webSocketMessage(ws, message) {
+    if (typeof message === "string" && message === "debug-refresh") {
+      const attachment = ws?.deserializeAttachment?.() || {};
+      if (attachment.debug) this.sendDebug?.(ws, attachment.name || "Guest");
+      return;
+    }
+    return super.webSocketMessage(ws, message);
+  }
+
   v41Snapshot(now = Date.now()) {
     const snapshot = super.v41Snapshot(now);
     const stats = snapshot.generationContract?.stats || {};
