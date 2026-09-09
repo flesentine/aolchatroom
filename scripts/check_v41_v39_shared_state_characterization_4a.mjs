@@ -85,7 +85,6 @@ const roster = read("src/bot_roster_reentry_v41.js");
 const surfaces = {
   v39Stats: [
     "src/bot_roster_reentry_v41.js",
-    "src/coherence_repair_v41.js",
     "src/index_v41_coherence_compat.js",
     "src/world_date_guard_v41.js"
   ],
@@ -94,17 +93,10 @@ const surfaces = {
     "src/index_v41_coherence_compat.js"
   ],
   v39PendingHumanDisconnects: [],
-  v39LastTargetRepair: [
-    "src/coherence_repair_v41.js",
-    "src/index_v41_coherence_compat.js"
-  ],
-  v39LastCoherenceLock: [
-    "src/coherence_repair_v41.js",
-    "src/index_v41_coherence_compat.js"
-  ],
+  v39LastTargetRepair: [],
+  v39LastCoherenceLock: [],
   v39PresenceFixStats: [],
   v39CaptureFixStats: [
-    "src/coherence_repair_v41.js",
     "src/index_v41_presence_compat.js",
     "src/world_date_guard_v41.js"
   ],
@@ -122,8 +114,6 @@ for (const [surface, expected] of Object.entries(surfaces)) {
 const initializers = {
   "this.v39Stats = {": ["src/index_v41_coherence_compat.js"],
   "this.v39RecentBotLeaves = new Map();": ["src/index_v41_coherence_compat.js"],
-  "this.v39LastTargetRepair = null;": ["src/index_v41_coherence_compat.js"],
-  "this.v39LastCoherenceLock = null;": ["src/index_v41_coherence_compat.js"],
   "this.v39CaptureFixStats = {": ["src/index_v41_presence_compat.js"]
 };
 
@@ -140,14 +130,6 @@ const wholeSurfaceAssignments = {
     "src/index_v41_coherence_compat.js": 1
   },
   v39RecentBotLeaves: {
-    "src/index_v41_coherence_compat.js": 1
-  },
-  v39LastTargetRepair: {
-    "src/coherence_repair_v41.js": 1,
-    "src/index_v41_coherence_compat.js": 1
-  },
-  v39LastCoherenceLock: {
-    "src/coherence_repair_v41.js": 1,
     "src/index_v41_coherence_compat.js": 1
   },
   v39CaptureFixStats: {
@@ -175,8 +157,6 @@ assert.deepEqual(
   [
     "backgroundPlansFiltered",
     "botReentryBlocks",
-    "clarificationTargetRepairs",
-    "coherenceVoiceLocks",
     "futureEventLinesBlocked",
     "selfDialogueLinesBlocked"
   ],
@@ -186,7 +166,6 @@ assert.deepEqual(
 assert.deepEqual(
   objectKeys(presenceCompat, "this.v39CaptureFixStats = {"),
   [
-    "explicitErrorChallengesRepaired",
     "historicalDateClaimsBlocked",
     "legacyQuickBackgroundCallsSuppressed"
   ],
@@ -196,11 +175,11 @@ assert.deepEqual(
 for (const marker of [
   "this.v39Stats.selfDialogueLinesBlocked += filtered.blocked.length",
   "this.v39Stats.backgroundPlansFiltered += 1",
-  "stats: { ...this.v39Stats, ...reconnectStats }",
+  "stats: { ...this.v39Stats, ...repairStats, ...reconnectStats }",
   "...this.v39RecentBotLeaves.keys()",
   "legacyPendingHumanDisconnects",
-  "lastTargetRepair: this.v39LastTargetRepair",
-  "lastCoherenceLock: this.v39LastCoherenceLock"
+  "legacyLastTargetRepair",
+  "legacyLastCoherenceLock"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4A coherence compatibility surface must retain marker: ${marker}`);
 }
@@ -208,7 +187,7 @@ for (const marker of [
 for (const marker of [
   "this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1",
   "legacyPresenceFixStats",
-  "captureFixStats: { ...this.v39CaptureFixStats }"
+  "legacyCaptureFixStats"
 ]) {
   assert.ok(presenceCompat.includes(marker), `4A presence compatibility surface must retain marker: ${marker}`);
 }
@@ -254,14 +233,39 @@ assert.deepEqual(
 );
 
 for (const marker of [
-  "this.room.v39Stats.clarificationTargetRepairs += 1",
-  "this.room.v39LastTargetRepair = {",
-  "this.room.v39Stats.coherenceVoiceLocks += 1",
-  "this.room.v39LastCoherenceLock = {",
-  "this.room.v39CaptureFixStats.explicitErrorChallengesRepaired += 1"
+  "this.lastTargetRepair = null",
+  "this.lastCoherenceLock = null",
+  "this.repairStats = {",
+  "this.captureFixStats = {",
+  "this.repairStats.clarificationTargetRepairs += 1",
+  "this.lastTargetRepair = {",
+  "this.repairStats.coherenceVoiceLocks += 1",
+  "this.lastCoherenceLock = {",
+  "this.captureFixStats.explicitErrorChallengesRepaired += 1",
+  "legacyV39Stats()",
+  "legacyCaptureFixStats()",
+  "legacyLastTargetRepair()",
+  "legacyLastCoherenceLock()"
 ]) {
-  assert.ok(repair.includes(marker), `4A coherence-repair authority must retain shared-state marker: ${marker}`);
+  assert.ok(repair.includes(marker), `4A coherence-repair authority must retain 4C-owned state marker: ${marker}`);
 }
+
+assert.deepEqual(
+  objectKeys(repair, "this.repairStats = {"),
+  [
+    "clarificationTargetRepairs",
+    "coherenceVoiceLocks"
+  ],
+  "4A coherence repair stats schema must remain exact after 4C"
+);
+
+assert.deepEqual(
+  objectKeys(repair, "this.captureFixStats = {"),
+  [
+    "explicitErrorChallengesRepaired"
+  ],
+  "4A coherence repair capture schema must remain exact after 4C"
+);
 
 for (const marker of [
   "this.room.v39CaptureFixStats.historicalDateClaimsBlocked += 1",
@@ -280,8 +284,6 @@ for (const marker of [
 
 const counterWriters = {
   v39Stats: {
-    clarificationTargetRepairs: ["src/coherence_repair_v41.js"],
-    coherenceVoiceLocks: ["src/coherence_repair_v41.js"],
     futureEventLinesBlocked: ["src/world_date_guard_v41.js"],
     selfDialogueLinesBlocked: ["src/index_v41_coherence_compat.js"],
     backgroundPlansFiltered: ["src/index_v41_coherence_compat.js"],
@@ -289,7 +291,6 @@ const counterWriters = {
   },
   v39CaptureFixStats: {
     legacyQuickBackgroundCallsSuppressed: ["src/index_v41_presence_compat.js"],
-    explicitErrorChallengesRepaired: ["src/coherence_repair_v41.js"],
     historicalDateClaimsBlocked: ["src/world_date_guard_v41.js"]
   }
 };
@@ -314,4 +315,4 @@ for (const source of [reconnect, repair, worldDate, roster]) {
   }
 }
 
-console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed after 4B reconnect consolidation");
+console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed after 4C coherence consolidation");
