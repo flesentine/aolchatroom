@@ -72,10 +72,16 @@ export class ChatRoom extends V41LivelyAmbientCompatChatRoom {
   }
 
   activeV38TopicCooling(now = Date.now()) {
-    this.pruneV38TopicCooling(now);
-    return [...this.v38TopicCooling.entries()]
-      .filter(([, until]) => Number(until || 0) > now)
-      .map(([topic, until]) => ({ topic, until, remainingMs: Math.max(0, Number(until || 0) - now) }));
+    const active = [];
+    for (const [topic, until] of this.v38TopicCooling.entries()) {
+      const numericUntil = Number(until || 0);
+      if (numericUntil <= now) {
+        this.v38TopicCooling.delete(topic);
+        continue;
+      }
+      active.push({ topic, until, remainingMs: Math.max(0, numericUntil - now) });
+    }
+    return active;
   }
 
   detectRoomTopicFatigue(now = Date.now()) {

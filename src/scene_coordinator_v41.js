@@ -7,6 +7,7 @@ import {
   selectSceneCarryIndices
 } from "./scene_continuity_v40.js";
 import { canonicalRoomTopic } from "./quality_guard_v38.js";
+import { findLastMatching } from "./hotpath_collections_v41.js";
 import {
   V41_AMBIGUITY_MARGIN,
   V41_DIRECT_ASSOCIATION_THRESHOLD,
@@ -198,7 +199,11 @@ export class SceneCoordinator {
   }
 
   recentHumanNames(now = Date.now()) {
-    const names = new Set(this.activeHumanNames().map((name) => String(name || "").trim()).filter(Boolean));
+    const names = new Set();
+    for (const value of this.activeHumanNames()) {
+      const name = String(value || "").trim();
+      if (name) names.add(name);
+    }
     for (const row of this.history()) {
       if (row?.kind !== "human") continue;
       const at = Number(row.at || 0);
@@ -222,10 +227,10 @@ export class SceneCoordinator {
     if (!momentum?.sceneId) return { owned: false, reason: "no-scene", human: "" };
     const rows = this.rowsForScene(momentum.sceneId, now, V40_MOMENTUM_WINDOW_MS);
     const humans = this.recentHumanNames(now);
-    const exactHuman = [...rows].reverse().find((row) =>
+    const exactHuman = findLastMatching(rows, (row) =>
       row?.kind === "human"
       && Number(now || 0) - Number(row.at || 0) <= V40_RECENT_HUMAN_SCENE_MS
-    ) || null;
+    );
     if (exactHuman) return { owned: true, reason: "recent-human-in-scene", human: exactHuman.from || "" };
 
     const scene = this.room?.sceneBoard?.get?.(momentum.sceneId) || null;
@@ -243,11 +248,11 @@ export class SceneCoordinator {
       return { protected: true, reason: "open-question-targets-active-human", human: openTarget };
     }
 
-    const recentHuman = [...this.history()].reverse().find((row) =>
+    const recentHuman = findLastMatching(this.history(), (row) =>
       row?.kind === "human"
       && row.sceneId === scene.id
       && Number(now || 0) - Number(row.at || 0) <= V40_RECENT_HUMAN_SCENE_MS
-    ) || null;
+    );
     if (recentHuman) return { protected: true, reason: "recent-human-in-exact-scene", human: recentHuman.from || "" };
     return { protected: false, reason: "no-human-closure-protection", human: "" };
   }
@@ -319,9 +324,11 @@ export class SceneCoordinator {
 
   fatiguedScene(now = Date.now()) {
     const scenes = typeof this.room?.openScenes === "function" ? this.room.openScenes(now) : [];
-    const scene = [...(scenes || [])]
-      .filter((item) => fatiguePhase(item?.turns) !== "fresh")
-      .sort((a, b) => Number(b?.turns || 0) - Number(a?.turns || 0))[0] || null;
+    let scene = null;
+    for (const candidate of scenes || []) {
+      if (fatiguePhase(candidate?.turns) === "fresh") continue;
+      if (!scene || Number(candidate?.turns || 0) > Number(scene?.turns || 0)) scene = candidate;
+    }
     if (scene) this.fatigueForScene(scene, now);
     return scene;
   }

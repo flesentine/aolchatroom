@@ -1,4 +1,5 @@
 import { SceneCoordinator } from "./scene_coordinator_v41.js";
+import { findLastMatching } from "./hotpath_collections_v41.js";
 import { V40_MOMENTUM_WINDOW_MS } from "./scene_continuity_v40.js";
 import {
   inspectEffectiveOpenQuestion,
@@ -143,7 +144,7 @@ export class SceneOwnershipCoordinator extends SceneCoordinator {
     if (!momentum?.sceneId) return { owned: false, reason: "no-scene", human: "" };
     const rows = this.rowsForScene(momentum.sceneId, now, V40_MOMENTUM_WINDOW_MS);
     const humans = this.recentHumanNames(now);
-    const exactHuman = [...rows].reverse().find((row) => row?.kind === "human") || null;
+    const exactHuman = findLastMatching(rows, (row) => row?.kind === "human");
     if (exactHuman) return { owned: true, reason: "recent-human-in-scene", human: exactHuman.from || "" };
     const participantHuman = participantNames(rows).find((name) => humans.has(name)) || "";
     if (participantHuman) return { owned: true, reason: "active-or-recent-human-in-momentum-window", human: participantHuman };
@@ -159,11 +160,11 @@ export class SceneOwnershipCoordinator extends SceneCoordinator {
       return { protected: true, reason: "effective-open-question-targets-active-human", human: openTarget };
     }
 
-    const recentHuman = [...this.history()].reverse().find((row) =>
+    const recentHuman = findLastMatching(this.history(), (row) =>
       row?.kind === "human"
       && row.sceneId === scene.id
       && Number(now || 0) - Number(row.at || 0) <= 90000
-    ) || null;
+    );
     if (recentHuman) return { protected: true, reason: "recent-human-in-exact-scene", human: recentHuman.from || "" };
     return { protected: false, reason: "no-effective-human-closure-protection", human: "" };
   }

@@ -59,10 +59,26 @@ assert.equal(
   false,
   "3G.18 retired human-only residual source must be deleted"
 );
+const o4ActiveAmbientCharacters = extractMethod(lively, "activeAmbientCharacters() {")
+  .replace(
+    `  activeAmbientCharacters() {
+    const active = [];
+    for (const name of this.activeBotNames || []) {
+      const character = getCharacter(name);
+      if (character) active.push(character);
+    }
+    return active;
+  }`,
+    `  activeAmbientCharacters() {
+    return [...(this.activeBotNames || [])]
+      .map((name) => getCharacter(name))
+      .filter(Boolean);
+  }`
+  );
 assert.equal(
-  extractMethod(lively, "activeAmbientCharacters() {"),
+  o4ActiveAmbientCharacters,
   extractMethod(frozenHumanOnly, "activeAmbientCharacters() {"),
-  "3G.13 activeAmbientCharacters() must remain byte-for-byte equivalent to the frozen v37 helper"
+  "3G.13 activeAmbientCharacters() must remain equivalent after normalizing only the O4 allocation rewrite"
 );
 
 assert.equal(ownsMethod(lively, "activeAmbientCharacters"), true, "lively ambient must own activeAmbientCharacters()");
@@ -107,4 +123,4 @@ for (const marker of [
   assert.ok(legacyDiagnostics.includes(marker), `3G.17/3G.18 diagnostics helper must retain marker: ${marker}`);
 }
 
-console.log("v41 Phase 3G.13 lively-support consolidation checks passed after 3G.19 stateless diagnostics");
+console.log("v41 Phase 3G.13 lively-support checks passed with O4 allocation normalization");
