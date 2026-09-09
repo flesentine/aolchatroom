@@ -25,11 +25,19 @@ for (const retired of [
   assert.equal(app.includes(retired), false, `app.js must not retain duplicate v1 capture code: ${retired}`);
 }
 assert.equal(app.includes('exportChat.addEventListener("click"'), false, "Save Chat ownership must not be duplicated in app.js");
+assert.ok(app.includes('new CustomEvent("aol96:capture-diagnostic"'), "app may emit metadata but must not own capture state");
+assert.ok(app.includes('action: "reconnect-scheduled"'), "reconnect scheduling diagnostics must bridge into v2");
 
 assert.ok(captureV2.includes('const STORAGE_KEY = "aol96-chat-capture-v2";'));
 assert.ok(captureV2.includes("const PERSIST_INTERVAL_MS = 5 * 1000;"));
 assert.ok(captureV2.includes("let persistDirty = false;"));
 assert.ok(captureV2.includes("let lastPersistAttemptAt = 0;"));
+assert.ok(captureV2.includes('const DIAGNOSTIC_EVENT = "aol96:capture-diagnostic";'));
+assert.ok(captureV2.includes("window.addEventListener(DIAGNOSTIC_EVENT"));
+assert.ok(captureV2.includes('socketOpenCount > 0 ? "reconnected" : "open"'));
+assert.ok(captureV2.includes("code: Number(event.code || 0)"));
+assert.ok(captureV2.includes("reason: String(event.reason || \"\")"));
+assert.ok(captureV2.includes("wasClean: Boolean(event.wasClean)"));
 
 const scheduleStart = captureV2.indexOf("function schedulePersist()");
 const scheduleEnd = captureV2.indexOf("function persist(", scheduleStart);
