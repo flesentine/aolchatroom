@@ -74,3 +74,36 @@ The 4B real-Worker contract additionally proves the retired room fields are abse
 
 No client/browser code changes in this phase.
 
+## 4C — consolidate coherence-repair state and telemetry ownership
+
+Phase 4C moves the remaining coherence-repair mutable state out of the v39 compatibility shells and into `CoherenceRepairAuthority`.
+
+Authority-owned state:
+- `lastTargetRepair`;
+- `lastCoherenceLock`;
+- `repairStats.clarificationTargetRepairs`;
+- `repairStats.coherenceVoiceLocks`;
+- `captureFixStats.explicitErrorChallengesRepaired`.
+
+The live room no longer carries:
+- `v39LastTargetRepair`;
+- `v39LastCoherenceLock`.
+
+The mixed `v39Stats` object no longer stores the clarification-repair or coherence-lock counters, and `v39CaptureFixStats` no longer stores the explicit-error-repair counter.
+
+External compatibility remains unchanged:
+- `index_v41_coherence_compat.js::v39Snapshot()` merges `legacyV39Stats()` from the repair authority and reads `legacyLastTargetRepair()` / `legacyLastCoherenceLock()`;
+- `index_v41_presence_compat.js::v39Snapshot()` merges `legacyCaptureFixStats()` from the repair authority into the historical `captureFixStats` object;
+- the v41 coherence-repair snapshot exposes the new authority-owned state directly.
+
+Behavior remains unchanged:
+- implicit clarification target repair still preserves the exact reply anchor;
+- explicit bot mentions still outrank semantic repair;
+- human Voice coherence constraints still lock to the current anchor;
+- explicit error challenges still apply the repair plan and change the lock mode to `challenge`;
+- all historical v39 counters and diagnostics remain visible through the same status surface.
+
+The 4C real-Worker contract proves both the absence of the retired room fields and the unchanged legacy v39 snapshot after live target-repair and explicit-error flows.
+
+No client/browser code changes in this phase.
+
