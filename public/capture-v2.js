@@ -4,8 +4,12 @@
   const RESUME_GAP_MS = 10 * 60 * 1000;
   const SERVER_ECHO_WINDOW_MS = 10000;
 
+  const PERSIST_INTERVAL_MS = 5 * 1000;
+
   let capture = null;
   let persistTimer = null;
+  let persistDirty = false;
+  let lastPersistAttemptAt = 0;
   const serverMessageKeys = new Set();
 
   function now() {
@@ -21,6 +25,9 @@
   }
 
   function loadCapture(name) {
+    clearPersistTimer();
+    persistDirty = false;
+    lastPersistAttemptAt = 0;
     const current = now();
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
@@ -53,16 +60,40 @@
     persist(true);
   }
 
+  function clearPersistTimer() {
+    if (persistTimer !== null) clearTimeout(persistTimer);
+    persistTimer = null;
+  }
+
   function schedulePersist() {
-    clearTimeout(persistTimer);
-    persistTimer = setTimeout(() => persist(), 1000);
+    if (!capture) return;
+    persistDirty = true;
+    if (persistTimer !== null) return;
+
+    const sinceLastAttempt = lastPersistAttemptAt
+      ? now() - lastPersistAttemptAt
+      : PERSIST_INTERVAL_MS;
+    const delay = Math.max(0, PERSIST_INTERVAL_MS - sinceLastAttempt);
+    persistTimer = setTimeout(() => {
+      persistTimer = null;
+      persist();
+    }, delay);
   }
 
   function persist(force = false) {
-    if (!capture) return;
-    if (force) clearTimeout(persistTimer);
-    capture.updatedAt = now();
-    try { localStorage.setItem(STORAGE_KEY, JSON.stringify(capture)); } catch {}
+    if (!capture) return false;
+    if (force) clearPersistTimer();
+    if (!persistDirty) return false;
+
+    lastPersistAttemptAt = now();
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(capture));
+      persistDirty = false;
+      return true;
+    } catch {
+      // Keep the authoritative in-memory capture dirty, but rate-limit retries.
+      return false;
+    }
   }
 
   function record(event) {
@@ -331,5 +362,9 @@
     }, true);
   }
 
+  document.addEventListener("visibilitychange", () => {
+    if (document.visibilityState === "hidden") persist(true);
+  });
+  window.addEventListener("pagehide", () => persist(true));
   window.addEventListener("beforeunload", () => persist(true));
 })();
