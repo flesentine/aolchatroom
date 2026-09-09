@@ -1769,27 +1769,29 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
     const reconnectAuthority = this.humanReconnectLifecycleAuthority();
     const rosterAuthority = this.botRosterReentryAuthority();
+    const backgroundAuthority = this.v39BackgroundCompatibilityAuthority();
     equal(Object.hasOwn(this, "v39RecentBotLeaves"), false, "4D must remove the legacy bot-leave map from room state");
     ensure(rosterAuthority?.recentBotLeaves instanceof Map, "4D roster authority must own the bot-leave map");
     equal(Object.hasOwn(this, "v39PendingHumanDisconnects"), false, "4B must remove the legacy reconnect map from room state");
     ensure(reconnectAuthority?.pendingHumanDisconnects instanceof Map, "4B reconnect authority must own the pending reconnect map");
-    ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize non-reconnect legacy v39 counters");
+    equal(Object.hasOwn(this, "v39Stats"), false, "4E must remove the final mixed v39Stats room surface");
+    ensure(backgroundAuthority?.backgroundStats && typeof backgroundAuthority.backgroundStats === "object", "4E background authority must own legacy v39 background counters");
     const repairAuthority = this.coherenceRepairAuthority();
     equal(Object.hasOwn(this, "v39LastTargetRepair"), false, "4C must remove last-target diagnostics from room state");
     equal(Object.hasOwn(this, "v39LastCoherenceLock"), false, "4C must remove last-lock diagnostics from room state");
     equal(repairAuthority?.lastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline through 4C");
     equal(repairAuthority?.lastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline through 4C");
 
-    const beforeBlocked = this.v39Stats.selfDialogueLinesBlocked;
-    const beforeFiltered = this.v39Stats.backgroundPlansFiltered;
+    const beforeBlocked = backgroundAuthority.backgroundStats.selfDialogueLinesBlocked;
+    const beforeFiltered = backgroundAuthority.backgroundStats.backgroundPlansFiltered;
     this.queueScenePlan([
       { speaker: "SegaMan", target: "SegaMan", intent: "reply", topic: "gaming", text: "yeah SegaMan totally" },
       { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn is still my pick" },
       { speaker: "SegaMan", target: "room", intent: "react", topic: "gaming", text: "exactly what i just said" }
     ], "background");
 
-    equal(this.v39Stats.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 must preserve both v39 self-dialogue rejection modes");
-    equal(this.v39Stats.backgroundPlansFiltered, beforeFiltered + 1, "3F.3 must preserve the legacy filtered-background-plan counter");
+    equal(backgroundAuthority.backgroundStats.selfDialogueLinesBlocked, beforeBlocked + 2, "3F.3 must preserve both v39 self-dialogue rejection modes");
+    equal(backgroundAuthority.backgroundStats.backgroundPlansFiltered, beforeFiltered + 1, "3F.3 must preserve the legacy filtered-background-plan counter");
     ensure(
       !(this.aiQueue || []).some((row) => row?.text === "yeah SegaMan totally" || row?.text === "exactly what i just said"),
       "3F.3 blocked self-dialogue lines must not reach the inherited queue"
@@ -1799,13 +1801,13 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       "3F.3 must retain a valid background line from the same filtered plan"
     );
 
-    const blockedAfterBackground = this.v39Stats.selfDialogueLinesBlocked;
-    const filteredAfterBackground = this.v39Stats.backgroundPlansFiltered;
+    const blockedAfterBackground = backgroundAuthority.backgroundStats.selfDialogueLinesBlocked;
+    const filteredAfterBackground = backgroundAuthority.backgroundStats.backgroundPlansFiltered;
     this.queueScenePlan([
       { speaker: "MetallicaFan", target: "MetallicaFan", intent: "reply", topic: "music", text: "direct path probe" }
     ], "human-replan");
-    equal(this.v39Stats.selfDialogueLinesBlocked, blockedAfterBackground, "3F.3 self-dialogue filtering must remain background-only");
-    equal(this.v39Stats.backgroundPlansFiltered, filteredAfterBackground, "non-background plans must not increment the v39 filter counter");
+    equal(backgroundAuthority.backgroundStats.selfDialogueLinesBlocked, blockedAfterBackground, "3F.3 self-dialogue filtering must remain background-only");
+    equal(backgroundAuthority.backgroundStats.backgroundPlansFiltered, filteredAfterBackground, "non-background plans must not increment the v39 filter counter");
 
     const statusResponse = await this.fetch(new Request("https://room.internal/v39-status"));
     equal(statusResponse.status, 200, "3F.3 must preserve the internal v39 status endpoint");
@@ -1827,11 +1829,13 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.reset();
 
     const reconnectAuthority = this.humanReconnectLifecycleAuthority();
+    const backgroundAuthority = this.v39BackgroundCompatibilityAuthority();
     equal(Object.hasOwn(this, "v39HumanReplacementAt"), false, "4B must remove the legacy replacement map from room state");
     equal(Object.hasOwn(this, "v39PresenceFixStats"), false, "4B must remove legacy reconnect counters from room state");
     ensure(reconnectAuthority?.humanReplacementAt instanceof Map, "4B reconnect authority must own same-name replacement state");
     ensure(reconnectAuthority?.presenceFixStats && typeof reconnectAuthority.presenceFixStats === "object", "4B reconnect authority must own legacy presence counters");
-    ensure(this.v39CaptureFixStats && typeof this.v39CaptureFixStats === "object", "3F.2 must initialize legacy capture counters");
+    equal(Object.hasOwn(this, "v39CaptureFixStats"), false, "4E must remove the final v39CaptureFixStats room surface");
+    ensure(backgroundAuthority?.captureFixStats && typeof backgroundAuthority.captureFixStats === "object", "4E background authority must own legacy quick-background telemetry");
 
     const first = this.acceptContractHuman("Crateman");
     const second = this.acceptContractHuman("Crateman");
@@ -1844,12 +1848,12 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(this.activeHumanConnectionCount("Crateman"), 1, "pending socket must be excluded from active logical connection count");
     equal(this.humanNames().length, 1, "one remaining active same-name socket must preserve one logical human");
 
-    const beforeQuick = this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed;
+    const beforeQuick = backgroundAuthority.captureFixStats.legacyQuickBackgroundCallsSuppressed;
     const quick = await this.generateGroqBatch();
     equal(Array.isArray(quick), true, "3F.2 quick-background compatibility must return an array");
     equal(quick.length, 0, "3F.2 must keep legacy quick-background provider path disabled");
     equal(
-      this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed,
+      backgroundAuthority.captureFixStats.legacyQuickBackgroundCallsSuppressed,
       beforeQuick + 1,
       "3F.2 must preserve the legacy quick-background suppression counter"
     );
@@ -1887,6 +1891,42 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       retiredV39Presence: true,
       logicalHumans: snapshot.humanPresenceIdentity?.logicalHumanCount,
       quickBackgroundSuppressed: true
+    };
+  }
+
+
+  async contractV41V39BackgroundStateOwnership() {
+    this.reset({ bots: ["SegaMan"] });
+    const authority = this.v39BackgroundCompatibilityAuthority();
+    ensure(authority, "4E background compatibility authority must be available");
+    equal(Object.hasOwn(this, "v39Stats"), false, "4E room must not retain v39Stats");
+    equal(Object.hasOwn(this, "v39CaptureFixStats"), false, "4E room must not retain v39CaptureFixStats");
+
+    const beforeStats = authority.legacyV39Stats();
+    const beforeCapture = authority.legacyCaptureFixStats();
+    this.queueScenePlan([
+      { speaker: "SegaMan", target: "SegaMan", intent: "reply", topic: "gaming", text: "yeah SegaMan totally" },
+      { speaker: "SegaMan", target: "room", intent: "ambient", topic: "gaming", text: "saturn is still my pick" }
+    ], "background");
+    const quick = await this.generateGroqBatch();
+
+    const ownedStats = authority.legacyV39Stats();
+    const ownedCapture = authority.legacyCaptureFixStats();
+    equal(ownedStats.selfDialogueLinesBlocked, beforeStats.selfDialogueLinesBlocked + 1, "4E authority must own self-dialogue telemetry");
+    equal(ownedStats.backgroundPlansFiltered, beforeStats.backgroundPlansFiltered + 1, "4E authority must own filtered-plan telemetry");
+    equal(ownedCapture.legacyQuickBackgroundCallsSuppressed, beforeCapture.legacyQuickBackgroundCallsSuppressed + 1, "4E authority must own quick-background suppression telemetry");
+    equal(Array.isArray(quick) && quick.length === 0, true, "4E must preserve disabled legacy quick-background generation");
+
+    const snapshot = this.v39Snapshot(Date.now());
+    equal(snapshot.stats.selfDialogueLinesBlocked, ownedStats.selfDialogueLinesBlocked, "4E legacy v39 stats must compose from authority");
+    equal(snapshot.stats.backgroundPlansFiltered, ownedStats.backgroundPlansFiltered, "4E legacy filtered-plan counter must compose from authority");
+    equal(snapshot.captureFixStats.legacyQuickBackgroundCallsSuppressed, ownedCapture.legacyQuickBackgroundCallsSuppressed, "4E legacy capture stats must compose from authority");
+    equal(authority.snapshot().stateOwnedByAuthority, true, "4E authority snapshot must declare state ownership");
+
+    return {
+      authority: authority.snapshot().authority,
+      stateOwnedByAuthority: true,
+      legacySnapshotPreserved: true
     };
   }
 
@@ -2407,6 +2447,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "wrapper-retirement-v38-quality") return this.contractRetiredV38QualityCompatibility();
     if (name === "wrapper-retirement-v39-coherence") return this.contractRetiredV39CoherenceCompatibility();
     if (name === "wrapper-retirement-v39-presence") return this.contractRetiredV39PresenceCompatibility();
+    if (name === "v41-v39-background-state-ownership") return this.contractV41V39BackgroundStateOwnership();
     if (name === "wrapper-retirement-v39-world") return this.contractRetiredV39WorldDiagnostics();
     if (name === "bot-roster-cooldown-filtering") return this.contractBotRosterCooldownFiltering();
     if (name === "bot-roster-leave-bookkeeping") return this.contractBotRosterLeaveBookkeeping();

@@ -25,6 +25,7 @@ const coherence = read("src/index_v41_coherence_repair.js");
 const reconnect = read("src/index_v41_human_reconnect.js");
 const scene = read("src/index_v41_scene_coordinator.js");
 const ambient = read("src/index_v41_ambient_continuity_compat.js");
+const backgroundAuthority = read("src/v39_background_compatibility_v41.js");
 
 assert.ok(presenceCompat.includes('from "./index_v41_coherence_compat.js"'));
 assert.ok(!presenceCompat.includes('from "./index_v39_coherence.js"'));
@@ -40,7 +41,8 @@ assert.equal(coherenceCompat.includes("this.v39RecentBotLeaves = new Map()"), fa
 assert.ok(coherenceCompat.includes("legacyRecentlyDeparted"));
 assert.equal(coherenceCompat.includes("this.v39PendingHumanDisconnects = new Map()"), false);
 assert.ok(coherenceCompat.includes("legacyPendingHumanDisconnects"));
-assert.ok(coherenceCompat.includes("this.v39Stats = {"));
+assert.equal(coherenceCompat.includes("this.v39Stats = {"), false);
+assert.ok(coherenceCompat.includes("this.v39BackgroundCompatibilityCoordinator = new V39BackgroundCompatibilityAuthority(this)"));
 assert.equal(coherenceCompat.includes("this.v39LastTargetRepair = null"), false);
 assert.equal(coherenceCompat.includes("this.v39LastCoherenceLock = null"), false);
 assert.ok(coherenceCompat.includes("legacyLastTargetRepair"));
@@ -50,11 +52,12 @@ assert.ok(ownsMethod(coherenceCompat, "queueScenePlan"));
 assert.ok(ownsMethod(coherenceCompat, "v39Snapshot"));
 assert.ok(ownsMethod(coherenceCompat, "fetch"));
 assert.ok(ownsMethod(coherenceCompat, "debugState"));
-assert.ok(coherenceCompat.includes("filterSelfDialogueLines(lines || [])"));
-assert.ok(coherenceCompat.includes('if (reason !== "background") return super.queueScenePlan'));
-assert.ok(coherenceCompat.includes("this.v39Stats.selfDialogueLinesBlocked += filtered.blocked.length"));
-assert.ok(coherenceCompat.includes("this.v39Stats.backgroundPlansFiltered += 1"));
-assert.ok(coherenceCompat.includes('action: "v39-self-dialogue-lines-blocked"'));
+assert.ok(coherenceCompat.includes("v39BackgroundCompatibilityCoordinator.queueScenePlan("));
+assert.ok(backgroundAuthority.includes("filterSelfDialogueLines(lines || [])"));
+assert.ok(backgroundAuthority.includes('if (reason !== "background") return delegate'));
+assert.ok(backgroundAuthority.includes("this.backgroundStats.selfDialogueLinesBlocked += filtered.blocked.length"));
+assert.ok(backgroundAuthority.includes("this.backgroundStats.backgroundPlansFiltered += 1"));
+assert.ok(backgroundAuthority.includes('action: "v39-self-dialogue-lines-blocked"'));
 assert.ok(coherenceCompat.includes("selfDialogueFilteringBackgroundOnly: true"));
 
 for (const retiredOverride of [

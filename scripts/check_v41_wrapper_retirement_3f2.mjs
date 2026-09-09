@@ -20,6 +20,7 @@ const roster = read("src/index_v41_bot_roster_reentry.js");
 const coherence = read("src/index_v41_coherence_repair.js");
 const reconnect = read("src/index_v41_human_reconnect.js");
 const reconnectAuthority = read("src/human_reconnect_lifecycle_v41.js");
+const backgroundAuthority = read("src/v39_background_compatibility_v41.js");
 
 assert.ok(scene.includes('from "./index_v41_ambient_continuity_compat.js"'));
 assert.ok(ambient.includes('from "./index_v41_presence_compat.js"'));
@@ -65,11 +66,14 @@ for (const retiredOverride of [
 
 assert.equal(presenceCompat.includes("this.v39HumanReplacementAt = new Map()"), false);
 assert.equal(presenceCompat.includes("this.v39PresenceFixStats = {"), false);
-assert.ok(presenceCompat.includes("this.v39CaptureFixStats = {"));
+assert.equal(presenceCompat.includes("this.v39CaptureFixStats = {"), false);
 assert.ok(presenceCompat.includes("legacyPresenceFixStats"));
 assert.ok(reconnectAuthority.includes("this.humanReplacementAt = new Map()"));
 assert.ok(reconnectAuthority.includes("this.presenceFixStats = {"));
-assert.ok(presenceCompat.includes("legacyQuickBackgroundCallsSuppressed"));
+assert.ok(presenceCompat.includes("v39BackgroundCompatibilityAuthority"));
+assert.ok(presenceCompat.includes("suppressLegacyQuickBackground()"));
+assert.ok(backgroundAuthority.includes("this.captureFixStats = {"));
+assert.ok(backgroundAuthority.includes("legacyQuickBackgroundCallsSuppressed"));
 assert.ok(presenceCompat.includes("logicalHumanPresenceDeduplication: true"));
 assert.ok(presenceCompat.includes("this.replaceExistingHumanSessions(name, Date.now())"));
 

@@ -39,6 +39,7 @@ const repair = read("src/coherence_repair_v41.js");
 const repairWrapper = read("src/index_v41_coherence_repair.js");
 const coherenceCompat = read("src/index_v41_coherence_compat.js");
 const presenceCompat = read("src/index_v41_presence_compat.js");
+const background = read("src/v39_background_compatibility_v41.js");
 const worker = read("test/runtime_generation_contract_worker.js");
 const runtime = read("scripts/check_v41_generation_contract_runtime.mjs");
 const phase4a = read("scripts/check_v41_v39_shared_state_characterization_4a.mjs");
@@ -103,13 +104,11 @@ assert.deepEqual(
   "4C explicit-error telemetry schema must stay exact"
 );
 
+assert.equal(coherenceCompat.includes("this.v39Stats = {"), false, "4C retained proof must accept 4E retirement of mixed v39Stats");
 assert.deepEqual(
-  objectKeys(coherenceCompat, "this.v39Stats = {"),
-  [
-    "backgroundPlansFiltered",
-    "selfDialogueLinesBlocked"
-  ],
-  "4C mixed v39Stats must contain only compatibility-shell counters after 4D"
+  objectKeys(background, "this.backgroundStats = {"),
+  ["backgroundPlansFiltered", "selfDialogueLinesBlocked"],
+  "4C retained proof must recognize 4E background telemetry ownership"
 );
 
 assert.deepEqual(
@@ -121,12 +120,11 @@ assert.deepEqual(
   "4C legacy repair fallback schema must stay exact"
 );
 
+assert.equal(presenceCompat.includes("this.v39CaptureFixStats = {"), false, "4C retained proof must accept 4E retirement of v39CaptureFixStats");
 assert.deepEqual(
-  objectKeys(presenceCompat, "this.v39CaptureFixStats = {"),
-  [
-    "legacyQuickBackgroundCallsSuppressed"
-  ],
-  "4C presence capture stats must contain only compatibility-shell counters after 4D"
+  objectKeys(background, "this.captureFixStats = {"),
+  ["legacyQuickBackgroundCallsSuppressed"],
+  "4C retained proof must recognize 4E quick-background telemetry ownership"
 );
 
 for (const marker of [
@@ -134,7 +132,7 @@ for (const marker of [
   "legacyV39Stats",
   "legacyLastTargetRepair",
   "legacyLastCoherenceLock",
-  "stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }"
+  "stats: { ...backgroundStats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4C coherence compatibility must compose legacy repair diagnostics: ${marker}`);
 }
