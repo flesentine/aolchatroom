@@ -36,7 +36,8 @@ assert.ok(!coherenceCompat.includes('from "./index_v39_coherence.js"'));
 assert.ok(coherenceCompat.includes('const PASS = "conversation-coherence-v39"'));
 assert.ok(coherenceCompat.includes('url.pathname === "/api/v39-status"'));
 assert.ok(coherenceCompat.includes('url.pathname === "/v39-status"'));
-assert.ok(coherenceCompat.includes("this.v39RecentBotLeaves = new Map()"));
+assert.equal(coherenceCompat.includes("this.v39RecentBotLeaves = new Map()"), false);
+assert.ok(coherenceCompat.includes("legacyRecentlyDeparted"));
 assert.equal(coherenceCompat.includes("this.v39PendingHumanDisconnects = new Map()"), false);
 assert.ok(coherenceCompat.includes("legacyPendingHumanDisconnects"));
 assert.ok(coherenceCompat.includes("this.v39Stats = {"));
@@ -109,4 +110,4 @@ for (const retiredImport of [
   );
 }
 
-console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed after 4C coherence-state ownership");
+console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed after 4D world/roster ownership");
