@@ -2426,6 +2426,89 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
   }
 
+  async contractHistoryPersistenceCoalescing() {
+    this.reset({
+      history: Array.from({ length: 220 }, (_, id) => ({
+        kind: "system",
+        from: "",
+        text: `o2-${id}`,
+        messageId: `o2-${id}`,
+        at: id + 1
+      }))
+    });
+
+    const writer = this.v41HistoryWriter;
+    ensure(writer, "O2 production history writer must be installed");
+    const before = writer.snapshot();
+    const writes = [];
+    let releaseFirst = null;
+    const originalWrite = writer.write;
+
+    writer.write = async (rows) => {
+      writes.push(rows.map((row) => ({ ...row })));
+      if (writes.length === 1) {
+        await new Promise((resolve) => { releaseFirst = resolve; });
+      }
+    };
+
+    try {
+      const first = this.persistHistory();
+      await Promise.resolve();
+      await Promise.resolve();
+      equal(writes.length, 1, "O2 first persistence request must start one write");
+
+      this.history.push({ kind: "system", text: "o2-220", messageId: "o2-220", at: 221 });
+      const second = this.persistHistory();
+      this.history.push({ kind: "system", text: "o2-221", messageId: "o2-221", at: 222 });
+      const third = this.persistHistory();
+
+      equal(second, first, "O2 overlapping persistence request must share active promise");
+      equal(third, first, "O2 burst persistence request must not start another cycle");
+
+      releaseFirst();
+      await first;
+
+      equal(writes.length, 2, "O2 burst must collapse to active write plus one latest-state follow-up");
+      equal(writes[1].length, 220, "O2 follow-up must preserve the 220-row cap");
+      equal(writes[1][0]?.messageId, "o2-2", "O2 follow-up must trim oldest rows");
+      equal(writes[1][219]?.messageId, "o2-221", "O2 follow-up must persist the newest row");
+
+      const after = writer.snapshot();
+      equal(after.requests - before.requests, 3, "O2 should observe three persistence requests");
+      equal(after.coalescedRequests - before.coalescedRequests, 2, "O2 should coalesce the two overlapping requests");
+      equal(after.writesStarted - before.writesStarted, 2, "O2 burst should start exactly two storage snapshots");
+      equal(after.writesCompleted - before.writesCompleted, 2, "O2 burst should complete exactly two storage snapshots");
+      equal(after.maxConcurrent, 1, "O2 storage-write concurrency must remain one");
+    } finally {
+      writer.write = originalWrite;
+    }
+
+    this.history = [{
+      kind: "system",
+      from: "",
+      text: "o2-storage-schema",
+      messageId: "o2-storage-schema",
+      at: Date.now()
+    }];
+    await this.persistHistory();
+    const stored = await this.ctx.storage.get("history");
+    equal(Array.isArray(stored), true, "O2 must preserve the stored history array schema");
+    equal(stored.length, 1, "O2 storage schema probe should persist one row");
+    equal(stored[0]?.messageId, "o2-storage-schema", "O2 must preserve row content under the history key");
+
+    const status = this.v41Snapshot(Date.now());
+    equal(status.policy?.historyPersistenceSingleFlight, true, "O2 status must expose single-flight persistence");
+    equal(status.policy?.historyPersistenceSchemaPreserved, true, "O2 status must expose schema preservation");
+    equal(status.historyPersistence?.maxConcurrent, 1, "O2 status must expose bounded persistence concurrency");
+
+    return {
+      coalesced: true,
+      maxConcurrent: status.historyPersistence?.maxConcurrent,
+      historyLimit: status.historyPersistence?.historyLimit,
+      schemaPreserved: true
+    };
+  }
+
   contractStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.phase, "2B", "production snapshot should expose Phase 2B");
@@ -2500,6 +2583,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
     if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
     if (name === "v41-reconnect-state-ownership") return this.contractV41ReconnectStateOwnership();
+    if (name === "history-persistence-coalescing") return this.contractHistoryPersistenceCoalescing();
     if (name === "status") return this.contractStatus();
     throw new Error(`unknown generation contract: ${name}`);
   }

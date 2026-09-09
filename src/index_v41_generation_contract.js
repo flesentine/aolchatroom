@@ -9,10 +9,28 @@ import {
   evaluateHumanReplanPrimaryResponse,
   evaluatePrimaryHumanVoice
 } from "./generation_contract_v41_identity_choice_guard.js";
+import {
+  CoalescingHistoryWriter,
+  V41_HISTORY_LIMIT
+} from "./history_persistence_v41.js";
 
 export default worker;
 
 export class ChatRoom extends Phase2ChatRoom {
+  constructor(ctx, env) {
+    super(ctx, env);
+    this.v41HistoryWriter = new CoalescingHistoryWriter({
+      read: () => this.history || [],
+      assign: (rows) => { this.history = rows; },
+      write: (rows) => this.ctx.storage.put("history", rows),
+      limit: V41_HISTORY_LIMIT
+    });
+  }
+
+  persistHistory() {
+    return this.v41HistoryWriter.request();
+  }
+
   async voiceBrainPlan(plan, active, human = null) {
     const voiced = await V41CoherenceChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
     const evaluation = evaluatePrimaryHumanVoice({
@@ -140,6 +158,7 @@ export class ChatRoom extends Phase2ChatRoom {
           humanReplanFailClosedConsumes: Number(stats.humanReplanFailClosedConsumes || 0)
         }
       },
+      historyPersistence: this.v41HistoryWriter?.snapshot?.() || null,
       policy: {
         ...(snapshot.policy || {}),
         invalidValidatedFallbackConsumesLegacyRetry: true,
@@ -151,7 +170,9 @@ export class ChatRoom extends Phase2ChatRoom {
         deterministicFallbackScopesMixedEraTurns: true,
         deterministicFallbackRequiresFreshGenerationScope: true,
         degradedHumanFallbackDefersToSealed1996World: true,
-        degradedHumanFallbackPreservesPhase2BPrimarySlot: true
+        degradedHumanFallbackPreservesPhase2BPrimarySlot: true,
+        historyPersistenceSingleFlight: true,
+        historyPersistenceSchemaPreserved: true
       }
     };
   }
