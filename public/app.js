@@ -18,7 +18,7 @@ const debugPanel = document.querySelector("#debugPanel");
 const exportChat = document.querySelector("#exportChat");
 
 let socket = null;
-let pulseTimer;
+let heartbeatTimer = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
 let pageUnloading = false;
@@ -31,6 +31,8 @@ const CAPTURE_KEY = "aol96-chat-capture-v1";
 const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
 const RECONNECT_DELAYS_MS = [750, 1500, 2500, 4000, 6000, 10000];
 const RECONNECT_SHOW_SIGNIN_AFTER = 6;
+const NORMAL_HEARTBEAT_MS = 30 * 1000;
+const DEBUG_REFRESH_MS = 5 * 1000;
 
 screenName.value = localStorage.getItem("aol96-screen-name") || "";
 screenName.focus();
@@ -262,6 +264,19 @@ function clearReconnectTimer() {
   reconnectTimer = null;
 }
 
+function clearHeartbeatTimer() {
+  if (heartbeatTimer !== null) clearInterval(heartbeatTimer);
+  heartbeatTimer = null;
+}
+
+function startHeartbeat(connection) {
+  clearHeartbeatTimer();
+  heartbeatTimer = setInterval(() => {
+    if (socket !== connection || connection.readyState !== WebSocket.OPEN) return;
+    connection.send(debug ? "debug-refresh" : "ping");
+  }, debug ? DEBUG_REFRESH_MS : NORMAL_HEARTBEAT_MS);
+}
+
 function scheduleReconnect(name, detail = {}) {
   if (pageUnloading || socketIsActive()) return;
   clearReconnectTimer();
@@ -351,10 +366,7 @@ function connect(options = {}) {
     signOn.disabled = false;
     status.textContent = "Connected";
     recordCaptureEvent({ type: "connection", action: wasReconnect ? "reconnected" : "open" });
-    clearInterval(pulseTimer);
-    pulseTimer = setInterval(() => {
-      if (socket === connection && connection.readyState === WebSocket.OPEN) connection.send("pulse");
-    }, 1500);
+    startHeartbeat(connection);
   });
 
   connection.addEventListener("message", (event) => {
@@ -411,8 +423,7 @@ function connect(options = {}) {
 
   connection.addEventListener("close", (event) => {
     if (socket !== connection) return;
-    clearInterval(pulseTimer);
-    pulseTimer = null;
+    clearHeartbeatTimer();
     socket = null;
     recordCaptureEvent({
       type: "connection",
@@ -529,5 +540,6 @@ window.addEventListener("online", () => {
 window.addEventListener("beforeunload", () => {
   pageUnloading = true;
   clearReconnectTimer();
+  clearHeartbeatTimer();
   persistCapture(true);
 });
