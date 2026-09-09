@@ -111,12 +111,12 @@ const o4RecentChat = `    const recent = collectLastMatching(
       LIVELY_AMBIENT_RECENT_LINES,
       (row) => row?.kind === "human" || row?.kind === "bot"
     )
-      .map((row) => \`\${row.from}${row.target && row.target !== "room" ? \` -> ${row.target}\` : ""}: \${clean(row.text, 180)}\`)
+      .map((row) => \`\${row.from}\${row.target && row.target !== "room" ? \` -> \${row.target}\` : ""}: \${clean(row.text, 180)}\`)
       .join("\\n");`;
 const frozenRecentChat = `    const recent = (this.history || [])
       .filter((row) => row?.kind === "human" || row?.kind === "bot")
       .slice(-LIVELY_AMBIENT_RECENT_LINES)
-      .map((row) => \`\${row.from}${row.target && row.target !== "room" ? \` -> ${row.target}\` : ""}: \${clean(row.text, 180)}\`)
+      .map((row) => \`\${row.from}\${row.target && row.target !== "room" ? \` -> \${row.target}\` : ""}: \${clean(row.text, 180)}\`)
       .join("\\n");`;
 const compatBody = livelyCompat.split("\n").slice(headerLines).join("\n")
   .replace('from "./index_v41_human_director_compat.js"', 'from "./index_v37_human_director.js"')
