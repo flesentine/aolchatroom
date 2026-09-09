@@ -35,13 +35,6 @@ export default {
 export class ChatRoom extends V41CoherenceCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v39HumanReplacementAt = new Map();
-    this.v39PresenceFixStats = {
-      humanSessionReplacements: 0,
-      duplicateEnterAnnouncementsSuppressed: 0,
-      pendingCloseSocketsMarked: 0,
-      supersededCloseCallbacksIgnored: 0
-    };
     this.v39CaptureFixStats = {
       legacyQuickBackgroundCallsSuppressed: 0,
       explicitErrorChallengesRepaired: 0,
@@ -89,7 +82,12 @@ export class ChatRoom extends V41CoherenceCompatChatRoom {
         supersededSocketCount: superseded,
         policy: "screen name is one logical room identity; pending/old same-name sockets do not increase humanCount"
       },
-      presenceFixStats: { ...this.v39PresenceFixStats },
+      presenceFixStats: this.humanReconnectLifecycleAuthority?.()?.legacyPresenceFixStats?.() || {
+        humanSessionReplacements: 0,
+        duplicateEnterAnnouncementsSuppressed: 0,
+        pendingCloseSocketsMarked: 0,
+        supersededCloseCallbacksIgnored: 0
+      },
       captureFixStats: { ...this.v39CaptureFixStats },
       historicalDateAuditAllRetained: auditHistoricalDateClaims(this.history || [], 0),
       captureFixPolicy: {

@@ -1767,9 +1767,11 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractRetiredV39CoherenceCompatibility() {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
     ensure(this.v39RecentBotLeaves instanceof Map, "3F.3 must initialize the legacy bot-leave map without the retired coherence constructor");
-    ensure(this.v39PendingHumanDisconnects instanceof Map, "3F.3 must initialize the legacy reconnect map without the retired coherence constructor");
-    ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize legacy v39 counters");
+    equal(Object.hasOwn(this, "v39PendingHumanDisconnects"), false, "4B must remove the legacy reconnect map from room state");
+    ensure(reconnectAuthority?.pendingHumanDisconnects instanceof Map, "4B reconnect authority must own the pending reconnect map");
+    ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize non-reconnect legacy v39 counters");
     equal(this.v39LastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline");
     equal(this.v39LastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline");
 
@@ -1819,8 +1821,11 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const now = Date.now();
     this.reset();
 
-    ensure(this.v39HumanReplacementAt instanceof Map, "3F.2 must initialize the legacy replacement map without the retired presence constructor");
-    ensure(this.v39PresenceFixStats && typeof this.v39PresenceFixStats === "object", "3F.2 must initialize legacy presence counters");
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
+    equal(Object.hasOwn(this, "v39HumanReplacementAt"), false, "4B must remove the legacy replacement map from room state");
+    equal(Object.hasOwn(this, "v39PresenceFixStats"), false, "4B must remove legacy reconnect counters from room state");
+    ensure(reconnectAuthority?.humanReplacementAt instanceof Map, "4B reconnect authority must own same-name replacement state");
+    ensure(reconnectAuthority?.presenceFixStats && typeof reconnectAuthority.presenceFixStats === "object", "4B reconnect authority must own legacy presence counters");
     ensure(this.v39CaptureFixStats && typeof this.v39CaptureFixStats === "object", "3F.2 must initialize legacy capture counters");
 
     const first = this.acceptContractHuman("Crateman");
@@ -1854,14 +1859,14 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.presenceFixStats?.humanSessionReplacements, 0, "3F.2 must preserve presence-fix counter surface");
 
     const hookOld = this.acceptContractHuman("HookUser");
-    const replacementBefore = this.v39PresenceFixStats.humanSessionReplacements;
+    const replacementBefore = reconnectAuthority.presenceFixStats.humanSessionReplacements;
     const hookResponse = await this.fetch(new Request("https://room.internal/ws?name=HookUser", {
       headers: { Upgrade: "websocket" }
     }));
     equal(hookResponse.status, 101, "3F.2 /ws compatibility hook must still delegate into the base WebSocket admission path");
     ensure(hookOld.deserializeAttachment().v39Superseded, "3F.2 /ws hook must dynamically dispatch same-name replacement through Phase 3B");
     equal(
-      this.v39PresenceFixStats.humanSessionReplacements,
+      reconnectAuthority.presenceFixStats.humanSessionReplacements,
       replacementBefore + 1,
       "3F.2 /ws hook must preserve the legacy replacement counter through the Phase 3B authority"
     );
@@ -2103,13 +2108,14 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
   async contractReconnectAuthorityQuick() {
     this.reset();
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
     const oldSocket = this.acceptContractHuman("Crateman");
     equal(this.humanNames().length, 1, "accepted socket should count as one logical human");
 
     this.webSocketClose(oldSocket, 1006, "network changed", false);
     ensure(oldSocket.deserializeAttachment().v39DisconnectPending, "3B close must mark the old socket pending immediately");
     equal(this.humanNames().length, 0, "pending old socket must immediately leave logical presence");
-    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "3B authority must own the pending grace token");
+    ensure(reconnectAuthority.pendingHumanDisconnects.has("Crateman"), "3B authority must own the pending grace token");
 
     this.acceptContractHuman("Crateman");
     const before = this.history.length;
@@ -2117,52 +2123,108 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(result, false, "quick reconnect must suppress duplicate enter");
     equal(this.history.length, before, "quick reconnect must not add a system enter line");
     equal(this.humanNames().length, 1, "replacement socket must restore exactly one logical human");
-    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "quick reconnect must clear the pending close");
-    equal(this.v39Stats.transientHumanReconnects, 1, "legacy transient reconnect counter must be preserved");
+    ensure(!reconnectAuthority.pendingHumanDisconnects.has("Crateman"), "quick reconnect must clear the pending close");
+    equal(reconnectAuthority.reconnectStats.transientHumanReconnects, 1, "legacy transient reconnect counter must be preserved");
 
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.policy.humanReconnectLifecycleAuthority, true, "status must expose 3B reconnect authority");
     equal(snapshot.policy.legacyV39ReconnectOverridesBypassedInV41Production, true, "status must expose v39 reconnect bypass");
     equal(snapshot.humanReconnectLifecycle?.authority, "v41-human-reconnect-lifecycle", "snapshot must identify the 3B authority");
-    return { quickReconnect: true, logicalHumans: 1, transient: this.v39Stats.transientHumanReconnects };
+    return { quickReconnect: true, logicalHumans: 1, transient: reconnectAuthority.reconnectStats.transientHumanReconnects };
   }
 
   async contractReconnectSameNameReplacement() {
     this.reset();
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
     const oldSocket = this.acceptContractHuman("Crateman");
     equal(this.replaceExistingHumanSessions("Crateman", Date.now()), 1, "new session must supersede one active same-name socket");
     ensure(oldSocket.deserializeAttachment().v39Superseded, "old same-name socket must be marked superseded");
-    equal(this.v39PresenceFixStats.humanSessionReplacements, 1, "legacy replacement counter must be preserved");
+    equal(reconnectAuthority.presenceFixStats.humanSessionReplacements, 1, "legacy replacement counter must be preserved");
 
     this.webSocketClose(oldSocket, 4001, "replaced by newer session", true);
-    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "superseded close must not enter reconnect grace");
-    ensure(this.v39PresenceFixStats.supersededCloseCallbacksIgnored >= 1, "superseded close callback must be ignored");
+    ensure(!reconnectAuthority.pendingHumanDisconnects.has("Crateman"), "superseded close must not enter reconnect grace");
+    ensure(reconnectAuthority.presenceFixStats.supersededCloseCallbacksIgnored >= 1, "superseded close callback must be ignored");
 
     this.acceptContractHuman("Crateman");
     const before = this.history.length;
     const result = this.system("Crateman has entered the room.");
     equal(result, false, "same-name replacement must suppress duplicate enter");
     equal(this.history.length, before, "replacement must not create a duplicate enter system line");
-    equal(this.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed, 1, "legacy duplicate-enter counter must be preserved");
+    equal(reconnectAuthority.presenceFixStats.duplicateEnterAnnouncementsSuppressed, 1, "legacy duplicate-enter counter must be preserved");
     return { replaced: true, duplicateEnterSuppressed: true };
   }
 
   async contractReconnectCommittedClose() {
     this.reset();
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
     const oldSocket = this.acceptContractHuman("Crateman");
     const before = this.history.length;
     this.webSocketClose(oldSocket, 1006, "gone", false);
-    ensure(this.v39PendingHumanDisconnects.has("Crateman"), "committed-close contract must begin inside grace");
+    ensure(reconnectAuthority.pendingHumanDisconnects.has("Crateman"), "committed-close contract must begin inside grace");
 
     await new Promise((resolve) => setTimeout(resolve, 5200));
 
-    ensure(!this.v39PendingHumanDisconnects.has("Crateman"), "expired grace token must be removed");
-    equal(this.v39Stats.humanDisconnectsCommitted, 1, "expired disconnect must commit exactly once");
+    ensure(!reconnectAuthority.pendingHumanDisconnects.has("Crateman"), "expired grace token must be removed");
+    equal(reconnectAuthority.reconnectStats.humanDisconnectsCommitted, 1, "expired disconnect must commit exactly once");
     const leaveLines = this.history.slice(before).filter((row) =>
       row?.kind === "system" && row?.text === "Crateman has left the room."
     );
     equal(leaveLines.length, 1, "expired disconnect must emit exactly one leave line");
     return { committed: true, leaveLines: leaveLines.length };
+  }
+
+  async contractV41ReconnectStateOwnership() {
+    this.reset();
+    const reconnectAuthority = this.humanReconnectLifecycleAuthority();
+    ensure(reconnectAuthority, "4B reconnect authority must be available");
+
+    equal(Object.hasOwn(this, "v39PendingHumanDisconnects"), false, "4B room must not retain v39PendingHumanDisconnects");
+    equal(Object.hasOwn(this, "v39HumanReplacementAt"), false, "4B room must not retain v39HumanReplacementAt");
+    equal(Object.hasOwn(this, "v39PresenceFixStats"), false, "4B room must not retain v39PresenceFixStats");
+    equal(Object.hasOwn(this.v39Stats || {}, "humanDisconnectsDeferred"), false, "4B mixed v39Stats must not own reconnect counters");
+    equal(Object.hasOwn(this.v39Stats || {}, "transientHumanReconnects"), false, "4B mixed v39Stats must not own transient reconnect counters");
+    equal(Object.hasOwn(this.v39Stats || {}, "humanDisconnectsCommitted"), false, "4B mixed v39Stats must not own committed-close counters");
+
+    const beforeStats = reconnectAuthority.legacyV39Stats();
+    const beforePresence = reconnectAuthority.legacyPresenceFixStats();
+    const oldSocket = this.acceptContractHuman("StateOwner");
+    this.webSocketClose(oldSocket, 1006, "4b ownership probe", false);
+    ensure(reconnectAuthority.pendingHumanDisconnects.has("StateOwner"), "4B authority must retain the pending reconnect token");
+
+    const pendingLegacy = this.v39Snapshot(Date.now());
+    equal(pendingLegacy.pendingHumanDisconnects?.length, 1, "legacy v39 snapshot must expose one pending reconnect during grace");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.name, "StateOwner", "legacy v39 pending row must preserve the screen name");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.code, 1006, "legacy v39 pending row must preserve the close code");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.reason, "4b ownership probe", "legacy v39 pending row must preserve the close reason");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.wasClean, false, "legacy v39 pending row must preserve clean-close state");
+    equal(pendingLegacy.pendingHumanDisconnects?.[0]?.graceRemainingMs > 0, true, "legacy v39 pending row must expose positive grace remaining");
+    equal(pendingLegacy.stats?.humanDisconnectsDeferred, beforeStats.humanDisconnectsDeferred + 1, "legacy v39 snapshot must bridge deferred-close telemetry during grace");
+
+    this.acceptContractHuman("StateOwner");
+    const enterResult = this.system("StateOwner has entered the room.");
+    equal(enterResult, false, "4B quick reconnect must still suppress duplicate enter");
+    equal(reconnectAuthority.pendingHumanDisconnects.has("StateOwner"), false, "4B authority must clear the pending reconnect token");
+
+    const authorityStats = reconnectAuthority.legacyV39Stats();
+    const presenceStats = reconnectAuthority.legacyPresenceFixStats();
+    equal(authorityStats.humanDisconnectsDeferred, beforeStats.humanDisconnectsDeferred + 1, "4B authority must own deferred-close telemetry");
+    equal(authorityStats.transientHumanReconnects, beforeStats.transientHumanReconnects + 1, "4B authority must own transient-reconnect telemetry");
+    equal(presenceStats.pendingCloseSocketsMarked, beforePresence.pendingCloseSocketsMarked + 1, "4B authority must own pending-close telemetry");
+
+    const legacy = this.v39Snapshot(Date.now());
+    equal(legacy.stats?.humanDisconnectsDeferred, authorityStats.humanDisconnectsDeferred, "legacy v39 snapshot must bridge deferred-close telemetry from 4B authority");
+    equal(legacy.stats?.transientHumanReconnects, authorityStats.transientHumanReconnects, "legacy v39 snapshot must bridge transient-reconnect telemetry from 4B authority");
+    equal(legacy.presenceFixStats?.pendingCloseSocketsMarked, presenceStats.pendingCloseSocketsMarked, "legacy presence snapshot must bridge 4B authority telemetry");
+    equal(Array.isArray(legacy.pendingHumanDisconnects), true, "legacy v39 snapshot must preserve pendingHumanDisconnects array shape");
+    equal(legacy.pendingHumanDisconnects.length, 0, "quick reconnect must leave no pending legacy reconnect rows");
+
+    const v41 = this.v41Snapshot(Date.now());
+    equal(v41.humanReconnectLifecycle?.stateOwnedByAuthority, true, "v41 snapshot must expose 4B state ownership");
+    return {
+      stateOwnedByAuthority: true,
+      retiredRoomStateAbsent: true,
+      legacyV39SnapshotPreserved: true
+    };
   }
 
   contractStatus() {
@@ -2234,6 +2296,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "reconnect-authority-quick") return this.contractReconnectAuthorityQuick();
     if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
     if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();
+    if (name === "v41-reconnect-state-ownership") return this.contractV41ReconnectStateOwnership();
     if (name === "status") return this.contractStatus();
     throw new Error(`unknown generation contract: ${name}`);
   }

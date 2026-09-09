@@ -86,7 +86,6 @@ const surfaces = {
   v39Stats: [
     "src/bot_roster_reentry_v41.js",
     "src/coherence_repair_v41.js",
-    "src/human_reconnect_lifecycle_v41.js",
     "src/index_v41_coherence_compat.js",
     "src/world_date_guard_v41.js"
   ],
@@ -94,10 +93,7 @@ const surfaces = {
     "src/bot_roster_reentry_v41.js",
     "src/index_v41_coherence_compat.js"
   ],
-  v39PendingHumanDisconnects: [
-    "src/human_reconnect_lifecycle_v41.js",
-    "src/index_v41_coherence_compat.js"
-  ],
+  v39PendingHumanDisconnects: [],
   v39LastTargetRepair: [
     "src/coherence_repair_v41.js",
     "src/index_v41_coherence_compat.js"
@@ -106,19 +102,13 @@ const surfaces = {
     "src/coherence_repair_v41.js",
     "src/index_v41_coherence_compat.js"
   ],
-  v39PresenceFixStats: [
-    "src/human_reconnect_lifecycle_v41.js",
-    "src/index_v41_presence_compat.js"
-  ],
+  v39PresenceFixStats: [],
   v39CaptureFixStats: [
     "src/coherence_repair_v41.js",
     "src/index_v41_presence_compat.js",
     "src/world_date_guard_v41.js"
   ],
-  v39HumanReplacementAt: [
-    "src/human_reconnect_lifecycle_v41.js",
-    "src/index_v41_presence_compat.js"
-  ]
+  v39HumanReplacementAt: []
 };
 
 for (const [surface, expected] of Object.entries(surfaces)) {
@@ -132,12 +122,9 @@ for (const [surface, expected] of Object.entries(surfaces)) {
 const initializers = {
   "this.v39Stats = {": ["src/index_v41_coherence_compat.js"],
   "this.v39RecentBotLeaves = new Map();": ["src/index_v41_coherence_compat.js"],
-  "this.v39PendingHumanDisconnects = new Map();": ["src/index_v41_coherence_compat.js"],
   "this.v39LastTargetRepair = null;": ["src/index_v41_coherence_compat.js"],
   "this.v39LastCoherenceLock = null;": ["src/index_v41_coherence_compat.js"],
-  "this.v39PresenceFixStats = {": ["src/index_v41_presence_compat.js"],
-  "this.v39CaptureFixStats = {": ["src/index_v41_presence_compat.js"],
-  "this.v39HumanReplacementAt = new Map();": ["src/index_v41_presence_compat.js"]
+  "this.v39CaptureFixStats = {": ["src/index_v41_presence_compat.js"]
 };
 
 for (const [marker, expected] of Object.entries(initializers)) {
@@ -155,9 +142,6 @@ const wholeSurfaceAssignments = {
   v39RecentBotLeaves: {
     "src/index_v41_coherence_compat.js": 1
   },
-  v39PendingHumanDisconnects: {
-    "src/index_v41_coherence_compat.js": 1
-  },
   v39LastTargetRepair: {
     "src/coherence_repair_v41.js": 1,
     "src/index_v41_coherence_compat.js": 1
@@ -166,13 +150,7 @@ const wholeSurfaceAssignments = {
     "src/coherence_repair_v41.js": 1,
     "src/index_v41_coherence_compat.js": 1
   },
-  v39PresenceFixStats: {
-    "src/index_v41_presence_compat.js": 1
-  },
   v39CaptureFixStats: {
-    "src/index_v41_presence_compat.js": 1
-  },
-  v39HumanReplacementAt: {
     "src/index_v41_presence_compat.js": 1
   }
 };
@@ -200,23 +178,9 @@ assert.deepEqual(
     "clarificationTargetRepairs",
     "coherenceVoiceLocks",
     "futureEventLinesBlocked",
-    "humanDisconnectsCommitted",
-    "humanDisconnectsDeferred",
-    "selfDialogueLinesBlocked",
-    "transientHumanReconnects"
+    "selfDialogueLinesBlocked"
   ],
   "4A v39Stats schema must remain exact"
-);
-
-assert.deepEqual(
-  objectKeys(presenceCompat, "this.v39PresenceFixStats = {"),
-  [
-    "duplicateEnterAnnouncementsSuppressed",
-    "humanSessionReplacements",
-    "pendingCloseSocketsMarked",
-    "supersededCloseCallbacksIgnored"
-  ],
-  "4A v39PresenceFixStats schema must remain exact"
 );
 
 assert.deepEqual(
@@ -232,9 +196,9 @@ assert.deepEqual(
 for (const marker of [
   "this.v39Stats.selfDialogueLinesBlocked += filtered.blocked.length",
   "this.v39Stats.backgroundPlansFiltered += 1",
-  "stats: { ...this.v39Stats }",
+  "stats: { ...this.v39Stats, ...reconnectStats }",
   "...this.v39RecentBotLeaves.keys()",
-  "...this.v39PendingHumanDisconnects.entries()",
+  "legacyPendingHumanDisconnects",
   "lastTargetRepair: this.v39LastTargetRepair",
   "lastCoherenceLock: this.v39LastCoherenceLock"
 ]) {
@@ -243,26 +207,51 @@ for (const marker of [
 
 for (const marker of [
   "this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1",
-  "presenceFixStats: { ...this.v39PresenceFixStats }",
+  "legacyPresenceFixStats",
   "captureFixStats: { ...this.v39CaptureFixStats }"
 ]) {
   assert.ok(presenceCompat.includes(marker), `4A presence compatibility surface must retain marker: ${marker}`);
 }
 
 for (const marker of [
-  "this.room.v39HumanReplacementAt?.set?.(target, now)",
-  "this.room.v39PresenceFixStats.humanSessionReplacements += rows.length",
-  "this.room.v39PendingHumanDisconnects?.delete?.(name)",
-  "this.room.v39Stats.transientHumanReconnects += 1",
-  "this.room.v39PresenceFixStats.duplicateEnterAnnouncementsSuppressed += 1",
-  "this.room.v39PresenceFixStats.supersededCloseCallbacksIgnored += 1",
-  "this.room.v39PresenceFixStats.pendingCloseSocketsMarked += 1",
-  "this.room.v39PendingHumanDisconnects?.set?.(name, pending)",
-  "this.room.v39Stats.humanDisconnectsDeferred += 1",
-  "this.room.v39Stats.humanDisconnectsCommitted += 1"
+  "this.pendingHumanDisconnects = new Map()",
+  "this.humanReplacementAt = new Map()",
+  "this.presenceFixStats = {",
+  "this.reconnectStats = {",
+  "this.humanReplacementAt.set(target, now)",
+  "this.presenceFixStats.humanSessionReplacements += rows.length",
+  "this.pendingHumanDisconnects.delete(name)",
+  "this.reconnectStats.transientHumanReconnects += 1",
+  "this.presenceFixStats.duplicateEnterAnnouncementsSuppressed += 1",
+  "this.presenceFixStats.supersededCloseCallbacksIgnored += 1",
+  "this.presenceFixStats.pendingCloseSocketsMarked += 1",
+  "this.pendingHumanDisconnects.set(name, pending)",
+  "this.reconnectStats.humanDisconnectsDeferred += 1",
+  "this.reconnectStats.humanDisconnectsCommitted += 1"
 ]) {
-  assert.ok(reconnect.includes(marker), `4A reconnect authority must retain shared-state marker: ${marker}`);
+  assert.ok(reconnect.includes(marker), `4A reconnect authority must retain 4B-owned state marker: ${marker}`);
 }
+
+assert.deepEqual(
+  objectKeys(reconnect, "this.reconnectStats = {"),
+  [
+    "humanDisconnectsCommitted",
+    "humanDisconnectsDeferred",
+    "transientHumanReconnects"
+  ],
+  "4A reconnect authority stats schema must remain exact after 4B"
+);
+
+assert.deepEqual(
+  objectKeys(reconnect, "this.presenceFixStats = {"),
+  [
+    "duplicateEnterAnnouncementsSuppressed",
+    "humanSessionReplacements",
+    "pendingCloseSocketsMarked",
+    "supersededCloseCallbacksIgnored"
+  ],
+  "4A reconnect authority presence-fix schema must remain exact after 4B"
+);
 
 for (const marker of [
   "this.room.v39Stats.clarificationTargetRepairs += 1",
@@ -296,16 +285,7 @@ const counterWriters = {
     futureEventLinesBlocked: ["src/world_date_guard_v41.js"],
     selfDialogueLinesBlocked: ["src/index_v41_coherence_compat.js"],
     backgroundPlansFiltered: ["src/index_v41_coherence_compat.js"],
-    botReentryBlocks: ["src/bot_roster_reentry_v41.js"],
-    humanDisconnectsDeferred: ["src/human_reconnect_lifecycle_v41.js"],
-    transientHumanReconnects: ["src/human_reconnect_lifecycle_v41.js"],
-    humanDisconnectsCommitted: ["src/human_reconnect_lifecycle_v41.js"]
-  },
-  v39PresenceFixStats: {
-    humanSessionReplacements: ["src/human_reconnect_lifecycle_v41.js"],
-    duplicateEnterAnnouncementsSuppressed: ["src/human_reconnect_lifecycle_v41.js"],
-    pendingCloseSocketsMarked: ["src/human_reconnect_lifecycle_v41.js"],
-    supersededCloseCallbacksIgnored: ["src/human_reconnect_lifecycle_v41.js"]
+    botReentryBlocks: ["src/bot_roster_reentry_v41.js"]
   },
   v39CaptureFixStats: {
     legacyQuickBackgroundCallsSuppressed: ["src/index_v41_presence_compat.js"],
@@ -334,4 +314,4 @@ for (const source of [reconnect, repair, worldDate, roster]) {
   }
 }
 
-console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed");
+console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed after 4B reconnect consolidation");
