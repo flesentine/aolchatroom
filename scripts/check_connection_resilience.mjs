@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+const captureV2 = fs.readFileSync(new URL("../public/capture-v2.js", import.meta.url), "utf8");
 const baseRoom = fs.readFileSync(new URL("../src/index.js", import.meta.url), "utf8");
 const v36 = fs.readFileSync(new URL("../src/index_v36.js", import.meta.url), "utf8");
 const v39 = fs.readFileSync(new URL("../src/index_v39_coherence.js", import.meta.url), "utf8");
@@ -11,11 +12,12 @@ assert.ok(app.includes("RECONNECT_DELAYS_MS"), "client must define reconnect bac
 assert.ok(app.includes("scheduleReconnect(name"), "client must schedule reconnects after transient socket loss");
 assert.ok(app.includes("connect({ automatic: true"), "automatic reconnect path must reuse connect()");
 assert.ok(app.includes("socketIsActive()"), "single-WebSocket guard must remain in place");
+assert.ok(app.includes('new CustomEvent("aol96:capture-diagnostic"'), "app must bridge reconnect scheduling diagnostics to authoritative capture-v2");
 assert.ok(app.includes("action: \"reconnect-scheduled\""), "capture diagnostics must record reconnect scheduling");
-assert.ok(app.includes("action: wasReconnect ? \"reconnected\" : \"open\""), "capture diagnostics must distinguish recovered connections");
-assert.ok(app.includes("code: Number(event.code || 0)"), "client must capture WebSocket close code");
-assert.ok(app.includes("reason: String(event.reason || \"\")"), "client must capture WebSocket close reason");
-assert.ok(app.includes("wasClean: Boolean(event.wasClean)"), "client must capture clean/unclean close state");
+assert.ok(captureV2.includes('socketOpenCount > 0 ? "reconnected" : "open"'), "authoritative capture must distinguish recovered connections");
+assert.ok(captureV2.includes("code: Number(event.code || 0)"), "authoritative capture must record WebSocket close code");
+assert.ok(captureV2.includes("reason: String(event.reason || \"\")"), "authoritative capture must record WebSocket close reason");
+assert.ok(captureV2.includes("wasClean: Boolean(event.wasClean)"), "authoritative capture must record clean/unclean close state");
 assert.ok(app.includes("window.addEventListener(\"online\""), "client should reconnect quickly when network returns");
 assert.ok(app.includes("window.addEventListener(\"offline\""), "client should expose offline state without logging out");
 assert.ok(app.includes("pageUnloading = true"), "page unload must suppress reconnect loops");

@@ -15,23 +15,14 @@ const profileBody = document.querySelector("#profileBody");
 const closeProfile = document.querySelector("#closeProfile");
 const closeProfileBottom = document.querySelector("#closeProfileBottom");
 const debugPanel = document.querySelector("#debugPanel");
-const exportChat = document.querySelector("#exportChat");
 
 let socket = null;
 let heartbeatTimer = null;
 let reconnectTimer = null;
 let reconnectAttempts = 0;
 let pageUnloading = false;
-let capture = null;
-let capturePersistTimer = null;
-let capturePersistDirty = false;
-let captureLastPersistAttemptAt = 0;
-const captureMessageKeys = new Set();
 const renderedMessageKeys = new Set();
 const debug = new URLSearchParams(location.search).get("debug") === "1";
-const CAPTURE_KEY = "aol96-chat-capture-v1";
-const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
-const CAPTURE_PERSIST_INTERVAL_MS = 5 * 1000;
 const RECONNECT_DELAYS_MS = [750, 1500, 2500, 4000, 6000, 10000];
 const RECONNECT_SHOW_SIGNIN_AFTER = 6;
 const NORMAL_HEARTBEAT_MS = 30 * 1000;
@@ -45,8 +36,8 @@ function cleanName(value) {
   return String(value || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
 }
 
-function captureMessageKey(item) {
-  return [item?.at || "", item?.from || "", item?.kind || "", item?.text || ""].join("|");
+function emitCaptureDiagnostic(detail) {
+  window.dispatchEvent(new CustomEvent("aol96:capture-diagnostic", { detail }));
 }
 
 function renderedMessageKey(item) {
@@ -63,170 +54,6 @@ function renderedMessageKey(item) {
     item?.topic || "general",
     item?.threadId || ""
   ]);
-}
-
-function clearCapturePersistTimer() {
-  if (capturePersistTimer !== null) clearTimeout(capturePersistTimer);
-  capturePersistTimer = null;
-}
-
-function startOrResumeCapture(name) {
-  clearCapturePersistTimer();
-  capturePersistDirty = false;
-  captureLastPersistAttemptAt = 0;
-  const now = Date.now();
-  let saved = null;
-  try {
-    saved = JSON.parse(localStorage.getItem(CAPTURE_KEY) || "null");
-  } catch {}
-
-  const canResume = saved
-    && saved.schema === "aol96-chat-capture-v1"
-    && saved.screenName === name
-    && Array.isArray(saved.events)
-    && now - Number(saved.updatedAt || 0) <= CAPTURE_RESUME_GAP_MS;
-
-  capture = canResume ? saved : {
-    schema: "aol96-chat-capture-v1",
-    captureId: `${now}-${Math.random().toString(36).slice(2, 8)}`,
-    room: "Town Square",
-    screenName: name,
-    startedAt: now,
-    updatedAt: now,
-    simulatedDate: "",
-    provider: "",
-    pass: null,
-    events: []
-  };
-
-  captureMessageKeys.clear();
-  for (const event of capture.events) {
-    if (event.type === "message") captureMessageKeys.add(captureMessageKey(event));
-  }
-
-  recordCaptureEvent({ type: "connection", action: canResume ? "resume" : "sign-on" });
-  persistCapture(true);
-}
-
-function recordCaptureEvent(event) {
-  if (!capture) return;
-  const now = Date.now();
-  capture.events.push({ receivedAt: now, ...event });
-  capture.updatedAt = now;
-  scheduleCapturePersist();
-}
-
-function recordCaptureMessage(item, replayed = false) {
-  if (!capture || !item) return;
-  const key = captureMessageKey(item);
-  if (captureMessageKeys.has(key)) return;
-  captureMessageKeys.add(key);
-  recordCaptureEvent({
-    type: "message",
-    at: Number(item.at || Date.now()),
-    from: item.from || "",
-    text: item.text || "",
-    kind: item.kind || "",
-    source: item.source || "",
-    intent: item.intent || "",
-    target: item.target || "room",
-    topic: item.topic || "general",
-    threadId: item.threadId || "",
-    replayed: Boolean(replayed)
-  });
-}
-
-function scheduleCapturePersist() {
-  if (!capture) return;
-  capturePersistDirty = true;
-  if (capturePersistTimer !== null) return;
-
-  const sinceLastAttempt = captureLastPersistAttemptAt
-    ? Date.now() - captureLastPersistAttemptAt
-    : CAPTURE_PERSIST_INTERVAL_MS;
-  const delay = Math.max(0, CAPTURE_PERSIST_INTERVAL_MS - sinceLastAttempt);
-  capturePersistTimer = setTimeout(() => {
-    capturePersistTimer = null;
-    persistCapture();
-  }, delay);
-}
-
-function persistCapture(force = false) {
-  if (!capture) return false;
-  if (force) clearCapturePersistTimer();
-  if (!capturePersistDirty) return false;
-
-  captureLastPersistAttemptAt = Date.now();
-  try {
-    localStorage.setItem(CAPTURE_KEY, JSON.stringify(capture));
-    capturePersistDirty = false;
-    return true;
-  } catch {
-    // Keep the in-memory capture dirty, but rate-limit future retry attempts.
-    return false;
-  }
-}
-
-function exportCapture() {
-  if (!capture) return;
-  persistCapture(true);
-
-  const now = Date.now();
-  const messageEvents = capture.events.filter((event) => event.type === "message");
-  const sourceCounts = {};
-  const speakerCounts = {};
-  const kindCounts = {};
-
-  for (const event of messageEvents) {
-    const source = event.source || "unknown";
-    const speaker = event.from || "system";
-    const kind = event.kind || "unknown";
-    sourceCounts[source] = (sourceCounts[source] || 0) + 1;
-    speakerCounts[speaker] = (speakerCounts[speaker] || 0) + 1;
-    kindCounts[kind] = (kindCounts[kind] || 0) + 1;
-  }
-
-  const payload = {
-    schema: capture.schema,
-    purpose: "AOL 1996 chat-room realism analysis",
-    session: {
-      captureId: capture.captureId,
-      room: capture.room,
-      screenName: capture.screenName,
-      startedAt: capture.startedAt,
-      startedAtIso: new Date(capture.startedAt).toISOString(),
-      exportedAt: now,
-      exportedAtIso: new Date(now).toISOString(),
-      durationSeconds: Math.round((now - capture.startedAt) / 1000),
-      simulatedDate: capture.simulatedDate,
-      provider: capture.provider,
-      pass: capture.pass
-    },
-    summary: {
-      eventCount: capture.events.length,
-      messageCount: messageEvents.length,
-      sourceCounts,
-      kindCounts,
-      speakerCounts
-    },
-    events: capture.events
-  };
-
-  const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
-  const link = document.createElement("a");
-  const stamp = new Date(capture.startedAt).toISOString().replace(/[:.]/g, "-");
-  link.href = URL.createObjectURL(blob);
-  link.download = `aol96-town-square-${capture.screenName}-${stamp}.json`;
-  document.body.append(link);
-  link.click();
-  link.remove();
-  setTimeout(() => URL.revokeObjectURL(link.href), 1000);
-
-  if (exportChat) {
-    const oldLabel = exportChat.textContent;
-    exportChat.textContent = "Saved!";
-    setTimeout(() => { exportChat.textContent = oldLabel; }, 1400);
-  }
 }
 
 function addLine(item) {
@@ -311,7 +138,7 @@ function scheduleReconnect(name, detail = {}) {
   reconnectAttempts += 1;
   const delayMs = RECONNECT_DELAYS_MS[Math.min(reconnectAttempts - 1, RECONNECT_DELAYS_MS.length - 1)];
   const networkOffline = navigator.onLine === false;
-  recordCaptureEvent({
+  emitCaptureDiagnostic({
     type: "connection",
     action: "reconnect-scheduled",
     attempt: reconnectAttempts,
@@ -321,7 +148,6 @@ function scheduleReconnect(name, detail = {}) {
     wasClean: Boolean(detail.wasClean),
     networkOffline
   });
-
   if (reconnectAttempts >= RECONNECT_SHOW_SIGNIN_AFTER) {
     signOn.disabled = false;
     signin.classList.remove("hidden");
@@ -355,12 +181,9 @@ function connect(options = {}) {
   const name = cleanName(options?.name || screenName.value);
   signOn.disabled = true;
   localStorage.setItem("aol96-screen-name", name);
-  if (!automatic || !capture) {
-    startOrResumeCapture(name);
-  } else {
-    recordCaptureEvent({ type: "connection", action: "reconnect-attempt", attempt: reconnectAttempts });
+  if (automatic) {
+    emitCaptureDiagnostic({ type: "connection", action: "reconnect-attempt", attempt: reconnectAttempts });
   }
-
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const debugArg = debug ? "&debug=1" : "";
   const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}${debugArg}`;
@@ -370,7 +193,7 @@ function connect(options = {}) {
   } catch (error) {
     socket = null;
     const detail = String(error?.message || error || "");
-    recordCaptureEvent({ type: "connection", action: "error", detail, automatic });
+    emitCaptureDiagnostic({ type: "connection", action: "error", detail, automatic });
     if (automatic) {
       scheduleReconnect(name, { reason: detail });
     } else {
@@ -386,13 +209,11 @@ function connect(options = {}) {
 
   connection.addEventListener("open", () => {
     if (socket !== connection) return;
-    const wasReconnect = automatic || reconnectAttempts > 0;
     clearReconnectTimer();
     reconnectAttempts = 0;
     signin.classList.add("hidden");
     signOn.disabled = false;
     status.textContent = "Connected";
-    recordCaptureEvent({ type: "connection", action: wasReconnect ? "reconnected" : "open" });
     startHeartbeat(connection);
   });
 
@@ -404,43 +225,18 @@ function connect(options = {}) {
     if (data.type === "hello") {
       transcript.replaceChildren();
       renderedMessageKeys.clear();
-      const captureFloor = capture ? capture.startedAt - 10000 : Date.now() - 10000;
-      for (const item of data.history || []) {
-        addLine(item);
-        if (Number(item?.at || 0) >= captureFloor) recordCaptureMessage(item, true);
-      }
+      for (const item of data.history || []) addLine(item);
       setUsers(data.users || []);
       clock.textContent = data.simulatedDate || "November 22, 1996";
       status.textContent = `Connected · ${data.provider || "1996 chatter"}`;
-      if (capture) {
-        capture.simulatedDate = data.simulatedDate || capture.simulatedDate;
-        capture.provider = data.provider || capture.provider;
-        capture.pass = data.pass ?? capture.pass;
-      }
-      recordCaptureEvent({
-        type: "hello",
-        simulatedDate: data.simulatedDate || "",
-        provider: data.provider || "",
-        pass: data.pass ?? null,
-        users: data.users || []
-      });
     } else if (data.type === "message") {
       addLine(data.message);
-      recordCaptureMessage(data.message);
       if (data.message?.source === "groq") status.textContent = "Connected · Groq active";
     } else if (data.type === "presence") {
       setUsers(data.users || []);
       if (data.simulatedDate) clock.textContent = data.simulatedDate;
-      recordCaptureEvent({
-        type: "presence",
-        users: data.users || [],
-        count: Number(data.count ?? (data.users || []).length),
-        simulatedDate: data.simulatedDate || ""
-      });
     } else if (data.type === "ai_status") {
       status.textContent = `Connected · ${data.status}`;
-      if (capture) capture.provider = data.status || capture.provider;
-      recordCaptureEvent({ type: "ai_status", status: data.status || "" });
     } else if (data.type === "profile") {
       showProfile(data.profile, data.requestedName);
     } else if (data.type === "social_debug") {
@@ -452,21 +248,12 @@ function connect(options = {}) {
     if (socket !== connection) return;
     clearHeartbeatTimer();
     socket = null;
-    recordCaptureEvent({
-      type: "connection",
-      action: "close",
-      code: Number(event.code || 0),
-      reason: String(event.reason || ""),
-      wasClean: Boolean(event.wasClean)
-    });
-    persistCapture(true);
     if (pageUnloading) return;
     scheduleReconnect(name, event);
   });
 
   connection.addEventListener("error", () => {
     if (socket !== connection) return;
-    recordCaptureEvent({ type: "connection", action: "error" });
     status.textContent = "Connection problem · waiting to reconnect";
   });
 }
@@ -546,16 +333,6 @@ profileButton.addEventListener("click", requestProfile);
 people.addEventListener("dblclick", requestProfile);
 closeProfile.addEventListener("click", () => profileDialog.classList.add("hidden"));
 closeProfileBottom.addEventListener("click", () => profileDialog.classList.add("hidden"));
-if (exportChat) exportChat.addEventListener("click", exportCapture);
-
-document.addEventListener("visibilitychange", () => {
-  if (document.visibilityState === "hidden") persistCapture(true);
-});
-
-window.addEventListener("pagehide", () => {
-  persistCapture(true);
-});
-
 window.addEventListener("offline", () => {
   if (!socketIsActive()) status.textContent = "Connection lost · waiting for network";
 });
@@ -576,5 +353,4 @@ window.addEventListener("beforeunload", () => {
   pageUnloading = true;
   clearReconnectTimer();
   clearHeartbeatTimer();
-  persistCapture(true);
 });
