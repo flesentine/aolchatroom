@@ -30,11 +30,6 @@ export default {
 export class ChatRoom extends V41CoherenceChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v39WorldGateStats ||= {
-      futureGameProductLinesBlocked: 0,
-      auditedPublicClaimsBlocked: 0,
-      consoleLabelsNormalized: 0
-    };
     this.worldDateGuardCoordinator = new WorldDateGuardAuthority(this);
   }
 
@@ -83,7 +78,7 @@ export class ChatRoom extends V41CoherenceChatRoom {
     const base = V41PresenceCompatChatRoom.prototype.v39Snapshot.call(this, now);
     return {
       ...base,
-      worldGateStats: { ...this.v39WorldGateStats },
+      worldGateStats: this.worldDateGuardCoordinator.legacyWorldGateStats(),
       futureGameProductAuditAllRetained: auditFutureGameProductHistory(this.history || [], 0),
       worldGatePolicy: {
         futureGameProductBoundary: true,
