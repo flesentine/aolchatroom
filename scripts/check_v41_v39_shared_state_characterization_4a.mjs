@@ -81,19 +81,16 @@ const reconnect = read("src/human_reconnect_lifecycle_v41.js");
 const repair = read("src/coherence_repair_v41.js");
 const worldDate = read("src/world_date_guard_v41.js");
 const roster = read("src/bot_roster_reentry_v41.js");
+const background = read("src/v39_background_compatibility_v41.js");
 
 const surfaces = {
-  v39Stats: [
-    "src/index_v41_coherence_compat.js"
-  ],
+  v39Stats: [],
   v39RecentBotLeaves: [],
   v39PendingHumanDisconnects: [],
   v39LastTargetRepair: [],
   v39LastCoherenceLock: [],
   v39PresenceFixStats: [],
-  v39CaptureFixStats: [
-    "src/index_v41_presence_compat.js"
-  ],
+  v39CaptureFixStats: [],
   v39HumanReplacementAt: []
 };
 
@@ -106,8 +103,8 @@ for (const [surface, expected] of Object.entries(surfaces)) {
 }
 
 const initializers = {
-  "this.v39Stats = {": ["src/index_v41_coherence_compat.js"],
-  "this.v39CaptureFixStats = {": ["src/index_v41_presence_compat.js"]
+  "this.v39Stats = {": [],
+  "this.v39CaptureFixStats = {": []
 };
 
 for (const [marker, expected] of Object.entries(initializers)) {
@@ -119,12 +116,8 @@ for (const [marker, expected] of Object.entries(initializers)) {
 }
 
 const wholeSurfaceAssignments = {
-  v39Stats: {
-    "src/index_v41_coherence_compat.js": 1
-  },
-  v39CaptureFixStats: {
-    "src/index_v41_presence_compat.js": 1
-  }
+  v39Stats: {},
+  v39CaptureFixStats: {}
 };
 
 for (const [surface, expectedCounts] of Object.entries(wholeSurfaceAssignments)) {
@@ -142,41 +135,53 @@ for (const [surface, expectedCounts] of Object.entries(wholeSurfaceAssignments))
   }
 }
 
+assert.equal(coherenceCompat.includes("this.v39Stats = {"), false, "4A retired v39Stats room surface must stay absent after 4E");
+assert.equal(presenceCompat.includes("this.v39CaptureFixStats = {"), false, "4A retired v39CaptureFixStats room surface must stay absent after 4E");
+
 assert.deepEqual(
-  objectKeys(coherenceCompat, "this.v39Stats = {"),
+  objectKeys(background, "this.backgroundStats = {"),
   [
     "backgroundPlansFiltered",
     "selfDialogueLinesBlocked"
   ],
-  "4A v39Stats schema must remain exact"
+  "4A background compatibility authority stats schema must remain exact after 4E"
 );
 
 assert.deepEqual(
-  objectKeys(presenceCompat, "this.v39CaptureFixStats = {"),
-  [
-    "legacyQuickBackgroundCallsSuppressed"
-  ],
-  "4A v39CaptureFixStats schema must remain exact"
+  objectKeys(background, "this.captureFixStats = {"),
+  ["legacyQuickBackgroundCallsSuppressed"],
+  "4A background compatibility capture schema must remain exact after 4E"
 );
 
 for (const marker of [
-  "this.v39Stats.selfDialogueLinesBlocked += filtered.blocked.length",
-  "this.v39Stats.backgroundPlansFiltered += 1",
-  "stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }",
+  "v39BackgroundCompatibilityAuthority",
+  "backgroundAuthority?.legacyV39Stats",
+  "stats: { ...backgroundStats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }",
   "legacyRecentlyDeparted",
   "legacyPendingHumanDisconnects",
   "legacyLastTargetRepair",
   "legacyLastCoherenceLock"
 ]) {
-  assert.ok(coherenceCompat.includes(marker), `4A coherence compatibility surface must retain marker: ${marker}`);
+  assert.ok(coherenceCompat.includes(marker), `4A coherence compatibility surface must retain marker after 4E: ${marker}`);
 }
 
 for (const marker of [
-  "this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1",
+  "suppressLegacyQuickBackground()",
   "legacyPresenceFixStats",
-  "legacyCaptureFixStats"
+  "legacyCaptureFixStats",
+  "v39BackgroundCompatibilityAuthority"
 ]) {
-  assert.ok(presenceCompat.includes(marker), `4A presence compatibility surface must retain marker: ${marker}`);
+  assert.ok(presenceCompat.includes(marker), `4A presence compatibility surface must retain marker after 4E: ${marker}`);
+}
+
+for (const marker of [
+  "this.backgroundStats.selfDialogueLinesBlocked += filtered.blocked.length",
+  "this.backgroundStats.backgroundPlansFiltered += 1",
+  "this.captureFixStats.legacyQuickBackgroundCallsSuppressed += 1",
+  "legacyV39Stats()",
+  "legacyCaptureFixStats()"
+]) {
+  assert.ok(background.includes(marker), `4A background compatibility authority must retain 4E-owned marker: ${marker}`);
 }
 
 for (const marker of [
@@ -312,11 +317,11 @@ assert.deepEqual(
 
 const counterWriters = {
   v39Stats: {
-    selfDialogueLinesBlocked: ["src/index_v41_coherence_compat.js"],
-    backgroundPlansFiltered: ["src/index_v41_coherence_compat.js"]
+    selfDialogueLinesBlocked: [],
+    backgroundPlansFiltered: []
   },
   v39CaptureFixStats: {
-    legacyQuickBackgroundCallsSuppressed: ["src/index_v41_presence_compat.js"]
+    legacyQuickBackgroundCallsSuppressed: []
   }
 };
 
@@ -340,4 +345,4 @@ for (const source of [reconnect, repair, worldDate, roster]) {
   }
 }
 
-console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed after 4D world/roster consolidation");
+console.log("v41 Phase 4A v39 shared-state ownership characterization checks passed after 4E background compatibility consolidation");

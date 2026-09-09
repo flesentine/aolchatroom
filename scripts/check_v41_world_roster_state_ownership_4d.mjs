@@ -41,6 +41,7 @@ const roster = read("src/bot_roster_reentry_v41.js");
 const rosterWrapper = read("src/index_v41_bot_roster_reentry.js");
 const coherenceCompat = read("src/index_v41_coherence_compat.js");
 const presenceCompat = read("src/index_v41_presence_compat.js");
+const background = read("src/v39_background_compatibility_v41.js");
 const worker = read("test/runtime_generation_contract_worker.js");
 const runtime = read("scripts/check_v41_generation_contract_runtime.mjs");
 const phase4a = read("scripts/check_v41_v39_shared_state_characterization_4a.mjs");
@@ -130,19 +131,17 @@ assert.deepEqual(
   "4D roster telemetry schema must stay exact"
 );
 
+assert.equal(coherenceCompat.includes("this.v39Stats = {"), false, "4D retained proof must accept 4E retirement of mixed v39Stats");
+assert.equal(presenceCompat.includes("this.v39CaptureFixStats = {"), false, "4D retained proof must accept 4E retirement of v39CaptureFixStats");
 assert.deepEqual(
-  objectKeys(coherenceCompat, "this.v39Stats = {"),
-  [
-    "backgroundPlansFiltered",
-    "selfDialogueLinesBlocked"
-  ],
-  "4D coherence compatibility stats must retain only shell-owned counters"
+  objectKeys(background, "this.backgroundStats = {"),
+  ["backgroundPlansFiltered", "selfDialogueLinesBlocked"],
+  "4D retained proof must recognize 4E background telemetry ownership"
 );
-
 assert.deepEqual(
-  objectKeys(presenceCompat, "this.v39CaptureFixStats = {"),
+  objectKeys(background, "this.captureFixStats = {"),
   ["legacyQuickBackgroundCallsSuppressed"],
-  "4D presence compatibility stats must retain only shell-owned counters"
+  "4D retained proof must recognize 4E quick-background telemetry ownership"
 );
 
 for (const marker of [
@@ -151,7 +150,7 @@ for (const marker of [
   "this.botRosterReentryAuthority?.() || null",
   "rosterAuthority?.legacyV39Stats",
   "rosterAuthority?.legacyRecentlyDeparted",
-  "stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }"
+  "stats: { ...backgroundStats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats }"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4D coherence compatibility must compose world/roster diagnostics: ${marker}`);
 }
@@ -176,8 +175,8 @@ assert.ok(worker.includes('Object.hasOwn(this, "v39RecentBotLeaves")'));
 assert.ok(worker.includes("legacyV39SnapshotPreserved: true"));
 assert.ok(runtime.includes('"v41-world-roster-state-ownership"'));
 
-assert.ok(phase4a.includes("after 4D world/roster consolidation"));
-assert.ok(phase4b.includes("after 4D world/roster consolidation"));
-assert.ok(phase4c.includes("after 4D world/roster consolidation"));
+assert.ok(phase4a.includes("after 4E background compatibility consolidation"));
+assert.ok(phase4b.includes("after 4E background compatibility consolidation"));
+assert.ok(phase4c.includes("after 4E background compatibility consolidation"));
 
-console.log("v41 Phase 4D world/date and roster state ownership checks passed");
+console.log("v41 Phase 4D world/date and roster state ownership checks passed after 4E background compatibility consolidation");

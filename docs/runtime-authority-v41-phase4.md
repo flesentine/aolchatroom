@@ -149,3 +149,28 @@ The 4D real-Worker contract proves the retired room fields are absent while the 
 
 No client/browser code changes in this phase.
 
+
+## 4E — consolidate residual v39 background compatibility state
+
+Phase 4E moves the final compatibility-shell-owned mutable v39 counters into a named `V39BackgroundCompatibilityAuthority`.
+
+Authority-owned state:
+- `backgroundStats.selfDialogueLinesBlocked`;
+- `backgroundStats.backgroundPlansFiltered`;
+- `captureFixStats.legacyQuickBackgroundCallsSuppressed`.
+
+The authority also owns the two residual behaviors that write those counters:
+- background-only v39 self-dialogue filtering and the unchanged `v39-self-dialogue-lines-blocked` broadcast;
+- suppression of the inherited legacy quick-background generator.
+
+The live room no longer carries:
+- `v39Stats`;
+- `v39CaptureFixStats`.
+
+Legacy v39 diagnostics remain unchanged by composition:
+- `v39Snapshot().stats` reads the two background counters from the authority;
+- `v39Snapshot().captureFixStats.legacyQuickBackgroundCallsSuppressed` reads from the same authority.
+
+This closes v39 compatibility-shell mutable-state ownership. The v38 quality/cooling state, including `eraLinesBlocked`, is intentionally unchanged and remains reserved for the dedicated v38 telemetry consolidation.
+
+No client/browser code changes in this phase.

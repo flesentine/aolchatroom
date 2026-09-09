@@ -126,6 +126,7 @@ const contracts = [
   "wrapper-retirement-v38-quality",
   "wrapper-retirement-v39-coherence",
   "wrapper-retirement-v39-presence",
+  "v41-v39-background-state-ownership",
   "wrapper-retirement-v39-world",
   "bot-roster-cooldown-filtering",
   "bot-roster-leave-bookkeeping",
