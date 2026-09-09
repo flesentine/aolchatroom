@@ -9,8 +9,6 @@ function fakeRoom() {
   return {
     history: [],
     activeBotNames: [],
-    v39RecentBotLeaves: new Map(),
-    v39Stats: { botReentryBlocks: 0 },
     broadcasts: [],
     broadcast(payload) { this.broadcasts.push(payload); }
   };
@@ -21,8 +19,8 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
 {
   const now = Date.now();
   const r = fakeRoom();
-  r.v39RecentBotLeaves.set("CoolChick17", now - 1000);
   const a = new BotRosterReentryAuthority(r);
+  a.recentBotLeaves.set("CoolChick17", now - 1000);
 
   const filtered = a.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
   assert.deepEqual(filtered, ["SegaMan"]);
@@ -37,6 +35,8 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
   const r = fakeRoom();
   r.activeBotNames = ["CoolChick17", "SegaMan"];
   const a = new BotRosterReentryAuthority(r);
+  assert.equal(Object.hasOwn(r, "v39RecentBotLeaves"), false);
+  assert.equal(Object.hasOwn(r, "v39Stats"), false);
   let delegated = 0;
   a.announceBotLeave("CoolChick17", now, () => {
     delegated += 1;
@@ -44,15 +44,15 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
     return true;
   });
   assert.equal(delegated, 1);
-  assert.equal(r.v39RecentBotLeaves.get("CoolChick17"), now);
+  assert.equal(a.recentBotLeaves.get("CoolChick17"), now);
   assert.ok(a.reentryRemaining("CoolChick17", now + 1) > 0);
 }
 
 {
   const now = Date.now();
   const r = fakeRoom();
-  r.v39RecentBotLeaves.set("CoolChick17", now - 1000);
   const a = new BotRosterReentryAuthority(r);
+  a.recentBotLeaves.set("CoolChick17", now - 1000);
   let delegated = 0;
   const blocked = a.announceBotEnter("CoolChick17", now, () => {
     delegated += 1;
@@ -60,7 +60,7 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
   });
   assert.equal(blocked, false);
   assert.equal(delegated, 0);
-  assert.equal(r.v39Stats.botReentryBlocks, 1);
+  assert.equal(a.rosterStats.botReentryBlocks, 1);
   assert.equal(r.broadcasts.length, 1);
   assert.equal(r.broadcasts[0].action, "v39-bot-reentry-blocked");
 
@@ -82,7 +82,7 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
   r.history = [{ kind: "system", from: "", text: "CoolChick17 has left the room.", at: now - 5000 }];
   const a = new BotRosterReentryAuthority(r);
   assert.ok(a.reentryRemaining("CoolChick17", now) > 0);
-  r.v39RecentBotLeaves.clear();
+  a.recentBotLeaves.clear();
   assert.ok(a.reentryRemaining("CoolChick17", now) > 0, "retained leave history must independently preserve cooldown");
 }
 
@@ -124,4 +124,4 @@ assert.ok(v39Coherence.includes("reentryCooldownRemaining("));
 assert.ok(v39Coherence.includes("this.v39RecentBotLeaves.set(name, now)"));
 assert.ok(v39Coherence.includes('action: "v39-bot-reentry-blocked"'));
 
-console.log("v41 Phase 3E bot roster/re-entry authority checks passed");
+console.log("v41 Phase 3E bot roster/re-entry authority checks passed after 4D state consolidation");

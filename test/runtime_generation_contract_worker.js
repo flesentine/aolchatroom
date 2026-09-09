@@ -1768,7 +1768,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     this.reset({ bots: ["SegaMan", "MetallicaFan"] });
 
     const reconnectAuthority = this.humanReconnectLifecycleAuthority();
-    ensure(this.v39RecentBotLeaves instanceof Map, "3F.3 must initialize the legacy bot-leave map without the retired coherence constructor");
+    const rosterAuthority = this.botRosterReentryAuthority();
+    equal(Object.hasOwn(this, "v39RecentBotLeaves"), false, "4D must remove the legacy bot-leave map from room state");
+    ensure(rosterAuthority?.recentBotLeaves instanceof Map, "4D roster authority must own the bot-leave map");
     equal(Object.hasOwn(this, "v39PendingHumanDisconnects"), false, "4B must remove the legacy reconnect map from room state");
     ensure(reconnectAuthority?.pendingHumanDisconnects instanceof Map, "4B reconnect authority must own the pending reconnect map");
     ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize non-reconnect legacy v39 counters");
@@ -1892,8 +1894,10 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const now = Date.now();
     this.reset({ bots: ["SegaMan"] });
 
-    ensure(this.v39WorldGateStats && typeof this.v39WorldGateStats === "object", "3F.1 must initialize legacy v39 world-gate counters without the retired wrapper constructor");
-    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 0, "3F.1 world-gate counter baseline must remain zero");
+    const worldDateAuthority = this.worldDateGuardAuthority();
+    equal(Object.hasOwn(this, "v39WorldGateStats"), false, "4D must remove legacy world-gate counters from room state");
+    ensure(worldDateAuthority?.worldGateStats && typeof worldDateAuthority.worldGateStats === "object", "4D world/date authority must own world-gate counters");
+    equal(worldDateAuthority.worldGateStats.futureGameProductLinesBlocked, 0, "3F.1 world-gate counter baseline must remain zero through 4D");
 
     const v39 = this.v39Snapshot(now);
     ensure(v39?.worldGateStats, "3F.1 must preserve v39 world-gate snapshot diagnostics");
@@ -1916,8 +1920,8 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractBotRosterCooldownFiltering() {
     const now = Date.now();
     this.reset({ bots: ["SegaMan"] });
-    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
     const authority = this.botRosterReentryAuthority();
+    authority.recentBotLeaves.set("CoolChick17", now - 1000);
 
     const filtered = authority.desiredRoster(now, () => ["CoolChick17", "SegaMan"]);
     equal(filtered.length, 1, "3E should filter an inactive bot still inside re-entry cooldown");
@@ -1941,10 +1945,10 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       return true;
     });
     equal(delegated, 1, "3E leave bookkeeping must delegate exactly once");
-    equal(this.v39RecentBotLeaves.get("CoolChick17"), now, "3E must remember a successful departure");
+    equal(authority.recentBotLeaves.get("CoolChick17"), now, "3E must remember a successful departure");
     equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "remembered departure must immediately activate cooldown");
 
-    this.v39RecentBotLeaves.clear();
+    authority.recentBotLeaves.clear();
     this.history = [{ kind: "system", from: "", text: "CoolChick17 has left the room.", at: now }];
     equal(this.v39ReentryRemaining("CoolChick17", now + 1) > 0, true, "retained leave history must independently preserve cooldown");
     return { rememberedLeave: true, historyFallback: true };
@@ -1953,12 +1957,13 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractBotRosterBlockedReentry() {
     const now = Date.now();
     this.reset({ bots: ["SegaMan"] });
-    this.v39RecentBotLeaves.set("CoolChick17", now - 1000);
-    const before = this.v39Stats.botReentryBlocks;
+    const authority = this.botRosterReentryAuthority();
+    authority.recentBotLeaves.set("CoolChick17", now - 1000);
+    const before = authority.rosterStats.botReentryBlocks;
     const result = this.announceBotEnter("CoolChick17", now);
     equal(result, false, "production 3E wrapper must reject re-entry inside cooldown");
     equal(this.activeBotNames.includes("CoolChick17"), false, "blocked bot must remain absent");
-    equal(this.v39Stats.botReentryBlocks, before + 1, "legacy v39 bot-reentry counter must increment");
+    equal(authority.rosterStats.botReentryBlocks, before + 1, "legacy v39 bot-reentry counter must increment");
 
     const snapshot = this.v41Snapshot(now);
     equal(snapshot.botRosterReentry?.authority, "v41-bot-roster-reentry", "status must expose 3E roster authority");
@@ -1971,6 +1976,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
   async contractWorldDateGuardOrder() {
     const now = Date.parse("2026-08-31T13:30:00-07:00");
     this.reset({ bots: ["SegaMan"] });
+    const authority = this.worldDateGuardAuthority();
 
     const cases = [
       ["oh it was goldeneye for the n64", "future-game-product"],
@@ -1985,9 +1991,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       this.noteViolation(violation, "pre-display", "SegaMan");
     }
 
-    equal(this.v39WorldGateStats.futureGameProductLinesBlocked, 1, "future-game counter must remain legacy-compatible");
-    equal(this.v39CaptureFixStats.historicalDateClaimsBlocked, 1, "relative-date counter must remain legacy-compatible");
-    equal(this.v39Stats.futureEventLinesBlocked, 1, "future-event counter must remain legacy-compatible");
+    equal(authority.worldGateStats.futureGameProductLinesBlocked, 1, "future-game counter must remain legacy-compatible");
+    equal(authority.captureFixStats.historicalDateClaimsBlocked, 1, "relative-date counter must remain legacy-compatible");
+    equal(authority.coherenceStats.futureEventLinesBlocked, 1, "future-event counter must remain legacy-compatible");
     equal(this.v38QualityStats.eraLinesBlocked, 1, "hard-era counter must remain legacy-compatible");
 
     const safe = this.lineViolation("playstation rules", now, "", "SegaMan");
@@ -1997,6 +2003,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
   async contractWorldDateConsoleNormalization() {
     this.reset({ bots: ["SegaMan"] });
+    const authority = this.worldDateGuardAuthority();
     const before = this.history.length;
 
     // The real lower pipeline includes v7 typing style, whose deliberate random
@@ -2013,11 +2020,11 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
     equal(this.history.length, before + 1, "bot normalization contract must emit one line");
     equal(this.history.at(-1)?.text, "playstation has good games", "3D must preserve the existing lower-pipeline surface after PS1 normalization");
-    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
+    equal(authority.worldGateStats.consoleLabelsNormalized, 1, "legacy console-normalization counter must increment");
 
     this.say("Crateman", "PS1 has good games", "human", "human", { topic: "gaming" });
     equal(this.history.at(-1)?.text, "PS1 has good games", "human text must never be rewritten by console normalization");
-    equal(this.v39WorldGateStats.consoleLabelsNormalized, 1, "human text must not affect normalization counter");
+    equal(authority.worldGateStats.consoleLabelsNormalized, 1, "human text must not affect normalization counter");
     return { normalizedBotOnly: true, typingRandomnessPinned: true };
   }
 
@@ -2042,6 +2049,59 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "status must expose 3D world/date authority");
     equal(snapshot.policy.layeredWorldDateOrderPreserved, true, "status must expose preserved guard ordering");
     return { audit: true, blockers: audit.blockers };
+  }
+
+  async contractV41WorldRosterStateOwnership() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({ bots: ["SegaMan"] });
+    const worldAuthority = this.worldDateGuardAuthority();
+    const rosterAuthority = this.botRosterReentryAuthority();
+    ensure(worldAuthority && rosterAuthority, "4D world/date and roster authorities must be available");
+
+    equal(Object.hasOwn(this, "v39WorldGateStats"), false, "4D room must not retain v39WorldGateStats");
+    equal(Object.hasOwn(this, "v39RecentBotLeaves"), false, "4D room must not retain v39RecentBotLeaves");
+    equal(Object.hasOwn(this.v39Stats || {}, "futureEventLinesBlocked"), false, "4D mixed v39Stats must not own future-event telemetry");
+    equal(Object.hasOwn(this.v39Stats || {}, "botReentryBlocks"), false, "4D mixed v39Stats must not own roster telemetry");
+    equal(Object.hasOwn(this.v39CaptureFixStats || {}, "historicalDateClaimsBlocked"), false, "4D presence capture stats must not own historical-date telemetry");
+
+    rosterAuthority.recentBotLeaves.set("CoolChick17", now - 1000);
+    const blocked = this.announceBotEnter("CoolChick17", now);
+    equal(blocked, false, "4D must preserve blocked bot re-entry inside cooldown");
+    equal(rosterAuthority.rosterStats.botReentryBlocks, 1, "4D roster authority must own blocked-reentry telemetry");
+
+    for (const [text, expectedKind] of [
+      ["oh it was goldeneye for the n64", "future-game-product"],
+      ["independence day got released last friday <g>", "historical-date-mismatch"],
+      ["phoenix lights man yeah in ninety seven", "future-era-event"]
+    ]) {
+      const violation = this.lineViolation(text, now, "gaming movies news", "SegaMan");
+      equal(violation?.kind, expectedKind, `4D must preserve world/date guard for ${text}`);
+      this.noteViolation(violation, "pre-display", "SegaMan");
+    }
+    worldAuthority.say("SegaMan", "my PS1 is hooked up", "bot", "gemini", {}, (normalized) => normalized);
+
+    equal(worldAuthority.worldGateStats.futureGameProductLinesBlocked, 1, "4D authority must own future-game telemetry");
+    equal(worldAuthority.worldGateStats.consoleLabelsNormalized, 1, "4D authority must own console-normalization telemetry");
+    equal(worldAuthority.captureFixStats.historicalDateClaimsBlocked, 1, "4D authority must own historical-date telemetry");
+    equal(worldAuthority.coherenceStats.futureEventLinesBlocked, 1, "4D authority must own future-event telemetry");
+
+    const legacy = this.v39Snapshot(now);
+    equal(legacy.worldGateStats?.futureGameProductLinesBlocked, 1, "legacy v39 snapshot must bridge world-gate telemetry");
+    equal(legacy.worldGateStats?.consoleLabelsNormalized, 1, "legacy v39 snapshot must bridge normalization telemetry");
+    equal(legacy.captureFixStats?.historicalDateClaimsBlocked, 1, "legacy v39 snapshot must bridge historical-date telemetry");
+    equal(legacy.stats?.futureEventLinesBlocked, 1, "legacy v39 snapshot must bridge future-event telemetry");
+    equal(legacy.stats?.botReentryBlocks, 1, "legacy v39 snapshot must bridge roster telemetry");
+    equal(legacy.recentlyDeparted?.some?.((row) => row.name === "CoolChick17"), true, "legacy v39 snapshot must bridge recent bot departure state");
+
+    const v41 = this.v41Snapshot(now);
+    equal(v41.worldDateGuard?.stateOwnedByAuthority, true, "v41 snapshot must expose world/date state ownership");
+    equal(v41.botRosterReentry?.stateOwnedByAuthority, true, "v41 snapshot must expose roster state ownership");
+    return {
+      worldDateStateOwnedByAuthority: true,
+      rosterStateOwnedByAuthority: true,
+      retiredRoomStateAbsent: true,
+      legacyV39SnapshotPreserved: true
+    };
   }
 
   async contractCoherenceTargetRepair() {
@@ -2354,6 +2414,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "world-date-guard-order") return this.contractWorldDateGuardOrder();
     if (name === "world-date-console-normalization") return this.contractWorldDateConsoleNormalization();
     if (name === "world-date-historical-audit") return this.contractWorldDateHistoricalAudit();
+    if (name === "v41-world-roster-state-ownership") return this.contractV41WorldRosterStateOwnership();
     if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
     if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
     if (name === "explicit-error-challenge-repair") return this.contractExplicitErrorChallengeRepair();

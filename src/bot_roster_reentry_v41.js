@@ -9,6 +9,10 @@ export class BotRosterReentryAuthority {
   constructor(room, { cooldownMs = V41_BOT_REENTRY_COOLDOWN_MS } = {}) {
     this.room = room;
     this.cooldownMs = cooldownMs;
+    this.recentBotLeaves = new Map();
+    this.rosterStats = {
+      botReentryBlocks: 0
+    };
   }
 
   reentryRemaining(name, now = Date.now()) {
@@ -17,7 +21,7 @@ export class BotRosterReentryAuthority {
       name,
       now,
       this.cooldownMs,
-      this.room.v39RecentBotLeaves?.get?.(name) || 0
+      this.recentBotLeaves.get(name) || 0
     );
   }
 
@@ -31,7 +35,7 @@ export class BotRosterReentryAuthority {
     const wasActive = (this.room.activeBotNames || []).includes(name);
     const result = delegate();
     if (wasActive && !(this.room.activeBotNames || []).includes(name)) {
-      this.room.v39RecentBotLeaves?.set?.(name, now);
+      this.recentBotLeaves.set(name, now);
     }
     return result;
   }
@@ -39,7 +43,7 @@ export class BotRosterReentryAuthority {
   announceBotEnter(name, now = Date.now(), delegate) {
     const remainingMs = this.reentryRemaining(name, now);
     if (remainingMs > 0) {
-      if (this.room.v39Stats) this.room.v39Stats.botReentryBlocks += 1;
+      this.rosterStats.botReentryBlocks += 1;
       this.room.broadcast?.({
         type: "presence_guard",
         action: "v39-bot-reentry-blocked",
@@ -52,18 +56,28 @@ export class BotRosterReentryAuthority {
     return delegate();
   }
 
-  snapshot(now = Date.now()) {
+  legacyV39Stats() {
+    return { ...this.rosterStats };
+  }
+
+  legacyRecentlyDeparted(now = Date.now()) {
     const names = [...new Set([
-      ...(this.room.v39RecentBotLeaves?.keys?.() || []),
+      ...this.recentBotLeaves.keys(),
       ...(this.room.activeBotNames || [])
     ])];
-    const recentlyDeparted = names
+    return names
       .map((name) => ({ name, remainingMs: this.reentryRemaining(name, now) }))
       .filter((row) => row.remainingMs > 0);
+  }
+
+  snapshot(now = Date.now()) {
+    const recentlyDeparted = this.legacyRecentlyDeparted(now);
     return {
       authority: "v41-bot-roster-reentry",
       cooldownMs: this.cooldownMs,
       recentlyDeparted,
+      rosterStats: this.legacyV39Stats(),
+      stateOwnedByAuthority: true,
       activeBotsRemainRosterEligibleDuringCooldown: true,
       legacyV39CounterAndBroadcastPreserved: true,
       legacyV39RosterOverridesBypassedInV41Production: true

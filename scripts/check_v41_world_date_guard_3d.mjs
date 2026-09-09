@@ -7,20 +7,16 @@ function room() {
     culture: {},
     history: [],
     realismHarnessStartedAt: 0,
-    v38QualityStats: { eraLinesBlocked: 0 },
-    v39Stats: { futureEventLinesBlocked: 0 },
-    v39CaptureFixStats: { historicalDateClaimsBlocked: 0 },
-    v39WorldGateStats: {
-      futureGameProductLinesBlocked: 0,
-      auditedPublicClaimsBlocked: 0,
-      consoleLabelsNormalized: 0
-    }
+    v38QualityStats: { eraLinesBlocked: 0 }
   };
 }
 
 {
   const r = room();
   const a = new WorldDateGuardAuthority(r);
+  assert.equal(Object.hasOwn(r, "v39WorldGateStats"), false);
+  assert.equal(Object.hasOwn(r, "v39CaptureFixStats"), false);
+  assert.equal(Object.hasOwn(r, "v39Stats"), false);
   let baselineCalls = 0;
   const violation = a.lineViolation(
     "GoldenEye 007 on N64 is awesome",
@@ -61,10 +57,10 @@ function room() {
   for (const kind of kinds) {
     a.noteViolation({ kind }, "pre-display", "SegaMan", () => true);
   }
-  assert.equal(r.v39WorldGateStats.futureGameProductLinesBlocked, 1);
-  assert.equal(r.v39WorldGateStats.auditedPublicClaimsBlocked, 1);
-  assert.equal(r.v39CaptureFixStats.historicalDateClaimsBlocked, 1);
-  assert.equal(r.v39Stats.futureEventLinesBlocked, 1);
+  assert.equal(a.worldGateStats.futureGameProductLinesBlocked, 1);
+  assert.equal(a.worldGateStats.auditedPublicClaimsBlocked, 1);
+  assert.equal(a.captureFixStats.historicalDateClaimsBlocked, 1);
+  assert.equal(a.coherenceStats.futureEventLinesBlocked, 1);
   assert.equal(r.v38QualityStats.eraLinesBlocked, 1);
 }
 
@@ -77,14 +73,14 @@ function room() {
     return normalized;
   });
   assert.equal(surface, "my PlayStation is hooked up");
-  assert.equal(r.v39WorldGateStats.consoleLabelsNormalized, 1);
+  assert.equal(a.worldGateStats.consoleLabelsNormalized, 1);
 
   a.say("Crateman", "my PS1 is hooked up", "human", "human", {}, (normalized) => {
     surface = normalized;
     return normalized;
   });
   assert.equal(surface, "my PS1 is hooked up");
-  assert.equal(r.v39WorldGateStats.consoleLabelsNormalized, 1);
+  assert.equal(a.worldGateStats.consoleLabelsNormalized, 1);
 }
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_world_date_guard.js", import.meta.url), "utf8");
@@ -136,4 +132,4 @@ assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"
 assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 
-console.log("v41 Phase 3D world/date guard authority checks passed");
+console.log("v41 Phase 3D world/date guard authority checks passed after 4D state consolidation");

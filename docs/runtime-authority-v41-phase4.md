@@ -107,3 +107,45 @@ The 4C real-Worker contract proves both the absence of the retired room fields a
 
 No client/browser code changes in this phase.
 
+## 4D — consolidate world/date and roster state ownership
+
+Phase 4D moves the remaining v39 world/date and bot-reentry mutable state into the authorities that already own those behaviors.
+
+`WorldDateGuardAuthority` now owns:
+- `worldGateStats.futureGameProductLinesBlocked`;
+- `worldGateStats.auditedPublicClaimsBlocked`;
+- `worldGateStats.consoleLabelsNormalized`;
+- `captureFixStats.historicalDateClaimsBlocked`;
+- `coherenceStats.futureEventLinesBlocked`.
+
+`BotRosterReentryAuthority` now owns:
+- `recentBotLeaves`;
+- `rosterStats.botReentryBlocks`.
+
+The live room no longer carries:
+- `v39WorldGateStats`;
+- `v39RecentBotLeaves`.
+
+The mixed `v39Stats` object no longer stores `futureEventLinesBlocked` or `botReentryBlocks`, and the presence compatibility capture object no longer stores `historicalDateClaimsBlocked`.
+
+Legacy v39 diagnostics remain unchanged by composition:
+- `v39Snapshot().stats` merges world/date and roster counters from their authorities;
+- `v39Snapshot().recentlyDeparted` is composed from the roster authority;
+- `v39Snapshot().captureFixStats.historicalDateClaimsBlocked` comes from the world/date authority;
+- `v39Snapshot().worldGateStats` comes from the world/date authority.
+
+The v38 `eraLinesBlocked` counter deliberately remains outside 4D and is reserved for the dedicated v38 telemetry consolidation.
+
+Behavior remains unchanged:
+- world/date guard ordering;
+- future-game and audited-public-claim blocking;
+- historical-date and future-event blocking;
+- PS1-to-PlayStation bot normalization;
+- 3-minute bot re-entry cooldown;
+- active-bot roster eligibility;
+- blocked-reentry broadcast semantics.
+
+The 4D real-Worker contract proves the retired room fields are absent while the same legacy v39 diagnostics are populated after live world/date and roster behavior.
+
+No client/browser code changes in this phase.
+
