@@ -168,7 +168,7 @@ assert.ok(worker.includes('Object.hasOwn(this, "v39PresenceFixStats")'));
 assert.ok(worker.includes("legacyV39SnapshotPreserved: true"));
 assert.ok(runtime.includes('"v41-reconnect-state-ownership"'));
 
-assert.ok(phase4a.includes("after 4B reconnect consolidation"));
+assert.ok(phase4a.includes("after 4C coherence consolidation"));
 assert.equal(phase4a.includes('"src/human_reconnect_lifecycle_v41.js",\n    "src/index_v41_coherence_compat.js"'), false);
 
 console.log("v41 Phase 4B reconnect state ownership checks passed after 4C coherence consolidation");
