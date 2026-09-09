@@ -7,9 +7,9 @@ import qualityWorker, { ChatRoom as V41QualityCompatChatRoom } from "./index_v41
 import { simulatedDateTimeLabel } from "./social.js";
 import {
   V39_BOT_REENTRY_COOLDOWN_MS,
-  auditFutureEventHistory,
-  filterSelfDialogueLines
+  auditFutureEventHistory
 } from "./coherence_guard_v39.js";
+import { V39BackgroundCompatibilityAuthority } from "./v39_background_compatibility_v41.js";
 
 const PASS = "conversation-coherence-v39";
 const V39_HUMAN_RECONNECT_GRACE_MS = 5000;
@@ -88,31 +88,30 @@ export default {
 export class ChatRoom extends V41QualityCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v39Stats = {
-      selfDialogueLinesBlocked: 0,
-      backgroundPlansFiltered: 0
-    };
+    this.v39BackgroundCompatibilityCoordinator = new V39BackgroundCompatibilityAuthority(this);
+  }
+
+  v39BackgroundCompatibilityAuthority() {
+    return this.v39BackgroundCompatibilityCoordinator;
   }
 
   queueScenePlan(lines, reason = "background", trigger = null, front = false) {
-    if (reason !== "background") return super.queueScenePlan(lines, reason, trigger, front);
-    const filtered = filterSelfDialogueLines(lines || []);
-    if (filtered.blocked.length) {
-      this.v39Stats.selfDialogueLinesBlocked += filtered.blocked.length;
-      this.v39Stats.backgroundPlansFiltered += 1;
-      this.broadcast?.({
-        type: "scene_plan",
-        action: "v39-self-dialogue-lines-blocked",
-        blocked: filtered.blocked.length,
-        kept: filtered.kept.length,
-        reasons: [...new Set(filtered.blocked.map((row) => row._v39SelfDialogueReason).filter(Boolean))],
-        at: Date.now()
-      });
-    }
-    return super.queueScenePlan(filtered.kept, reason, trigger, front);
+    return this.v39BackgroundCompatibilityCoordinator.queueScenePlan(
+      lines,
+      reason,
+      trigger,
+      front,
+      (nextLines, nextReason, nextTrigger, nextFront) =>
+        super.queueScenePlan(nextLines, nextReason, nextTrigger, nextFront)
+    );
   }
 
   v39Snapshot(now = Date.now()) {
+    const backgroundAuthority = this.v39BackgroundCompatibilityAuthority?.() || null;
+    const backgroundStats = backgroundAuthority?.legacyV39Stats?.() || {
+      selfDialogueLinesBlocked: 0,
+      backgroundPlansFiltered: 0
+    };
     const reconnectAuthority = this.humanReconnectLifecycleAuthority?.() || null;
     const reconnectStats = reconnectAuthority?.legacyV39Stats?.() || EMPTY_V39_RECONNECT_STATS;
     const pendingHumanDisconnects = reconnectAuthority?.legacyPendingHumanDisconnects?.(now) || [];
@@ -126,7 +125,7 @@ export class ChatRoom extends V41QualityCompatChatRoom {
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
-      stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats },
+      stats: { ...backgroundStats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats },
       lastTargetRepair: repairAuthority?.legacyLastTargetRepair?.() || null,
       lastCoherenceLock: repairAuthority?.legacyLastCoherenceLock?.() || null,
       recentlyDeparted,

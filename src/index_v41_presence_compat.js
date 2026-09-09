@@ -33,13 +33,6 @@ export default {
 };
 
 export class ChatRoom extends V41CoherenceCompatChatRoom {
-  constructor(ctx, env) {
-    super(ctx, env);
-    this.v39CaptureFixStats = {
-      legacyQuickBackgroundCallsSuppressed: 0
-    };
-  }
-
   humanSocketRows() {
     return (this.ctx.getWebSockets?.() || []).map((ws) => {
       let attachment = {};
@@ -57,8 +50,7 @@ export class ChatRoom extends V41CoherenceCompatChatRoom {
   }
 
   async generateGroqBatch() {
-    this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1;
-    return [];
+    return this.v39BackgroundCompatibilityAuthority().suppressLegacyQuickBackground();
   }
 
   v39Snapshot(now = Date.now()) {
@@ -87,7 +79,7 @@ export class ChatRoom extends V41CoherenceCompatChatRoom {
         supersededCloseCallbacksIgnored: 0
       },
       captureFixStats: {
-        ...this.v39CaptureFixStats,
+        ...(this.v39BackgroundCompatibilityAuthority?.()?.legacyCaptureFixStats?.() || { legacyQuickBackgroundCallsSuppressed: 0 }),
         ...(this.coherenceRepairAuthority?.()?.legacyCaptureFixStats?.() || { explicitErrorChallengesRepaired: 0 }),
         ...(this.worldDateGuardAuthority?.()?.legacyCaptureFixStats?.() || { historicalDateClaimsBlocked: 0 })
       },
