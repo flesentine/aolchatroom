@@ -22,6 +22,12 @@ const EMPTY_V39_REPAIR_STATS = Object.freeze({
   clarificationTargetRepairs: 0,
   coherenceVoiceLocks: 0
 });
+const EMPTY_V39_WORLD_DATE_STATS = Object.freeze({
+  futureEventLinesBlocked: 0
+});
+const EMPTY_V39_ROSTER_STATS = Object.freeze({
+  botReentryBlocks: 0
+});
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -82,12 +88,9 @@ export default {
 export class ChatRoom extends V41QualityCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
-    this.v39RecentBotLeaves = new Map();
     this.v39Stats = {
-      futureEventLinesBlocked: 0,
       selfDialogueLinesBlocked: 0,
-      backgroundPlansFiltered: 0,
-      botReentryBlocks: 0
+      backgroundPlansFiltered: 0
     };
   }
 
@@ -110,26 +113,20 @@ export class ChatRoom extends V41QualityCompatChatRoom {
   }
 
   v39Snapshot(now = Date.now()) {
-    const recentlyDeparted = [...new Set([
-      ...this.v39RecentBotLeaves.keys(),
-      ...(this.activeBotNames || [])
-    ])]
-      .map((name) => ({
-        name,
-        remainingMs: typeof this.v39ReentryRemaining === "function"
-          ? this.v39ReentryRemaining(name, now)
-          : 0
-      }))
-      .filter((row) => row.remainingMs > 0);
     const reconnectAuthority = this.humanReconnectLifecycleAuthority?.() || null;
     const reconnectStats = reconnectAuthority?.legacyV39Stats?.() || EMPTY_V39_RECONNECT_STATS;
     const pendingHumanDisconnects = reconnectAuthority?.legacyPendingHumanDisconnects?.(now) || [];
     const repairAuthority = this.coherenceRepairAuthority?.() || null;
     const repairStats = repairAuthority?.legacyV39Stats?.() || EMPTY_V39_REPAIR_STATS;
+    const worldDateAuthority = this.worldDateGuardAuthority?.() || null;
+    const worldDateStats = worldDateAuthority?.legacyV39Stats?.() || EMPTY_V39_WORLD_DATE_STATS;
+    const rosterAuthority = this.botRosterReentryAuthority?.() || null;
+    const rosterStats = rosterAuthority?.legacyV39Stats?.() || EMPTY_V39_ROSTER_STATS;
+    const recentlyDeparted = rosterAuthority?.legacyRecentlyDeparted?.(now) || [];
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
-      stats: { ...this.v39Stats, ...repairStats, ...reconnectStats },
+      stats: { ...this.v39Stats, ...repairStats, ...worldDateStats, ...rosterStats, ...reconnectStats },
       lastTargetRepair: repairAuthority?.legacyLastTargetRepair?.() || null,
       lastCoherenceLock: repairAuthority?.legacyLastCoherenceLock?.() || null,
       recentlyDeparted,
