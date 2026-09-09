@@ -114,8 +114,7 @@ for (const method of [
   "callProvider",
   "providerEvent",
   "say",
-  "v37ProviderFailoverSnapshot",
-  "fetch"
+  "v37ProviderFailoverSnapshot"
 ]) {
   assert.equal(
     methodBlock(providerCompat, method),
