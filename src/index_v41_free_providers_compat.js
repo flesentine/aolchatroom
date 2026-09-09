@@ -4,6 +4,8 @@
 // normalization, failover diagnostics, and /ai-status augmentation here.
 // Phase 3G.17 also composes the retired human-only historical diagnostics helper here.
 import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";
+import { ProviderReadinessTurnCache } from "./provider_readiness_snapshot_v41.js";
+import { providerCapacityConstrained as providerBudgetConstrained } from "./provider_failover_v37.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
   mergeV37HumanOnlySnapshot,
@@ -73,40 +75,101 @@ export class ChatRoom extends ProductionTurnChatRoom {
       failures: 0,
       byProvider: {}
     };
+    this.v41ProviderReadinessCache = new ProviderReadinessTurnCache();
+  }
+
+  beginV41ProviderReadinessTurn(now = Date.now()) {
+    return this.v41ProviderReadinessCache.begin(now);
+  }
+
+  endV41ProviderReadinessTurn(token) {
+    return this.v41ProviderReadinessCache.end(token);
   }
 
   configuredProviders() {
     return configuredExtendedProviders(this.env || {}, super.configuredProviders?.() || []);
   }
 
-  preferredStructuredReadyProviders(now = Date.now()) {
-    return ambientReadyProviders({
-      configured: this.configuredProviders(),
-      hardReady: this.hardReadyProviders?.(now) || [],
-      softReady: this.softReadyProviders?.(now) || []
+  providerReadinessBase(now = Date.now()) {
+    return this.v41ProviderReadinessCache.base(now, (at) => {
+      const configured = this.configuredProviders();
+      const hardReady = typeof this.providerReady !== "function"
+        ? [...configured]
+        : configured.filter((provider) => this.providerReady(provider, at));
+      const softReady = typeof this.softReady !== "function"
+        ? [...hardReady]
+        : hardReady.filter((provider) => this.softReady(provider, at));
+      const preferredReady = ambientReadyProviders({
+        configured,
+        hardReady,
+        softReady
+      });
+      const capacityConstrained = preferredReady.length >= 1
+        ? false
+        : providerBudgetConstrained({
+          configuredProviders: configured,
+          hardReadyProviders: hardReady,
+          softReadyProviders: softReady,
+          minimumPreferredReady: 2
+        });
+
+      return Object.freeze({
+        now: at,
+        configured: Object.freeze([...configured]),
+        hardReady: Object.freeze([...hardReady]),
+        softReady: Object.freeze([...softReady]),
+        preferredReady: Object.freeze([...preferredReady]),
+        capacityConstrained
+      });
     });
+  }
+
+  providerReadinessSnapshot(now = Date.now()) {
+    const base = this.providerReadinessBase(now);
+    const depth = Number(this.v35StructuredGenerationDepth || 0);
+    return this.v41ProviderReadinessCache.derived(now, depth, (at, generationDepth) => {
+      const effectiveReady = orderedExtendedProviders({
+        configured: base.configured,
+        hardReady: base.hardReady,
+        softReady: base.softReady,
+        structuredGenerationDepth: generationDepth
+      });
+      return Object.freeze({
+        ...base,
+        now: at,
+        structuredGenerationDepth: generationDepth,
+        effectiveReady: Object.freeze([...effectiveReady]),
+        degraded: base.configured.length > 0 && effectiveReady.length === 0
+      });
+    });
+  }
+
+  hardReadyProviders(now = Date.now()) {
+    return [...this.providerReadinessBase(now).hardReady];
+  }
+
+  softReadyProviders(now = Date.now()) {
+    return [...this.providerReadinessBase(now).softReady];
+  }
+
+  preferredStructuredReadyProviders(now = Date.now()) {
+    return [...this.providerReadinessBase(now).preferredReady];
   }
 
   effectiveStructuredReadyProviders(now = Date.now()) {
-    return orderedExtendedProviders({
-      configured: this.configuredProviders(),
-      hardReady: this.hardReadyProviders?.(now) || [],
-      softReady: this.softReadyProviders?.(now) || [],
-      structuredGenerationDepth: this.v35StructuredGenerationDepth
-    });
+    return [...this.providerReadinessSnapshot(now).effectiveReady];
   }
 
   providerPoolDegraded(now = Date.now()) {
-    return this.configuredProviders().length > 0 && this.effectiveStructuredReadyProviders(now).length === 0;
+    return Boolean(this.providerReadinessSnapshot(now).degraded);
+  }
+
+  providerCapacityConstrained(now = Date.now()) {
+    return Boolean(this.providerReadinessBase(now).capacityConstrained);
   }
 
   orderedReadyProviders(now = Date.now()) {
-    return orderedExtendedProviders({
-      configured: this.configuredProviders(),
-      hardReady: this.hardReadyProviders?.(now) || [],
-      softReady: this.softReadyProviders?.(now) || [],
-      structuredGenerationDepth: this.v35StructuredGenerationDepth
-    });
+    return [...this.providerReadinessSnapshot(now).effectiveReady];
   }
 
   noteExtendedProvider(provider, ok) {
@@ -331,6 +394,7 @@ export class ChatRoom extends ProductionTurnChatRoom {
         configured: this.configuredProviders(),
         ambientEligibleReady: this.preferredStructuredReadyProviders(Date.now()),
         effectiveReady: this.effectiveStructuredReadyProviders(Date.now()),
+        readinessCache: this.v41ProviderReadinessCache?.snapshot?.() || null,
         stats: this.v37ExtendedProviderStats,
         policy: "Mistral/Vercel may supply low-rate ambient AI; OpenRouter/HuggingFace/Cerebras are human/emergency fallbacks; Cohere trial requires ALLOW_DEV_TRIAL_PROVIDERS=1"
       }
