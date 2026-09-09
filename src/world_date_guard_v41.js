@@ -34,6 +34,9 @@ export class WorldDateGuardAuthority {
     this.coherenceStats = {
       futureEventLinesBlocked: 0
     };
+    this.eraStats = {
+      eraLinesBlocked: 0
+    };
   }
 
   lineViolation(text, now = Date.now(), context = "", speaker = "", delegate) {
@@ -73,8 +76,8 @@ export class WorldDateGuardAuthority {
     if (violation?.kind === "future-era-event") {
       this.coherenceStats.futureEventLinesBlocked += 1;
     }
-    if (violation?.kind === "future-era-technology" && this.room.v38QualityStats) {
-      this.room.v38QualityStats.eraLinesBlocked += 1;
+    if (violation?.kind === "future-era-technology") {
+      this.eraStats.eraLinesBlocked += 1;
     }
     return delegate();
   }
@@ -130,6 +133,10 @@ export class WorldDateGuardAuthority {
     return { ...this.coherenceStats };
   }
 
+  legacyV38Stats() {
+    return { ...this.eraStats };
+  }
+
   snapshot() {
     return {
       authority: "v41-world-date-guard",
@@ -146,6 +153,7 @@ export class WorldDateGuardAuthority {
       worldGateStats: this.legacyWorldGateStats(),
       captureFixStats: this.legacyCaptureFixStats(),
       coherenceStats: this.legacyV39Stats(),
+      eraStats: this.legacyV38Stats(),
       stateOwnedByAuthority: true,
       legacyV38V39CountersPreserved: true,
       legacyV38V39GuardOverridesBypassedInV41Production: true
