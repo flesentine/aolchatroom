@@ -10,6 +10,15 @@ import {
 export class CoherenceRepairAuthority {
   constructor(room) {
     this.room = room;
+    this.lastTargetRepair = null;
+    this.lastCoherenceLock = null;
+    this.repairStats = {
+      clarificationTargetRepairs: 0,
+      coherenceVoiceLocks: 0
+    };
+    this.captureFixStats = {
+      explicitErrorChallengesRepaired: 0
+    };
   }
 
   explicitBotMention(text = "") {
@@ -37,8 +46,8 @@ export class CoherenceRepairAuthority {
       this.room.pendingHumanReplyTo.set(sender, repair.messageId);
     }
     this.room.setFocus?.(sender, repair.name, Date.now(), "v39-clarification-repair");
-    if (this.room.v39Stats) this.room.v39Stats.clarificationTargetRepairs += 1;
-    this.room.v39LastTargetRepair = {
+    this.repairStats.clarificationTargetRepairs += 1;
+    this.lastTargetRepair = {
       at: Date.now(),
       human: sender,
       text: String(text || "").slice(0, 220),
@@ -60,8 +69,8 @@ export class CoherenceRepairAuthority {
     const enriched = withCoherenceConstraint(repairedPlan, this.room.history || [], human);
 
     if (enriched?.constraint?.text) {
-      if (this.room.v39Stats) this.room.v39Stats.coherenceVoiceLocks += 1;
-      this.room.v39LastCoherenceLock = {
+      this.repairStats.coherenceVoiceLocks += 1;
+      this.lastCoherenceLock = {
         at: Date.now(),
         human: human?.from || enriched.constraint.trigger?.from || "",
         trigger: String(enriched.constraint.trigger?.text || human?.text || "").slice(0, 220),
@@ -74,12 +83,26 @@ export class CoherenceRepairAuthority {
     const voiced = await delegate(enriched.plan);
 
     if (challenged) {
-      if (this.room.v39CaptureFixStats) {
-        this.room.v39CaptureFixStats.explicitErrorChallengesRepaired += 1;
-      }
-      if (this.room.v39LastCoherenceLock) this.room.v39LastCoherenceLock.mode = "challenge";
+      this.captureFixStats.explicitErrorChallengesRepaired += 1;
+      if (this.lastCoherenceLock) this.lastCoherenceLock.mode = "challenge";
     }
     return voiced;
+  }
+
+  legacyV39Stats() {
+    return { ...this.repairStats };
+  }
+
+  legacyCaptureFixStats() {
+    return { ...this.captureFixStats };
+  }
+
+  legacyLastTargetRepair() {
+    return this.lastTargetRepair ? { ...this.lastTargetRepair } : null;
+  }
+
+  legacyLastCoherenceLock() {
+    return this.lastCoherenceLock ? { ...this.lastCoherenceLock } : null;
   }
 
   snapshot() {
@@ -88,6 +111,11 @@ export class CoherenceRepairAuthority {
       clarificationTargetRepair: true,
       humanVoiceCoherenceLock: true,
       explicitErrorChallengeRepair: true,
+      repairStats: this.legacyV39Stats(),
+      captureFixStats: this.legacyCaptureFixStats(),
+      lastTargetRepair: this.legacyLastTargetRepair(),
+      lastCoherenceLock: this.legacyLastCoherenceLock(),
+      stateOwnedByAuthority: true,
       legacyV39CountersPreserved: true,
       legacyV39RepairOverridesBypassedInV41Production: true
     };

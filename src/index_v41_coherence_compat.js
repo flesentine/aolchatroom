@@ -18,6 +18,10 @@ const EMPTY_V39_RECONNECT_STATS = Object.freeze({
   transientHumanReconnects: 0,
   humanDisconnectsCommitted: 0
 });
+const EMPTY_V39_REPAIR_STATS = Object.freeze({
+  clarificationTargetRepairs: 0,
+  coherenceVoiceLocks: 0
+});
 
 async function json(response) {
   try { return await response.json(); } catch { return null; }
@@ -79,11 +83,7 @@ export class ChatRoom extends V41QualityCompatChatRoom {
   constructor(ctx, env) {
     super(ctx, env);
     this.v39RecentBotLeaves = new Map();
-    this.v39LastTargetRepair = null;
-    this.v39LastCoherenceLock = null;
     this.v39Stats = {
-      clarificationTargetRepairs: 0,
-      coherenceVoiceLocks: 0,
       futureEventLinesBlocked: 0,
       selfDialogueLinesBlocked: 0,
       backgroundPlansFiltered: 0,
@@ -124,12 +124,14 @@ export class ChatRoom extends V41QualityCompatChatRoom {
     const reconnectAuthority = this.humanReconnectLifecycleAuthority?.() || null;
     const reconnectStats = reconnectAuthority?.legacyV39Stats?.() || EMPTY_V39_RECONNECT_STATS;
     const pendingHumanDisconnects = reconnectAuthority?.legacyPendingHumanDisconnects?.(now) || [];
+    const repairAuthority = this.coherenceRepairAuthority?.() || null;
+    const repairStats = repairAuthority?.legacyV39Stats?.() || EMPTY_V39_REPAIR_STATS;
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
-      stats: { ...this.v39Stats, ...reconnectStats },
-      lastTargetRepair: this.v39LastTargetRepair,
-      lastCoherenceLock: this.v39LastCoherenceLock,
+      stats: { ...this.v39Stats, ...repairStats, ...reconnectStats },
+      lastTargetRepair: repairAuthority?.legacyLastTargetRepair?.() || null,
+      lastCoherenceLock: repairAuthority?.legacyLastCoherenceLock?.() || null,
       recentlyDeparted,
       pendingHumanDisconnects,
       inheritedV38: super.v38Snapshot(now),

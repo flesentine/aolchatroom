@@ -1772,8 +1772,11 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(Object.hasOwn(this, "v39PendingHumanDisconnects"), false, "4B must remove the legacy reconnect map from room state");
     ensure(reconnectAuthority?.pendingHumanDisconnects instanceof Map, "4B reconnect authority must own the pending reconnect map");
     ensure(this.v39Stats && typeof this.v39Stats === "object", "3F.3 must initialize non-reconnect legacy v39 counters");
-    equal(this.v39LastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline");
-    equal(this.v39LastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline");
+    const repairAuthority = this.coherenceRepairAuthority();
+    equal(Object.hasOwn(this, "v39LastTargetRepair"), false, "4C must remove last-target diagnostics from room state");
+    equal(Object.hasOwn(this, "v39LastCoherenceLock"), false, "4C must remove last-lock diagnostics from room state");
+    equal(repairAuthority?.lastTargetRepair, null, "3F.3 target-repair diagnostics must retain their legacy baseline through 4C");
+    equal(repairAuthority?.lastCoherenceLock, null, "3F.3 coherence-lock diagnostics must retain their legacy baseline through 4C");
 
     const beforeBlocked = this.v39Stats.selfDialogueLinesBlocked;
     const beforeFiltered = this.v39Stats.backgroundPlansFiltered;
@@ -2050,16 +2053,17 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
         { kind: "bot", from: "RaveChick", text: "haha yeah we had that at our hotel last week ;)", target: "room", messageId: "m2", at: now - 5000 }
       ]
     });
+    const repairAuthority = this.coherenceRepairAuthority();
     this.pendingHumanReplyTo?.clear?.();
     const target = this.resolveDirectTarget("had what at your hotel?", "Crateman");
     equal(target, "RaveChick", "3C should preserve clarification target repair");
     equal(this.pendingHumanReplyTo?.get?.("Crateman"), "m2", "3C repair should preserve reply anchor");
-    equal(this.v39Stats.clarificationTargetRepairs, 1, "legacy clarification counter should increment");
-    equal(this.v39LastTargetRepair?.repairedTarget, "RaveChick", "legacy last-target diagnostic should be preserved");
+    equal(repairAuthority.repairStats.clarificationTargetRepairs, 1, "legacy clarification counter should increment");
+    equal(repairAuthority.lastTargetRepair?.repairedTarget, "RaveChick", "legacy last-target diagnostic should be preserved");
 
     const explicit = this.resolveDirectTarget("SegaMan, had what at your hotel?", "Crateman");
     equal(explicit, "SegaMan", "explicit bot mention must outrank semantic repair");
-    equal(this.v39Stats.clarificationTargetRepairs, 1, "explicit target must not increment repair counter");
+    equal(repairAuthority.repairStats.clarificationTargetRepairs, 1, "explicit target must not increment repair counter");
     return { repaired: target, explicit };
   }
 
@@ -2068,6 +2072,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const anchor = { kind: "bot", from: "JennJenn", target: "Crateman", text: "the hotel night shift was nuts", messageId: "m-hotel-lock", at: now - 1000 };
     const human = { kind: "human", from: "Crateman", target: "JennJenn", text: "what do you mean by hotel?", replyTo: "m-hotel-lock", messageId: "m-human-lock", at: now };
     this.reset({ history: [anchor, human], bots: ["JennJenn"] });
+    const repairAuthority = this.coherenceRepairAuthority();
     this.contractVoiceText = "i meant the hotel night shift was chaotic";
     const plan = {
       provider: "gemini",
@@ -2078,11 +2083,11 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
     const voiced = await this.voiceBrainPlan(plan, this.active("JennJenn"), human);
     equal(voiced.length, 1, "3C coherence-locked Voice should survive a grounded clarification");
-    equal(this.v39Stats.coherenceVoiceLocks, 1, "legacy coherence-lock counter should increment");
-    equal(this.v39LastCoherenceLock?.mode, "clarify", "legacy lock mode should remain clarify");
-    equal(this.v39LastCoherenceLock?.anchorFrom, "JennJenn", "exact reply anchor should be retained");
-    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 0, "normal clarification must not count as error challenge");
-    return { locked: true, mode: this.v39LastCoherenceLock?.mode };
+    equal(repairAuthority.repairStats.coherenceVoiceLocks, 1, "legacy coherence-lock counter should increment");
+    equal(repairAuthority.lastCoherenceLock?.mode, "clarify", "legacy lock mode should remain clarify");
+    equal(repairAuthority.lastCoherenceLock?.anchorFrom, "JennJenn", "exact reply anchor should be retained");
+    equal(repairAuthority.captureFixStats.explicitErrorChallengesRepaired, 0, "normal clarification must not count as error challenge");
+    return { locked: true, mode: repairAuthority.lastCoherenceLock?.mode };
   }
 
   async contractExplicitErrorChallengeRepair() {
@@ -2090,6 +2095,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     const anchor = { kind: "bot", from: "SegaMan", target: "Crateman", text: "saturn is definitely a video", messageId: "m-bad-claim", at: now - 1000 };
     const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "you got that wrong, you just said it was a video", replyTo: "m-bad-claim", messageId: "m-error-challenge", at: now };
     this.reset({ history: [anchor, human], bots: ["SegaMan"] });
+    const repairAuthority = this.coherenceRepairAuthority();
     this.contractVoiceText = "my bad, saturn isnt a video, i mixed that up";
     const plan = {
       provider: "gemini",
@@ -2100,10 +2106,68 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
     const voiced = await this.voiceBrainPlan(plan, this.active("SegaMan"), human);
     equal(voiced.length, 1, "3C explicit error repair should produce one accepted response");
-    equal(this.v39Stats.coherenceVoiceLocks, 1, "challenge should still pass through coherence lock");
-    equal(this.v39CaptureFixStats.explicitErrorChallengesRepaired, 1, "legacy explicit-error repair counter should increment");
-    equal(this.v39LastCoherenceLock?.mode, "challenge", "challenge mode should remain visible in legacy diagnostics");
-    return { repaired: true, mode: this.v39LastCoherenceLock?.mode };
+    equal(repairAuthority.repairStats.coherenceVoiceLocks, 1, "challenge should still pass through coherence lock");
+    equal(repairAuthority.captureFixStats.explicitErrorChallengesRepaired, 1, "legacy explicit-error repair counter should increment");
+    equal(repairAuthority.lastCoherenceLock?.mode, "challenge", "challenge mode should remain visible in legacy diagnostics");
+    return { repaired: true, mode: repairAuthority.lastCoherenceLock?.mode };
+  }
+
+  async contractV41CoherenceRepairStateOwnership() {
+    const now = Date.now();
+    this.reset({
+      bots: ["MoonChild", "RaveChick", "SegaMan"],
+      history: [
+        { kind: "bot", from: "MoonChild", text: "aint heard it yet, is it seriously that bad", target: "room", messageId: "m4c-1", at: now - 18000 },
+        { kind: "bot", from: "RaveChick", text: "haha yeah we had that at our hotel last week ;)", target: "room", messageId: "m4c-2", at: now - 5000 }
+      ]
+    });
+    const repairAuthority = this.coherenceRepairAuthority();
+    ensure(repairAuthority, "4C coherence repair authority must be available");
+
+    equal(Object.hasOwn(this, "v39LastTargetRepair"), false, "4C room must not retain v39LastTargetRepair");
+    equal(Object.hasOwn(this, "v39LastCoherenceLock"), false, "4C room must not retain v39LastCoherenceLock");
+    equal(Object.hasOwn(this.v39Stats || {}, "clarificationTargetRepairs"), false, "4C mixed v39Stats must not own clarification repair telemetry");
+    equal(Object.hasOwn(this.v39Stats || {}, "coherenceVoiceLocks"), false, "4C mixed v39Stats must not own coherence lock telemetry");
+    equal(Object.hasOwn(this.v39CaptureFixStats || {}, "explicitErrorChallengesRepaired"), false, "4C presence capture stats must not own explicit-error telemetry");
+
+    const target = this.resolveDirectTarget("had what at your hotel?", "Crateman");
+    equal(target, "RaveChick", "4C must preserve clarification target repair behavior");
+    equal(repairAuthority.repairStats.clarificationTargetRepairs, 1, "4C authority must own clarification repair telemetry");
+    equal(repairAuthority.lastTargetRepair?.repairedTarget, "RaveChick", "4C authority must own last target repair diagnostics");
+
+    const anchor = { kind: "bot", from: "SegaMan", target: "Crateman", text: "saturn is definitely a video", messageId: "m4c-bad", at: now - 1000 };
+    const human = { kind: "human", from: "Crateman", target: "SegaMan", text: "you got that wrong, you just said it was a video", replyTo: "m4c-bad", messageId: "m4c-human", at: now };
+    this.history = [anchor, human];
+    this.activeBotNames = ["SegaMan"];
+    this.talkerNames = ["SegaMan"];
+    this.contractVoiceText = "my bad, saturn isnt a video, i mixed that up";
+    const plan = {
+      provider: "gemini",
+      reason: "v37-human-director",
+      subject: "4c ownership",
+      goal: "respond to the human challenge",
+      moves: [{ speaker: "SegaMan", target: "Crateman", intent: "clarify", topic: "gaming", meaning: "acknowledge and correct the mistake" }]
+    };
+    const voiced = await this.voiceBrainPlan(plan, this.active("SegaMan"), human);
+    equal(voiced.length, 1, "4C explicit-error repair must still produce one accepted response");
+    equal(repairAuthority.repairStats.coherenceVoiceLocks, 1, "4C authority must own coherence lock telemetry");
+    equal(repairAuthority.captureFixStats.explicitErrorChallengesRepaired, 1, "4C authority must own explicit-error telemetry");
+    equal(repairAuthority.lastCoherenceLock?.mode, "challenge", "4C authority must own challenge lock diagnostics");
+
+    const legacy = this.v39Snapshot(Date.now());
+    equal(legacy.stats?.clarificationTargetRepairs, 1, "legacy v39 snapshot must bridge clarification repair telemetry");
+    equal(legacy.stats?.coherenceVoiceLocks, 1, "legacy v39 snapshot must bridge coherence lock telemetry");
+    equal(legacy.lastTargetRepair?.repairedTarget, "RaveChick", "legacy v39 snapshot must bridge last target repair diagnostics");
+    equal(legacy.lastCoherenceLock?.mode, "challenge", "legacy v39 snapshot must bridge last coherence lock diagnostics");
+    equal(legacy.captureFixStats?.explicitErrorChallengesRepaired, 1, "legacy v39 presence snapshot must bridge explicit-error telemetry");
+
+    const v41 = this.v41Snapshot(Date.now());
+    equal(v41.coherenceRepair?.stateOwnedByAuthority, true, "v41 snapshot must expose 4C state ownership");
+    return {
+      stateOwnedByAuthority: true,
+      retiredRoomStateAbsent: true,
+      legacyV39SnapshotPreserved: true
+    };
   }
 
   async contractReconnectAuthorityQuick() {
@@ -2293,6 +2357,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
     if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
     if (name === "explicit-error-challenge-repair") return this.contractExplicitErrorChallengeRepair();
+    if (name === "v41-coherence-repair-state-ownership") return this.contractV41CoherenceRepairStateOwnership();
     if (name === "reconnect-authority-quick") return this.contractReconnectAuthorityQuick();
     if (name === "reconnect-same-name-replacement") return this.contractReconnectSameNameReplacement();
     if (name === "reconnect-committed-close") return this.contractReconnectCommittedClose();

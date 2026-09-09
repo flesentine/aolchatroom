@@ -122,12 +122,10 @@ assert.deepEqual(
   [
     "backgroundPlansFiltered",
     "botReentryBlocks",
-    "clarificationTargetRepairs",
-    "coherenceVoiceLocks",
     "futureEventLinesBlocked",
     "selfDialogueLinesBlocked"
   ],
-  "4B mixed v39Stats must contain only non-reconnect counters"
+  "4B mixed v39Stats must contain only still-shared non-reconnect counters after 4C"
 );
 
 assert.deepEqual(
@@ -144,7 +142,7 @@ for (const marker of [
   "this.humanReconnectLifecycleAuthority?.() || null",
   "legacyV39Stats",
   "legacyPendingHumanDisconnects",
-  "stats: { ...this.v39Stats, ...reconnectStats }",
+  "stats: { ...this.v39Stats, ...repairStats, ...reconnectStats }",
   "pendingHumanDisconnects"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4B coherence compatibility must compose legacy reconnect diagnostics: ${marker}`);
@@ -153,7 +151,8 @@ for (const marker of [
 for (const marker of [
   "this.humanReconnectLifecycleAuthority?.()?.legacyPresenceFixStats?.()",
   "presenceFixStats:",
-  "captureFixStats: { ...this.v39CaptureFixStats }"
+  "captureFixStats:",
+  "legacyCaptureFixStats"
 ]) {
   assert.ok(presenceCompat.includes(marker), `4B presence compatibility must compose legacy reconnect diagnostics: ${marker}`);
 }
@@ -169,7 +168,7 @@ assert.ok(worker.includes('Object.hasOwn(this, "v39PresenceFixStats")'));
 assert.ok(worker.includes("legacyV39SnapshotPreserved: true"));
 assert.ok(runtime.includes('"v41-reconnect-state-ownership"'));
 
-assert.ok(phase4a.includes("after 4B reconnect consolidation"));
+assert.ok(phase4a.includes("after 4C coherence consolidation"));
 assert.equal(phase4a.includes('"src/human_reconnect_lifecycle_v41.js",\n    "src/index_v41_coherence_compat.js"'), false);
 
-console.log("v41 Phase 4B reconnect state ownership checks passed");
+console.log("v41 Phase 4B reconnect state ownership checks passed after 4C coherence consolidation");

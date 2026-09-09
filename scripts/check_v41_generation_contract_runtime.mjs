@@ -136,6 +136,7 @@ const contracts = [
   "coherence-target-repair",
   "coherence-voice-lock",
   "explicit-error-challenge-repair",
+  "v41-coherence-repair-state-ownership",
   "reconnect-authority-quick",
   "reconnect-same-name-replacement",
   "reconnect-committed-close",
