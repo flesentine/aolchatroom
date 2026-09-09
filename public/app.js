@@ -24,11 +24,14 @@ let reconnectAttempts = 0;
 let pageUnloading = false;
 let capture = null;
 let capturePersistTimer = null;
+let capturePersistDirty = false;
+let captureLastPersistAttemptAt = 0;
 const captureMessageKeys = new Set();
 const renderedMessageKeys = new Set();
 const debug = new URLSearchParams(location.search).get("debug") === "1";
 const CAPTURE_KEY = "aol96-chat-capture-v1";
 const CAPTURE_RESUME_GAP_MS = 10 * 60 * 1000;
+const CAPTURE_PERSIST_INTERVAL_MS = 5 * 1000;
 const RECONNECT_DELAYS_MS = [750, 1500, 2500, 4000, 6000, 10000];
 const RECONNECT_SHOW_SIGNIN_AFTER = 6;
 const NORMAL_HEARTBEAT_MS = 30 * 1000;
@@ -62,7 +65,15 @@ function renderedMessageKey(item) {
   ]);
 }
 
+function clearCapturePersistTimer() {
+  if (capturePersistTimer !== null) clearTimeout(capturePersistTimer);
+  capturePersistTimer = null;
+}
+
 function startOrResumeCapture(name) {
+  clearCapturePersistTimer();
+  capturePersistDirty = false;
+  captureLastPersistAttemptAt = 0;
   const now = Date.now();
   let saved = null;
   try {
@@ -126,17 +137,33 @@ function recordCaptureMessage(item, replayed = false) {
 }
 
 function scheduleCapturePersist() {
-  clearTimeout(capturePersistTimer);
-  capturePersistTimer = setTimeout(() => persistCapture(), 1200);
+  if (!capture) return;
+  capturePersistDirty = true;
+  if (capturePersistTimer !== null) return;
+
+  const sinceLastAttempt = captureLastPersistAttemptAt
+    ? Date.now() - captureLastPersistAttemptAt
+    : CAPTURE_PERSIST_INTERVAL_MS;
+  const delay = Math.max(0, CAPTURE_PERSIST_INTERVAL_MS - sinceLastAttempt);
+  capturePersistTimer = setTimeout(() => {
+    capturePersistTimer = null;
+    persistCapture();
+  }, delay);
 }
 
 function persistCapture(force = false) {
-  if (!capture) return;
-  if (force) clearTimeout(capturePersistTimer);
+  if (!capture) return false;
+  if (force) clearCapturePersistTimer();
+  if (!capturePersistDirty) return false;
+
+  captureLastPersistAttemptAt = Date.now();
   try {
     localStorage.setItem(CAPTURE_KEY, JSON.stringify(capture));
+    capturePersistDirty = false;
+    return true;
   } catch {
-    // The in-memory capture continues even if browser storage fills up.
+    // Keep the in-memory capture dirty, but rate-limit future retry attempts.
+    return false;
   }
 }
 
@@ -520,6 +547,14 @@ people.addEventListener("dblclick", requestProfile);
 closeProfile.addEventListener("click", () => profileDialog.classList.add("hidden"));
 closeProfileBottom.addEventListener("click", () => profileDialog.classList.add("hidden"));
 if (exportChat) exportChat.addEventListener("click", exportCapture);
+
+document.addEventListener("visibilitychange", () => {
+  if (document.visibilityState === "hidden") persistCapture(true);
+});
+
+window.addEventListener("pagehide", () => {
+  persistCapture(true);
+});
 
 window.addEventListener("offline", () => {
   if (!socketIsActive()) status.textContent = "Connection lost · waiting for network";
