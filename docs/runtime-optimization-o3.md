@@ -17,6 +17,7 @@ The cache is deliberately keyed by:
 This means repeated classification calls at the same decision time share one provider evaluation, while:
 - a later timestamp recomputes readiness normally;
 - a structured-generation depth change recomputes only the derived ordering;
+- provider failure, output rejection, or provider success/recovery invalidates the active cache immediately;
 - no readiness state survives the production turn.
 
 ## Preserved behavior

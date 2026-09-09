@@ -19,6 +19,7 @@ export class ProviderReadinessTurnCache {
       baseCacheHits: 0,
       derivedSnapshotsBuilt: 0,
       derivedCacheHits: 0,
+      invalidations: 0,
       lastTurnBaseEntries: 0,
       lastTurnDerivedEntries: 0
     };
@@ -42,6 +43,14 @@ export class ProviderReadinessTurnCache {
     this.stats.lastTurnDerivedEntries = this.active.derivedByNowDepth.size;
     this.active = null;
     this.stats.turnsCompleted += 1;
+    return true;
+  }
+
+  invalidate() {
+    if (!this.active) return false;
+    this.active.baseByNow.clear();
+    this.active.derivedByNowDepth.clear();
+    this.stats.invalidations += 1;
     return true;
   }
 

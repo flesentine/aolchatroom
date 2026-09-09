@@ -2571,10 +2571,16 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       equal(hardChecks, 3, "structured-depth change must not repeat hard readiness checks");
       equal(softChecks, 3, "structured-depth change must not repeat soft readiness checks");
 
+      V41FreeProviderChatRoom.prototype.noteOutputReject.call(this, "gemini", "O3 invalidation probe");
+      V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now);
+      equal(configuredCalls, 2, "provider-state mutation must invalidate same-timestamp O3 readiness");
+      equal(hardChecks, 6, "provider-state invalidation must rerun hard readiness");
+      equal(softChecks, 6, "provider-state invalidation must rerun soft readiness");
+
       V41FreeProviderChatRoom.prototype.preferredStructuredReadyProviders.call(this, now + 1);
-      equal(configuredCalls, 2, "new timestamp must build a fresh O3 base snapshot");
-      equal(hardChecks, 6, "new timestamp must re-evaluate hard readiness");
-      equal(softChecks, 6, "new timestamp must re-evaluate soft readiness");
+      equal(configuredCalls, 3, "new timestamp must build a fresh O3 base snapshot");
+      equal(hardChecks, 9, "new timestamp must re-evaluate hard readiness");
+      equal(softChecks, 9, "new timestamp must re-evaluate soft readiness");
     } finally {
       this.endV41ProviderReadinessTurn(token);
       this.configuredProviders = originalConfigured;
@@ -2585,8 +2591,9 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
     const after = cache.snapshot();
     equal(after.active, false, "O3 production-turn cache must clear after the scope");
-    equal(after.baseSnapshotsBuilt - before.baseSnapshotsBuilt, 2, "O3 contract must build only two timestamp bases");
+    equal(after.baseSnapshotsBuilt - before.baseSnapshotsBuilt, 3, "O3 contract must rebuild the invalidated timestamp plus the later timestamp");
     equal(after.derivedSnapshotsBuilt - before.derivedSnapshotsBuilt, 2, "O3 contract must build depth-0 and depth-1 derived snapshots");
+    equal(after.invalidations - before.invalidations, 1, "O3 must invalidate once after the output-reject readiness mutation");
     ensure(after.baseCacheHits > before.baseCacheHits, "O3 must record base cache hits");
     ensure(after.derivedCacheHits > before.derivedCacheHits, "O3 must record derived cache hits");
 
@@ -2596,6 +2603,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
       configuredEvaluations: configuredCalls,
       hardChecks,
       softChecks,
+      invalidations: after.invalidations - before.invalidations,
       baseSnapshotsBuilt: after.baseSnapshotsBuilt - before.baseSnapshotsBuilt,
       derivedSnapshotsBuilt: after.derivedSnapshotsBuilt - before.derivedSnapshotsBuilt
     };

@@ -86,6 +86,34 @@ export class ChatRoom extends ProductionTurnChatRoom {
     return this.v41ProviderReadinessCache.end(token);
   }
 
+  invalidateV41ProviderReadiness() {
+    return this.v41ProviderReadinessCache.invalidate();
+  }
+
+  noteProviderFailure(...args) {
+    try {
+      return super.noteProviderFailure(...args);
+    } finally {
+      this.invalidateV41ProviderReadiness();
+    }
+  }
+
+  noteOutputReject(...args) {
+    try {
+      return super.noteOutputReject(...args);
+    } finally {
+      this.invalidateV41ProviderReadiness();
+    }
+  }
+
+  noteProviderSuccess(...args) {
+    try {
+      return super.noteProviderSuccess(...args);
+    } finally {
+      this.invalidateV41ProviderReadiness();
+    }
+  }
+
   configuredProviders() {
     return configuredExtendedProviders(this.env || {}, super.configuredProviders?.() || []);
   }

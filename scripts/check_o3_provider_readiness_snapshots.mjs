@@ -23,21 +23,26 @@ assert.equal(derivedBuilds, 1);
 cache.derived(1000, 1, () => ({ id: ++derivedBuilds }));
 assert.equal(derivedBuilds, 2, "structured-depth changes must receive a fresh derived snapshot");
 
+assert.equal(cache.invalidate(), true, "active O3 cache must support provider-state invalidation");
+cache.base(1000, () => ({ id: ++baseBuilds }));
+assert.equal(baseBuilds, 2, "same-timestamp readiness must rebuild after provider-state invalidation");
+
 cache.base(1001, () => ({ id: ++baseBuilds }));
-assert.equal(baseBuilds, 2, "new timestamps must receive fresh readiness evaluation");
+assert.equal(baseBuilds, 3, "new timestamps must receive fresh readiness evaluation");
 
 assert.equal(cache.end(token), true);
 const after = cache.snapshot();
 assert.equal(after.active, false);
-assert.equal(after.baseSnapshotsBuilt, 2);
+assert.equal(after.baseSnapshotsBuilt, 3);
 assert.equal(after.baseCacheHits, 1);
 assert.equal(after.derivedSnapshotsBuilt, 2);
 assert.equal(after.derivedCacheHits, 1);
+assert.equal(after.invalidations, 1);
 assert.equal(after.lastTurnBaseEntries, 2);
 assert.equal(after.lastTurnDerivedEntries, 2);
 
 cache.base(1001, () => ({ id: ++baseBuilds }));
-assert.equal(baseBuilds, 3, "cache must not leak readiness state outside a production-turn scope");
+assert.equal(baseBuilds, 4, "cache must not leak readiness state outside a production-turn scope");
 
 assert.ok(free.includes("providerReadinessBase(now = Date.now())"));
 assert.ok(free.includes("providerReadinessSnapshot(now = Date.now())"));
@@ -45,6 +50,10 @@ assert.ok(free.includes("providerCapacityConstrained(now = Date.now())"));
 assert.ok(free.includes("this.v41ProviderReadinessCache.base(now"));
 assert.ok(free.includes("this.v41ProviderReadinessCache.derived(now, depth"));
 assert.ok(free.includes("structuredGenerationDepth: generationDepth"));
+assert.ok(free.includes("noteProviderFailure(...args)"));
+assert.ok(free.includes("noteOutputReject(...args)"));
+assert.ok(free.includes("noteProviderSuccess(...args)"));
+assert.ok(free.includes("this.invalidateV41ProviderReadiness()"));
 assert.ok(
   turn.includes("providerReadinessToken = this.beginV41ProviderReadinessTurn?.(now)"),
   "production turn must open the O3 readiness scope using its exact decision timestamp"
