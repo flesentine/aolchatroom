@@ -5,11 +5,13 @@
   const SERVER_ECHO_WINDOW_MS = 10000;
 
   const PERSIST_INTERVAL_MS = 5 * 1000;
+  const DIAGNOSTIC_EVENT = "aol96:capture-diagnostic";
 
   let capture = null;
   let persistTimer = null;
   let persistDirty = false;
   let lastPersistAttemptAt = 0;
+  let socketOpenCount = 0;
   const serverMessageKeys = new Set();
 
   function now() {
@@ -28,6 +30,7 @@
     clearPersistTimer();
     persistDirty = false;
     lastPersistAttemptAt = 0;
+    socketOpenCount = 0;
     const current = now();
     let saved = null;
     try { saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "null"); } catch {}
@@ -255,9 +258,19 @@
       return nativeSend(data);
     };
 
-    ws.addEventListener("open", () => record({ type: "connection", action: "open" }));
-    ws.addEventListener("close", () => {
-      record({ type: "connection", action: "close" });
+    ws.addEventListener("open", () => {
+      const action = socketOpenCount > 0 ? "reconnected" : "open";
+      socketOpenCount += 1;
+      record({ type: "connection", action });
+    });
+    ws.addEventListener("close", (event) => {
+      record({
+        type: "connection",
+        action: "close",
+        code: Number(event.code || 0),
+        reason: String(event.reason || ""),
+        wasClean: Boolean(event.wasClean)
+      });
       persist(true);
     });
     ws.addEventListener("error", () => record({ type: "connection", action: "error" }));
@@ -352,6 +365,12 @@
       setTimeout(() => { button.textContent = old; }, 1400);
     }
   }
+
+  window.addEventListener(DIAGNOSTIC_EVENT, (event) => {
+    const detail = event?.detail;
+    if (!detail || typeof detail !== "object") return;
+    record(detail);
+  });
 
   const exportButton = document.querySelector("#exportChat");
   if (exportButton) {
