@@ -36,6 +36,10 @@ function cleanName(value) {
   return String(value || "Guest").replace(/[^A-Za-z0-9_.-]/g, "").slice(0, 16) || "Guest";
 }
 
+function emitCaptureDiagnostic(detail) {
+  window.dispatchEvent(new CustomEvent("aol96:capture-diagnostic", { detail }));
+}
+
 function renderedMessageKey(item) {
   const at = Number(item?.at || 0);
   if (!Number.isFinite(at) || at <= 0) return "";
@@ -127,13 +131,23 @@ function startHeartbeat(connection) {
   }, debug ? DEBUG_REFRESH_MS : NORMAL_HEARTBEAT_MS);
 }
 
-function scheduleReconnect(name) {
+function scheduleReconnect(name, detail = {}) {
   if (pageUnloading || socketIsActive()) return;
   clearReconnectTimer();
 
   reconnectAttempts += 1;
   const delayMs = RECONNECT_DELAYS_MS[Math.min(reconnectAttempts - 1, RECONNECT_DELAYS_MS.length - 1)];
   const networkOffline = navigator.onLine === false;
+  emitCaptureDiagnostic({
+    type: "connection",
+    action: "reconnect-scheduled",
+    attempt: reconnectAttempts,
+    delayMs,
+    code: Number(detail.code || 0),
+    reason: String(detail.reason || ""),
+    wasClean: Boolean(detail.wasClean),
+    networkOffline
+  });
   if (reconnectAttempts >= RECONNECT_SHOW_SIGNIN_AFTER) {
     signOn.disabled = false;
     signin.classList.remove("hidden");
@@ -167,6 +181,9 @@ function connect(options = {}) {
   const name = cleanName(options?.name || screenName.value);
   signOn.disabled = true;
   localStorage.setItem("aol96-screen-name", name);
+  if (automatic) {
+    emitCaptureDiagnostic({ type: "connection", action: "reconnect-attempt", attempt: reconnectAttempts });
+  }
   const protocol = location.protocol === "https:" ? "wss:" : "ws:";
   const debugArg = debug ? "&debug=1" : "";
   const url = `${protocol}//${location.host}/ws?room=town-square&name=${encodeURIComponent(name)}${debugArg}`;
@@ -176,8 +193,9 @@ function connect(options = {}) {
   } catch (error) {
     socket = null;
     const detail = String(error?.message || error || "");
+    emitCaptureDiagnostic({ type: "connection", action: "error", detail, automatic });
     if (automatic) {
-      scheduleReconnect(name);
+      scheduleReconnect(name, { reason: detail });
     } else {
       signOn.disabled = false;
       status.textContent = "Connection error";
@@ -231,7 +249,7 @@ function connect(options = {}) {
     clearHeartbeatTimer();
     socket = null;
     if (pageUnloading) return;
-    scheduleReconnect(name);
+    scheduleReconnect(name, event);
   });
 
   connection.addEventListener("error", () => {
