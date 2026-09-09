@@ -23,6 +23,17 @@ function appendAudit(base, audit, violationKey, examplesKey) {
 export class WorldDateGuardAuthority {
   constructor(room) {
     this.room = room;
+    this.worldGateStats = {
+      futureGameProductLinesBlocked: 0,
+      auditedPublicClaimsBlocked: 0,
+      consoleLabelsNormalized: 0
+    };
+    this.captureFixStats = {
+      historicalDateClaimsBlocked: 0
+    };
+    this.coherenceStats = {
+      futureEventLinesBlocked: 0
+    };
   }
 
   lineViolation(text, now = Date.now(), context = "", speaker = "", delegate) {
@@ -50,17 +61,17 @@ export class WorldDateGuardAuthority {
   }
 
   noteViolation(violation, stage, speaker = "", delegate) {
-    if (violation?.kind === "future-game-product" && this.room.v39WorldGateStats) {
-      this.room.v39WorldGateStats.futureGameProductLinesBlocked += 1;
+    if (violation?.kind === "future-game-product") {
+      this.worldGateStats.futureGameProductLinesBlocked += 1;
     }
-    if (violation?.kind === "unsupported-audited-public-claim" && this.room.v39WorldGateStats) {
-      this.room.v39WorldGateStats.auditedPublicClaimsBlocked += 1;
+    if (violation?.kind === "unsupported-audited-public-claim") {
+      this.worldGateStats.auditedPublicClaimsBlocked += 1;
     }
-    if (violation?.kind === "historical-date-mismatch" && this.room.v39CaptureFixStats) {
-      this.room.v39CaptureFixStats.historicalDateClaimsBlocked += 1;
+    if (violation?.kind === "historical-date-mismatch") {
+      this.captureFixStats.historicalDateClaimsBlocked += 1;
     }
-    if (violation?.kind === "future-era-event" && this.room.v39Stats) {
-      this.room.v39Stats.futureEventLinesBlocked += 1;
+    if (violation?.kind === "future-era-event") {
+      this.coherenceStats.futureEventLinesBlocked += 1;
     }
     if (violation?.kind === "future-era-technology" && this.room.v38QualityStats) {
       this.room.v38QualityStats.eraLinesBlocked += 1;
@@ -70,8 +81,8 @@ export class WorldDateGuardAuthority {
 
   say(from, text, kind = "bot", source = "built-in", meta = {}, delegate) {
     const normalized = kind === "bot" ? normalizeEraConsoleLabels(text) : text;
-    if (normalized !== text && this.room.v39WorldGateStats) {
-      this.room.v39WorldGateStats.consoleLabelsNormalized += 1;
+    if (normalized !== text) {
+      this.worldGateStats.consoleLabelsNormalized += 1;
     }
     return delegate(normalized);
   }
@@ -107,6 +118,18 @@ export class WorldDateGuardAuthority {
     return result;
   }
 
+  legacyWorldGateStats() {
+    return { ...this.worldGateStats };
+  }
+
+  legacyCaptureFixStats() {
+    return { ...this.captureFixStats };
+  }
+
+  legacyV39Stats() {
+    return { ...this.coherenceStats };
+  }
+
   snapshot() {
     return {
       authority: "v41-world-date-guard",
@@ -120,6 +143,10 @@ export class WorldDateGuardAuthority {
       ],
       consoleLabelNormalization: true,
       historicalAuditConsolidated: true,
+      worldGateStats: this.legacyWorldGateStats(),
+      captureFixStats: this.legacyCaptureFixStats(),
+      coherenceStats: this.legacyV39Stats(),
+      stateOwnedByAuthority: true,
       legacyV38V39CountersPreserved: true,
       legacyV38V39GuardOverridesBypassedInV41Production: true
     };
