@@ -12,6 +12,7 @@ function ownsMethod(source, name) {
 }
 
 const readiness = read("src/index_v41_provider_readiness_compat.js");
+const freeProviders = read("src/index_v41_free_providers_compat.js");
 const humanDirector = read("src/index_v41_human_director_compat.js");
 const legacyDiagnostics = read("src/human_only_legacy_diagnostics_v41.js");
 
@@ -42,15 +43,23 @@ assert.equal(
   false,
   "3G.18 retired human-only residual source must be deleted"
 );
-assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 readiness owner must own providerCapacityConstrained()");
+assert.equal(ownsMethod(readiness, "providerCapacityConstrained"), true, "3G.14 lower readiness compatibility owner must retain providerCapacityConstrained()");
+assert.equal(ownsMethod(freeProviders, "providerCapacityConstrained"), true, "O3 final free-provider owner must override providerCapacityConstrained() using the extended readiness snapshot");
 
 const capacityOwners = productionOwners
   .filter(([, source]) => ownsMethod(source, "providerCapacityConstrained"))
   .map(([path]) => path);
 assert.deepEqual(
   capacityOwners,
-  ["src/index_v41_provider_readiness_compat.js"],
-  "3G.14 readiness must be the only v41 production owner of providerCapacityConstrained()"
+  [
+    "src/index_v41_free_providers_compat.js",
+    "src/index_v41_provider_readiness_compat.js"
+  ],
+  "O3 may add only the final free-provider capacity override above the retained 3G.14 compatibility owner"
+);
+assert.ok(
+  freeProviders.includes("return Boolean(this.providerReadinessBase(now).capacityConstrained);"),
+  "O3 final capacity classification must come from the timestamp-scoped readiness base"
 );
 
 for (const marker of [
@@ -76,4 +85,4 @@ for (const marker of [
   assert.ok(legacyDiagnostics.includes(marker), `3G.17/3G.18 diagnostics helper must retain marker: ${marker}`);
 }
 
-console.log("v41 Phase 3G.14 capacity-policy consolidation checks passed after 3G.19 stateless diagnostics");
+console.log("v41 Phase 3G.14 capacity-policy checks passed with O3 final readiness override");
