@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 
 const app = fs.readFileSync(new URL("../public/app.js", import.meta.url), "utf8");
+const captureV2 = fs.readFileSync(new URL("../public/capture-v2.js", import.meta.url), "utf8");
 
 assert.ok(
   app.includes("const renderedMessageKeys = new Set();"),
@@ -32,8 +33,21 @@ assert.ok(
   "authoritative reconnect history replacement must reset render dedupe state"
 );
 assert.ok(
-  /else if \(data\.type === "message"\)[\s\S]*?addLine\(data\.message\);[\s\S]*?recordCaptureMessage\(data\.message\)/.test(app),
-  "live rendering and capture dedupe must remain separate"
+  /else if \(data\.type === "message"\)[\s\S]*?addLine\(data\.message\)/.test(app),
+  "live message frames must still flow through display dedupe"
+);
+assert.equal(
+  app.includes("recordCaptureMessage("),
+  false,
+  "display code must not regain duplicate capture ownership"
+);
+assert.ok(
+  captureV2.includes("const serverMessageKeys = new Set();"),
+  "authoritative capture must retain its own server-message dedupe state"
+);
+assert.ok(
+  /if \(data\.type === "message"\)[\s\S]*?recordServerMessage\(data\.message, false\)/.test(captureV2),
+  "capture-v2 must independently dedupe and record live message frames"
 );
 
 console.log("Client identical-live-frame display dedupe regression checks passed");
