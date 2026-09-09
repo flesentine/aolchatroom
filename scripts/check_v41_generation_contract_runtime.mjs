@@ -144,6 +144,7 @@ const contracts = [
   "reconnect-same-name-replacement",
   "reconnect-committed-close",
   "v41-reconnect-state-ownership",
+  "history-persistence-coalescing",
   "status"
 ];
 
