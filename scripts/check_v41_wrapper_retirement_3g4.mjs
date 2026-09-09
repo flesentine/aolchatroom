@@ -11,6 +11,21 @@ function ownsMethod(source, name) {
   );
 }
 
+function methodBlock(source, name) {
+  const lines = source.split("\n");
+  const start = lines.findIndex((line) =>
+    line.startsWith(`  ${name}(`) || line.startsWith(`  async ${name}(`)
+  );
+  assert.ok(start >= 0, `missing method ${name}()`);
+  let end = start + 1;
+  while (end < lines.length) {
+    const line = lines[end];
+    if (line === "}" || /^  (?:async )?[A-Za-z0-9_$]+\(/.test(line)) break;
+    end += 1;
+  }
+  return lines.slice(start, end).join("\n");
+}
+
 const humanCompat = read("src/index_v41_human_director_compat.js");
 const providerCompat = read("src/index_v41_free_providers_compat.js");
 const frozenProvider = read("src/index_v37_free_providers.js");
@@ -82,40 +97,49 @@ for (const marker of [
   assert.ok(providerCompat.includes(marker), `3G.4 must preserve marker: ${marker}`);
 }
 
-const headerLines = 5;
-const diagnosticsImport = `import {
-  mergeV37HumanOnlySnapshot,
-  mergeV37HumanOnlyStatus
-} from "./human_only_legacy_diagnostics_v41.js";
-`;
-const compatBody = providerCompat.split("\n").slice(headerLines).join("\n")
-  .replace(
-    'import productionTurnWorker, { ChatRoom as ProductionTurnChatRoom } from "./index_v41_production_turn_compat.js";',
-    'import baseWorker, { ChatRoom as AdaptiveChatRoom } from "./index_v37_human_only.js";'
-  )
-  .replace(diagnosticsImport, "")
-  .replace("const response = await productionTurnWorker.fetch(request, env);", "const response = await baseWorker.fetch(request, env);")
-  .replace(
-    `    const legacy = mergeV37HumanOnlyStatus(data);
-    return Response.json({
-      ...legacy,
-      v37: {
-        ...(legacy.v37 || {}),`,
-    `    return Response.json({
-      ...data,
-      v37: {
-        ...(data.v37 || {}),`
-  )
-  .replace("export class ChatRoom extends ProductionTurnChatRoom {", "export class ChatRoom extends AdaptiveChatRoom {")
-  .replace(
-    "    const base = mergeV37HumanOnlySnapshot(this, super.v37Snapshot());",
-    "    const base = super.v37Snapshot();"
+// O3 intentionally optimizes the readiness-classification methods. Preserve the
+// original 3G.4 guarantee for every unchanged provider/network surface byte-for-byte,
+// while O3's dedicated gate proves semantic equivalence for readiness ordering,
+// degradation/capacity classification, timestamp/depth scoping, and invalidation.
+for (const method of [
+  "configuredProviders",
+  "noteExtendedProvider",
+  "callOpenAiCompatible",
+  "callMistralProvider",
+  "callVercelAiGatewayProvider",
+  "callOpenRouterProvider",
+  "callHuggingFaceProvider",
+  "callCerebrasProvider",
+  "callCohereTrialProvider",
+  "callProvider",
+  "providerEvent",
+  "say",
+  "v37ProviderFailoverSnapshot",
+  "fetch"
+]) {
+  assert.equal(
+    methodBlock(providerCompat, method),
+    methodBlock(frozenProvider, method),
+    `3G.4 unchanged provider/network behavior must remain byte-for-byte equivalent for ${method}()`
   );
-assert.equal(
-  compatBody,
-  frozenProvider,
-  "3G.4 provider behavior must remain byte-for-byte equivalent after subtracting only the explicit 3G.17 diagnostic composition and direct-parent change; 3G.19 adds no provider behavior"
-);
+}
+
+for (const marker of [
+  'from "./provider_readiness_snapshot_v41.js"',
+  "providerReadinessBase(now = Date.now())",
+  "providerReadinessSnapshot(now = Date.now())",
+  "hardReadyProviders(now = Date.now())",
+  "softReadyProviders(now = Date.now())",
+  "preferredStructuredReadyProviders(now = Date.now())",
+  "effectiveStructuredReadyProviders(now = Date.now())",
+  "providerPoolDegraded(now = Date.now())",
+  "providerCapacityConstrained(now = Date.now())",
+  "orderedReadyProviders(now = Date.now())",
+  "invalidateV41ProviderReadiness()"
+]) {
+  assert.ok(providerCompat.includes(marker), `O3 readiness optimization marker must remain explicit: ${marker}`);
+}
+
 
 const v41ProductionSpine = [
   generationBase,
@@ -144,4 +168,4 @@ for (const source of [roster, worldDate, coherence, reconnect]) {
   assert.ok(!source.includes('from "./index_v37_free_providers.js"'));
 }
 
-console.log("v41 Phase 3G.4 v37 free-provider wrapper retirement checks passed after 3G.18 source retirement");
+console.log("v41 Phase 3G.4 free-provider retirement checks passed with O3 readiness optimization carve-out");
