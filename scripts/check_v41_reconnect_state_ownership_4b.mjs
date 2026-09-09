@@ -142,7 +142,7 @@ for (const marker of [
   "this.humanReconnectLifecycleAuthority?.() || null",
   "legacyV39Stats",
   "legacyPendingHumanDisconnects",
-  "stats: { ...this.v39Stats, ...reconnectStats }",
+  "stats: { ...this.v39Stats, ...repairStats, ...reconnectStats }",
   "pendingHumanDisconnects"
 ]) {
   assert.ok(coherenceCompat.includes(marker), `4B coherence compatibility must compose legacy reconnect diagnostics: ${marker}`);
