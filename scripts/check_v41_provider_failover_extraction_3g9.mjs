@@ -57,7 +57,8 @@ for (const signature of [
 assert.equal(ownsMethod(failover, "orderedReadyProviders"), false, "3G.9 lower failover owner must not falsely claim live provider ordering");
 assert.equal(ownsMethod(freeProviders, "orderedReadyProviders"), true, "3G.4 free-provider owner must remain the live v41 provider ordering authority");
 assert.ok(freeProviders.includes("orderedExtendedProviders({"));
-assert.ok(freeProviders.includes("structuredGenerationDepth: this.v35StructuredGenerationDepth"));
+assert.ok(freeProviders.includes("const depth = Number(this.v35StructuredGenerationDepth || 0);"));
+assert.ok(freeProviders.includes("structuredGenerationDepth: generationDepth"));
 
 for (const marker of [
   "this.v37WorkersDailyQuotaResetAt = 0",
@@ -80,4 +81,4 @@ for (const marker of ['deferReason = "live-model-shadow-paused"', "liveAiShadowP
   assert.ok(pausedShadow.includes(marker), `3G.11 must preserve paused shadow: ${marker}`);
 }
 
-console.log("v41 Phase 3G.9 provider failure/quota extraction checks passed; live ordering remains with 3G.4 free-provider authority");
+console.log("v41 Phase 3G.9 provider failover checks passed with O3 depth-keyed ordering");
