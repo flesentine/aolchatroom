@@ -51,8 +51,8 @@ assert.equal(V41_BOT_REENTRY_COOLDOWN_MS, 3 * 60 * 1000);
 {
   const now = Date.now();
   const r = fakeRoom();
-  a.recentBotLeaves.set("CoolChick17", now - 1000);
   const a = new BotRosterReentryAuthority(r);
+  a.recentBotLeaves.set("CoolChick17", now - 1000);
   let delegated = 0;
   const blocked = a.announceBotEnter("CoolChick17", now, () => {
     delegated += 1;
