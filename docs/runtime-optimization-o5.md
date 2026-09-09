@@ -24,7 +24,7 @@ The result was duplicated in-memory capture state and duplicated `localStorage` 
 `capture-v2.js` is now the single authoritative browser capture system.
 
 - `app.js` no longer keeps a v1 capture object, v1 capture key, capture message-key set, capture persistence timer, capture export handler, or capture lifecycle flushes.
-- capture-v2 keeps the existing `aol96-chat-capture-v2` schema, 10-minute resume behavior, WebSocket interception, local-human reconciliation, provider metadata, and Save Chat export.
+- capture-v2 keeps the existing `aol96-chat-capture-v2` schema, 10-minute resume behavior, WebSocket interception, local-human reconciliation, provider metadata, reconnect diagnostics, and Save Chat export.
 - recording an event marks v2 capture state dirty.
 - only one persistence timer may be scheduled.
 - additional events do not clear/restart that timer.
@@ -43,7 +43,7 @@ O5.1 does not change:
 - screen-name persistence;
 - 30-second normal WebSocket heartbeat;
 - debug refresh behavior;
-- automatic reconnect timing and UI;
+- automatic reconnect timing and UI;\n- reconnect scheduling/close diagnostics, bridged into the single v2 event stream;
 - profile requests;
 - server behavior.
 
