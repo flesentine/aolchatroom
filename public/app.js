@@ -127,7 +127,7 @@ function startHeartbeat(connection) {
   }, debug ? DEBUG_REFRESH_MS : NORMAL_HEARTBEAT_MS);
 }
 
-function scheduleReconnect(name, detail = {}) {
+function scheduleReconnect(name) {
   if (pageUnloading || socketIsActive()) return;
   clearReconnectTimer();
 
@@ -177,7 +177,7 @@ function connect(options = {}) {
     socket = null;
     const detail = String(error?.message || error || "");
     if (automatic) {
-      scheduleReconnect(name, { reason: detail });
+      scheduleReconnect(name);
     } else {
       signOn.disabled = false;
       status.textContent = "Connection error";
@@ -231,7 +231,7 @@ function connect(options = {}) {
     clearHeartbeatTimer();
     socket = null;
     if (pageUnloading) return;
-    scheduleReconnect(name, event);
+    scheduleReconnect(name);
   });
 
   connection.addEventListener("error", () => {
