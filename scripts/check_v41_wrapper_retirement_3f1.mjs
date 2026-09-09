@@ -42,7 +42,7 @@ assert.ok(presence.includes('from "./index_v39_coherence.js"'));
 assert.equal(worldDate.includes("this.v39WorldGateStats ||= {"), false);
 assert.ok(worldDate.includes("legacyWorldGateStats"));
 assert.ok(worldDateAuthority.includes("this.worldGateStats = {"));
-assert.ok(worldDate.includes("futureGameProductLinesBlocked: 0"));
+assert.ok(worldDateAuthority.includes("futureGameProductLinesBlocked: 0"));
 assert.ok(worldDate.includes("v39Snapshot(now = Date.now())"));
 assert.ok(worldDate.includes("V41PresenceCompatChatRoom.prototype.v39Snapshot.call(this, now)"));
 assert.ok(worldDate.includes("futureGameProductAuditAllRetained"));
