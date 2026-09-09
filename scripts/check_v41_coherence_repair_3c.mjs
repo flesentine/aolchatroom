@@ -7,10 +7,6 @@ function room() {
     activeBotNames: ["MoonChild", "RaveChick", "SegaMan"],
     history: [],
     pendingHumanReplyTo: new Map(),
-    v39Stats: { clarificationTargetRepairs: 0, coherenceVoiceLocks: 0 },
-    v39CaptureFixStats: { explicitErrorChallengesRepaired: 0 },
-    v39LastTargetRepair: null,
-    v39LastCoherenceLock: null,
     focuses: [],
     setFocus(human, bot, at, reason) { this.focuses.push({ human, bot, at, reason }); }
   };
@@ -24,15 +20,18 @@ function room() {
     { kind: "bot", from: "RaveChick", text: "haha yeah we had that at our hotel last week ;)", target: "room", messageId: "m2", at: now - 5000 }
   ];
   const a = new CoherenceRepairAuthority(r);
+  assert.equal(Object.hasOwn(r, "v39LastTargetRepair"), false);
+  assert.equal(Object.hasOwn(r, "v39LastCoherenceLock"), false);
+  assert.equal(Object.hasOwn(r, "v39CaptureFixStats"), false);
   const target = a.resolveDirectTarget("had what at your hotel?", "Crateman", () => "room");
   assert.equal(target, "RaveChick");
   assert.equal(r.pendingHumanReplyTo.get("Crateman"), "m2");
-  assert.equal(r.v39Stats.clarificationTargetRepairs, 1);
-  assert.equal(r.v39LastTargetRepair?.repairedTarget, "RaveChick");
+  assert.equal(a.repairStats.clarificationTargetRepairs, 1);
+  assert.equal(a.lastTargetRepair?.repairedTarget, "RaveChick");
 
   const explicit = a.resolveDirectTarget("SegaMan, had what at your hotel?", "Crateman", () => "SegaMan");
   assert.equal(explicit, "SegaMan");
-  assert.equal(r.v39Stats.clarificationTargetRepairs, 1);
+  assert.equal(a.repairStats.clarificationTargetRepairs, 1);
 }
 
 {
@@ -52,10 +51,10 @@ function room() {
   assert.equal(result.length, 1);
   assert.match(delegated.goal, /V39 ERROR-REPAIR LOCK/);
   assert.match(delegated.goal, /V39 COHERENCE LOCK/);
-  assert.equal(r.v39Stats.coherenceVoiceLocks, 1);
-  assert.equal(r.v39CaptureFixStats.explicitErrorChallengesRepaired, 1);
-  assert.equal(r.v39LastCoherenceLock?.mode, "challenge");
-  assert.equal(r.v39LastCoherenceLock?.anchorFrom, "SegaMan");
+  assert.equal(a.repairStats.coherenceVoiceLocks, 1);
+  assert.equal(a.captureFixStats.explicitErrorChallengesRepaired, 1);
+  assert.equal(a.lastCoherenceLock?.mode, "challenge");
+  assert.equal(a.lastCoherenceLock?.anchorFrom, "SegaMan");
 }
 
 {
@@ -65,7 +64,7 @@ function room() {
   let delegated = null;
   await a.voiceBrainPlan(plan, [], null, async (nextPlan) => { delegated = nextPlan; return []; });
   assert.equal(delegated, plan);
-  assert.equal(r.v39Stats.coherenceVoiceLocks, 0);
+  assert.equal(a.repairStats.coherenceVoiceLocks, 0);
 }
 
 const wrapper = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
@@ -102,4 +101,4 @@ for (const [name, source] of [["v39 world", v39World], ["v40 continuity", v40], 
   assert.equal(ownsMethod(source, "voiceBrainPlan"), false, `${name} must not own voiceBrainPlan() while 3C delegates below legacy v39 repair`);
 }
 
-console.log("v41 Phase 3C coherence/repair authority checks passed");
+console.log("v41 Phase 3C coherence/repair authority checks passed after 4C state consolidation");
