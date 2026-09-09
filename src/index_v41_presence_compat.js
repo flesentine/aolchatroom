@@ -37,7 +37,6 @@ export class ChatRoom extends V41CoherenceCompatChatRoom {
     super(ctx, env);
     this.v39CaptureFixStats = {
       legacyQuickBackgroundCallsSuppressed: 0,
-      explicitErrorChallengesRepaired: 0,
       historicalDateClaimsBlocked: 0
     };
   }
@@ -88,7 +87,10 @@ export class ChatRoom extends V41CoherenceCompatChatRoom {
         pendingCloseSocketsMarked: 0,
         supersededCloseCallbacksIgnored: 0
       },
-      captureFixStats: { ...this.v39CaptureFixStats },
+      captureFixStats: {
+        ...this.v39CaptureFixStats,
+        ...(this.coherenceRepairAuthority?.()?.legacyCaptureFixStats?.() || { explicitErrorChallengesRepaired: 0 })
+      },
       historicalDateAuditAllRetained: auditHistoricalDateClaims(this.history || [], 0),
       captureFixPolicy: {
         legacyQuickBackgroundDisabled: true,
