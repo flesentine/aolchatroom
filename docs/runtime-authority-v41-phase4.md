@@ -174,3 +174,26 @@ Legacy v39 diagnostics remain unchanged by composition:
 This closes v39 compatibility-shell mutable-state ownership. The v38 quality/cooling state, including `eraLinesBlocked`, is intentionally unchanged and remains reserved for the dedicated v38 telemetry consolidation.
 
 No client/browser code changes in this phase.
+
+## 4F — consolidate v38 hard-era telemetry ownership
+
+Phase 4F closes the final cross-authority telemetry write in the v41 compatibility spine.
+
+`WorldDateGuardAuthority` already owns hard-era generated-line validation through the Phase 3D world/date ordering. It now also owns:
+- `eraStats.eraLinesBlocked`.
+
+The world/date authority increments that counter directly when `noteViolation()` records a `future-era-technology` violation. It no longer mutates `room.v38QualityStats`.
+
+The v38 quality compatibility owner retains only its live topic-fatigue/cooling state:
+- `v38TopicCooling`;
+- `v38QualityStats.topicFatigueActivations`;
+- `v38QualityStats.topicFatigueSceneCloses`;
+- `v38QualityStats.fatiguedBackgroundLinesBlocked`;
+- `v38QualityStats.backgroundPlansFiltered`.
+
+Legacy v38 diagnostics remain unchanged by composition:
+- `v38Snapshot().stats.eraLinesBlocked` reads `legacyV38Stats()` from the world/date authority when present;
+- the four topic-fatigue counters continue to come from `v38QualityStats`;
+- a frozen/isolated quality-compat instance without the v41 world/date layer still reports the historical zero fallback for `eraLinesBlocked`.
+
+No hard-era behavior, audit ordering, topic-fatigue behavior, status shape, client code, or browser code changes in this phase.

@@ -19,6 +19,7 @@ const frozenV40 = read("src/index_v40_scene_continuity.js");
 const generationBase = read("src/index_v41_generation_contract_base.js");
 const roster = read("src/index_v41_bot_roster_reentry.js");
 const worldDate = read("src/index_v41_world_date_guard.js");
+const worldDateAuthority = read("src/world_date_guard_v41.js");
 const coherence = read("src/index_v41_coherence_repair.js");
 const reconnect = read("src/index_v41_human_reconnect.js");
 const scene = read("src/index_v41_scene_coordinator.js");
@@ -35,6 +36,12 @@ assert.ok(qualityCompat.includes('url.pathname === "/api/v38-status"'));
 assert.ok(qualityCompat.includes('url.pathname === "/v38-status"'));
 assert.ok(qualityCompat.includes("this.v38TopicCooling = new Map()"));
 assert.ok(qualityCompat.includes("this.v38QualityStats = {"));
+assert.ok(qualityCompat.includes("this.worldDateGuardAuthority?.()?.legacyV38Stats?.()"));
+assert.ok(qualityCompat.includes("stats: { ...eraStats, ...this.v38QualityStats }"));
+assert.ok(worldDateAuthority.includes("this.eraStats = {"));
+assert.ok(worldDateAuthority.includes("this.eraStats.eraLinesBlocked += 1"));
+assert.ok(worldDateAuthority.includes("legacyV38Stats()"));
+assert.equal(worldDateAuthority.includes("this.room.v38QualityStats"), false);
 
 for (const liveMethod of [
   "pruneV38TopicCooling",
@@ -108,4 +115,4 @@ for (const retiredImport of [
   );
 }
 
-console.log("v41 Phase 3F.4 v38 quality-wrapper retirement checks passed");
+console.log("v41 Phase 3F.4 v38 quality-wrapper retirement checks passed after 4F v38 telemetry consolidation");

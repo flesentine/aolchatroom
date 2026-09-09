@@ -36,6 +36,7 @@ const authority = read("src/v39_background_compatibility_v41.js");
 const coherence = read("src/index_v41_coherence_compat.js");
 const presence = read("src/index_v41_presence_compat.js");
 const quality = read("src/index_v41_quality_compat.js");
+const world = read("src/world_date_guard_v41.js");
 const worker = read("test/runtime_generation_contract_worker.js");
 const runtime = read("scripts/check_v41_generation_contract_runtime.mjs");
 const pkg = read("package.json");
@@ -86,7 +87,17 @@ for (const marker of [
   "legacyQuickBackgroundCallsSuppressed: 0"
 ]) assert.ok(presence.includes(marker), `4E presence bridge must retain marker: ${marker}`);
 
-assert.ok(quality.includes("eraLinesBlocked: 0"), "4E must not absorb dedicated v38 era telemetry");
+assert.equal(
+  objectKeys(quality, "this.v38QualityStats = {").includes("eraLinesBlocked"),
+  false,
+  "4E retained proof must accept 4F retirement of hard-era telemetry from v38QualityStats"
+);
+assert.deepEqual(
+  objectKeys(world, "this.eraStats = {"),
+  ["eraLinesBlocked"],
+  "4E retained proof must recognize 4F world/date hard-era telemetry ownership"
+);
+assert.ok(quality.includes("this.worldDateGuardAuthority?.()?.legacyV38Stats?.()"));
 assert.ok(worker.includes("contractV41V39BackgroundStateOwnership()"));
 assert.ok(worker.includes('"v41-v39-background-state-ownership"'));
 assert.ok(runtime.includes('"v41-v39-background-state-ownership"'));
@@ -104,4 +115,4 @@ for (const [name, source] of [
   );
 }
 
-console.log("v41 Phase 4E residual v39 background state ownership checks passed");
+console.log("v41 Phase 4E residual v39 background state ownership checks passed after 4F v38 telemetry consolidation");

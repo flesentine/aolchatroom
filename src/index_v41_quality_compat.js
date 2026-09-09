@@ -2,7 +2,8 @@
 // Frozen index_v38_quality_guard.js remains unchanged for frozen v38-v40 paths.
 // V41 production keeps the still-live room-topic fatigue/cooling behavior and
 // v38 diagnostic surface here while Phase 3D remains authoritative for hard-era
-// line validation and historical audit.
+// line validation and historical audit. Phase 4F also moves hard-era telemetry
+// into the world/date authority and composes it back into the legacy v38 snapshot.
 import livelyWorker, { ChatRoom as V41LivelyAmbientCompatChatRoom } from "./index_v41_lively_ambient_compat.js";
 import { simulatedDateTimeLabel } from "./social.js";
 import {
@@ -57,7 +58,6 @@ export class ChatRoom extends V41LivelyAmbientCompatChatRoom {
     super(ctx, env);
     this.v38TopicCooling = new Map();
     this.v38QualityStats = {
-      eraLinesBlocked: 0,
       topicFatigueActivations: 0,
       topicFatigueSceneCloses: 0,
       fatiguedBackgroundLinesBlocked: 0,
@@ -181,10 +181,11 @@ export class ChatRoom extends V41LivelyAmbientCompatChatRoom {
   v38Snapshot(now = Date.now()) {
     const fatigue = this.detectRoomTopicFatigue(now);
     const eraAudit = auditEraHistory(this.history || [], 0);
+    const eraStats = this.worldDateGuardAuthority?.()?.legacyV38Stats?.() || { eraLinesBlocked: 0 };
     return {
       pass: PASS,
       simulatedDateTime: simulatedDateTimeLabel(),
-      stats: { ...this.v38QualityStats },
+      stats: { ...eraStats, ...this.v38QualityStats },
       activeTopicCooling: this.activeV38TopicCooling(now),
       detectedTopicFatigue: fatigue,
       eraAuditAllRetained: eraAudit,
