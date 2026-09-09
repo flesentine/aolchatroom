@@ -40,8 +40,10 @@ assert.ok(coherenceCompat.includes("this.v39RecentBotLeaves = new Map()"));
 assert.equal(coherenceCompat.includes("this.v39PendingHumanDisconnects = new Map()"), false);
 assert.ok(coherenceCompat.includes("legacyPendingHumanDisconnects"));
 assert.ok(coherenceCompat.includes("this.v39Stats = {"));
-assert.ok(coherenceCompat.includes("this.v39LastTargetRepair = null"));
-assert.ok(coherenceCompat.includes("this.v39LastCoherenceLock = null"));
+assert.equal(coherenceCompat.includes("this.v39LastTargetRepair = null"), false);
+assert.equal(coherenceCompat.includes("this.v39LastCoherenceLock = null"), false);
+assert.ok(coherenceCompat.includes("legacyLastTargetRepair"));
+assert.ok(coherenceCompat.includes("legacyLastCoherenceLock"));
 
 assert.ok(ownsMethod(coherenceCompat, "queueScenePlan"));
 assert.ok(ownsMethod(coherenceCompat, "v39Snapshot"));
@@ -107,4 +109,4 @@ for (const retiredImport of [
   );
 }
 
-console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed after 4B reconnect-state ownership");
+console.log("v41 Phase 3F.3 v39 coherence-wrapper retirement checks passed after 4C coherence-state ownership");
