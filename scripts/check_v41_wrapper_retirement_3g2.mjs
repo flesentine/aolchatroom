@@ -79,22 +79,57 @@ for (const marker of [
 }
 
 const headerLines = 4;
+const o4HelperImport = 'import { collectLastMatching, findLastMatching } from "./hotpath_collections_v41.js";\n';
 const movedSupportMethod = `  activeAmbientCharacters() {
-    return [...(this.activeBotNames || [])]
-      .map((name) => getCharacter(name))
-      .filter(Boolean);
+    const active = [];
+    for (const name of this.activeBotNames || []) {
+      const character = getCharacter(name);
+      if (character) active.push(character);
+    }
+    return active;
   }
 
 `;
+const o4RecentHuman = `  recentHumanInScene(sceneId, now = Date.now()) {
+    if (!sceneId) return null;
+    return findLastMatching(this.history || [], (row) =>
+      row?.kind === "human"
+      && row.sceneId === sceneId
+      && now - Number(row.at || 0) <= RECENT_HUMAN_SCENE_MS
+    );
+  }`;
+const frozenRecentHuman = `  recentHumanInScene(sceneId, now = Date.now()) {
+    if (!sceneId) return null;
+    return [...(this.history || [])].reverse().find((row) =>
+      row?.kind === "human"
+      && row.sceneId === sceneId
+      && now - Number(row.at || 0) <= RECENT_HUMAN_SCENE_MS
+    ) || null;
+  }`;
+const o4RecentChat = `    const recent = collectLastMatching(
+      this.history || [],
+      LIVELY_AMBIENT_RECENT_LINES,
+      (row) => row?.kind === "human" || row?.kind === "bot"
+    )
+      .map((row) => \`${row.from}${row.target && row.target !== "room" ? \` -> ${row.target}\` : ""}: ${clean(row.text, 180)}\`)
+      .join("\\n");`;
+const frozenRecentChat = `    const recent = (this.history || [])
+      .filter((row) => row?.kind === "human" || row?.kind === "bot")
+      .slice(-LIVELY_AMBIENT_RECENT_LINES)
+      .map((row) => \`${row.from}${row.target && row.target !== "room" ? \` -> ${row.target}\` : ""}: ${clean(row.text, 180)}\`)
+      .join("\\n");`;
 const compatBody = livelyCompat.split("\n").slice(headerLines).join("\n")
   .replace('from "./index_v41_human_director_compat.js"', 'from "./index_v37_human_director.js"')
+  .replace(o4HelperImport, "")
   .replace('import { getCharacter } from "./characters.js";\n', "")
   .replace("    this.v37AmbientProviderCursor = 0;\n", "")
-  .replace(movedSupportMethod, "");
+  .replace(movedSupportMethod, "")
+  .replace(o4RecentHuman, frozenRecentHuman)
+  .replace(o4RecentChat, frozenRecentChat);
 assert.equal(
   compatBody,
   frozenLively,
   "3G.2 original lively behavior must remain byte-for-byte equivalent after subtracting the explicit 3G.13 support additions"
 );
 
-console.log("v41 Phase 3G.2 v37 lively-ambient wrapper retirement checks passed");
+console.log("v41 Phase 3G.2 lively retirement checks passed with O4 hot-path normalization");

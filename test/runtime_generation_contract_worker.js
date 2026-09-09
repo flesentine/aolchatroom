@@ -9,6 +9,7 @@ import { ChatRoom as V41PausedShadowChatRoom } from "../src/index_v41_paused_sha
 import { nextUtcDailyQuotaResetAt } from "../src/provider_failover_v37.js";
 import { ChatRoom as V41ProductionTurnChatRoom } from "../src/index_v41_production_turn_compat.js";
 import { getCharacter } from "../src/characters.js";
+import { collectLastMatching, findLastMatching } from "../src/hotpath_collections_v41.js";
 
 function ensure(condition, message) {
   if (!condition) throw new Error(message);
@@ -2609,6 +2610,76 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     };
   }
 
+  contractZeroCopyHotpathsO4() {
+    const now = 1700000000000;
+    const history = [];
+    for (let index = 0; index < 40; index += 1) {
+      history.push({
+        kind: index % 5 === 0 ? "system" : (index % 2 === 0 ? "human" : "bot"),
+        from: index % 2 === 0 ? "Crateman" : "MetallicaFan",
+        target: "room",
+        text: `o4-line-${index}`,
+        sceneId: index >= 30 ? "o4-scene" : "other-scene",
+        at: now - (40 - index) * 1000
+      });
+    }
+    this.history = history;
+
+    const oldRecentHuman = [...history].reverse().find((row) =>
+      row?.kind === "human"
+      && row.sceneId === "o4-scene"
+      && now - Number(row.at || 0) <= 90000
+    ) || null;
+    const actualRecentHuman = V41LivelyAmbientCompatChatRoom.prototype.recentHumanInScene.call(this, "o4-scene", now);
+    equal(actualRecentHuman, oldRecentHuman, "O4 recent-human backward scan must preserve identity");
+
+    const oldRecentRows = history
+      .filter((row) => row?.kind === "human" || row?.kind === "bot")
+      .slice(-14);
+    const helperRecentRows = collectLastMatching(
+      history,
+      14,
+      (row) => row?.kind === "human" || row?.kind === "bot"
+    );
+    equal(helperRecentRows.length, oldRecentRows.length, "O4 bounded recent-row count must match legacy selection");
+    for (let index = 0; index < oldRecentRows.length; index += 1) {
+      equal(helperRecentRows[index], oldRecentRows[index], "O4 bounded recent-row ordering must match legacy selection");
+    }
+
+    const lastHuman = findLastMatching(history, (row) => row?.kind === "human");
+    equal(lastHuman, [...history].reverse().find((row) => row?.kind === "human") || null, "O4 generic backward lookup must match legacy reverse/find");
+
+    const originalOpenScenes = this.openScenes;
+    this.openScenes = () => [
+      { id: "o4-first", turns: 12, status: "open" },
+      { id: "o4-second", turns: 12, status: "open" },
+      { id: "o4-strong", turns: 15, status: "open" }
+    ];
+    try {
+      const authority = this.sceneLifecycleAuthority?.();
+      ensure(authority, "O4 scene lifecycle authority must be available");
+      const selected = authority.fatiguedScene(now);
+      equal(selected?.id, "o4-strong", "O4 single-pass fatigue selection must choose highest turn count");
+
+      this.openScenes = () => [
+        { id: "o4-tie-first", turns: 12, status: "open" },
+        { id: "o4-tie-second", turns: 12, status: "open" }
+      ];
+      const tie = authority.fatiguedScene(now);
+      equal(tie?.id, "o4-tie-first", "O4 single-pass fatigue selection must preserve stable first tie");
+    } finally {
+      this.openScenes = originalOpenScenes;
+    }
+
+    return {
+      backwardLookupParity: true,
+      boundedRecentParity: true,
+      stableFatigueSelection: true,
+      historyRows: history.length,
+      recentRows: helperRecentRows.length
+    };
+  }
+
   contractStatus() {
     const snapshot = this.v41Snapshot(Date.now());
     equal(snapshot.phase, "2B", "production snapshot should expose Phase 2B");
@@ -2685,6 +2756,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "v41-reconnect-state-ownership") return this.contractV41ReconnectStateOwnership();
     if (name === "history-persistence-coalescing") return this.contractHistoryPersistenceCoalescing();
     if (name === "provider-readiness-snapshots-o3") return this.contractProviderReadinessSnapshotsO3();
+    if (name === "zero-copy-hotpaths-o4") return this.contractZeroCopyHotpathsO4();
     if (name === "status") return this.contractStatus();
     throw new Error(`unknown generation contract: ${name}`);
   }

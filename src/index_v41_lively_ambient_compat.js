@@ -3,6 +3,7 @@
 // V41 production preserves the authoritative lively ambient behavior here while
 // bypassing the old v37 wrapper as an inheritance/fetch boundary.
 import humanDirectorWorker, { ChatRoom as HumanDirectorChatRoom } from "./index_v41_human_director_compat.js";
+import { collectLastMatching, findLastMatching } from "./hotpath_collections_v41.js";
 import { ChatRoom as ContinuityFallbackChatRoom } from "./index_v14.js";
 import { getCharacter } from "./characters.js";
 import { PROVIDER_LABELS_V37 } from "./free_provider_pool_v37.js";
@@ -150,9 +151,12 @@ export class ChatRoom extends HumanDirectorChatRoom {
   }
 
   activeAmbientCharacters() {
-    return [...(this.activeBotNames || [])]
-      .map((name) => getCharacter(name))
-      .filter(Boolean);
+    const active = [];
+    for (const name of this.activeBotNames || []) {
+      const character = getCharacter(name);
+      if (character) active.push(character);
+    }
+    return active;
   }
 
   sceneIsClosed(scene) {
@@ -214,11 +218,11 @@ export class ChatRoom extends HumanDirectorChatRoom {
 
   recentHumanInScene(sceneId, now = Date.now()) {
     if (!sceneId) return null;
-    return [...(this.history || [])].reverse().find((row) =>
+    return findLastMatching(this.history || [], (row) =>
       row?.kind === "human"
       && row.sceneId === sceneId
       && now - Number(row.at || 0) <= RECENT_HUMAN_SCENE_MS
-    ) || null;
+    );
   }
 
   closeExhaustedAmbientScenes(now = Date.now()) {
@@ -283,9 +287,11 @@ export class ChatRoom extends HumanDirectorChatRoom {
     const profiles = typeof this.promptProfiles === "function"
       ? this.promptProfiles(active.slice(0, 8), Math.min(8, active.length || 1))
       : names.join(", ");
-    const recent = (this.history || [])
-      .filter((row) => row?.kind === "human" || row?.kind === "bot")
-      .slice(-LIVELY_AMBIENT_RECENT_LINES)
+    const recent = collectLastMatching(
+      this.history || [],
+      LIVELY_AMBIENT_RECENT_LINES,
+      (row) => row?.kind === "human" || row?.kind === "bot"
+    )
       .map((row) => `${row.from}${row.target && row.target !== "room" ? ` -> ${row.target}` : ""}: ${clean(row.text, 180)}`)
       .join("\n");
     const fatigued = typeof this.fatiguedScene === "function" ? this.fatiguedScene(now) : null;
