@@ -175,8 +175,8 @@ assert.ok(worker.includes('Object.hasOwn(this, "v39RecentBotLeaves")'));
 assert.ok(worker.includes("legacyV39SnapshotPreserved: true"));
 assert.ok(runtime.includes('"v41-world-roster-state-ownership"'));
 
-assert.ok(phase4a.includes("after 4D world/roster consolidation"));
-assert.ok(phase4b.includes("after 4D world/roster consolidation"));
-assert.ok(phase4c.includes("after 4D world/roster consolidation"));
+assert.ok(phase4a.includes("after 4E background compatibility consolidation"));
+assert.ok(phase4b.includes("after 4E background compatibility consolidation"));
+assert.ok(phase4c.includes("after 4E background compatibility consolidation"));
 
-console.log("v41 Phase 4D world/date and roster state ownership checks passed");
+console.log("v41 Phase 4D world/date and roster state ownership checks passed after 4E background compatibility consolidation");

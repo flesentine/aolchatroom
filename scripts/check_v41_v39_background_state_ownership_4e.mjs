@@ -39,6 +39,10 @@ const quality = read("src/index_v41_quality_compat.js");
 const worker = read("test/runtime_generation_contract_worker.js");
 const runtime = read("scripts/check_v41_generation_contract_runtime.mjs");
 const pkg = read("package.json");
+const phase4a = read("scripts/check_v41_v39_shared_state_characterization_4a.mjs");
+const phase4b = read("scripts/check_v41_reconnect_state_ownership_4b.mjs");
+const phase4c = read("scripts/check_v41_coherence_repair_state_ownership_4c.mjs");
+const phase4d = read("scripts/check_v41_world_roster_state_ownership_4d.mjs");
 
 for (const [path, source] of v41Sources) {
   assert.equal(source.includes("this.v39Stats = {"), false, `4E retired v39Stats initializer must be absent: ${path}`);
@@ -87,5 +91,17 @@ assert.ok(worker.includes("contractV41V39BackgroundStateOwnership()"));
 assert.ok(worker.includes('"v41-v39-background-state-ownership"'));
 assert.ok(runtime.includes('"v41-v39-background-state-ownership"'));
 assert.ok(pkg.includes("check_v41_v39_background_state_ownership_4e.mjs"));
+
+for (const [name, source] of [
+  ["4A", phase4a],
+  ["4B", phase4b],
+  ["4C", phase4c],
+  ["4D", phase4d]
+]) {
+  assert.ok(
+    source.includes("after 4E background compatibility consolidation"),
+    `4E retained proof handoff must be advanced through 4E for ${name}`
+  );
+}
 
 console.log("v41 Phase 4E residual v39 background state ownership checks passed");

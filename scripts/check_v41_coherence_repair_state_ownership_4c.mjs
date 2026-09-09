@@ -154,7 +154,7 @@ assert.ok(worker.includes('Object.hasOwn(this, "v39LastCoherenceLock")'));
 assert.ok(worker.includes("legacyV39SnapshotPreserved: true"));
 assert.ok(runtime.includes('"v41-coherence-repair-state-ownership"'));
 
-assert.ok(phase4a.includes("after 4D world/roster consolidation"));
-assert.ok(phase4b.includes("after 4D world/roster consolidation"));
+assert.ok(phase4a.includes("after 4E background compatibility consolidation"));
+assert.ok(phase4b.includes("after 4E background compatibility consolidation"));
 
-console.log("v41 Phase 4C coherence repair state ownership checks passed after 4D world/roster consolidation");
+console.log("v41 Phase 4C coherence repair state ownership checks passed after 4E background compatibility consolidation");
