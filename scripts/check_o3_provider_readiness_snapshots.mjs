@@ -38,8 +38,8 @@ assert.equal(after.baseCacheHits, 1);
 assert.equal(after.derivedSnapshotsBuilt, 2);
 assert.equal(after.derivedCacheHits, 1);
 assert.equal(after.invalidations, 1);
-assert.equal(after.lastTurnBaseEntries, 2);
-assert.equal(after.lastTurnDerivedEntries, 2);
+assert.equal(after.lastTurnBaseEntries, 2, "last-turn base entries should reflect only cache contents rebuilt after invalidation");
+assert.equal(after.lastTurnDerivedEntries, 0, "invalidation clears derived entries and none are rebuilt afterward in this probe");
 
 cache.base(1001, () => ({ id: ++baseBuilds }));
 assert.equal(baseBuilds, 4, "cache must not leak readiness state outside a production-turn scope");
