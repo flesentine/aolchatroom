@@ -6,8 +6,7 @@ function room() {
   return {
     culture: {},
     history: [],
-    realismHarnessStartedAt: 0,
-    v38QualityStats: { eraLinesBlocked: 0 }
+    realismHarnessStartedAt: 0
   };
 }
 
@@ -61,7 +60,9 @@ function room() {
   assert.equal(a.worldGateStats.auditedPublicClaimsBlocked, 1);
   assert.equal(a.captureFixStats.historicalDateClaimsBlocked, 1);
   assert.equal(a.coherenceStats.futureEventLinesBlocked, 1);
-  assert.equal(r.v38QualityStats.eraLinesBlocked, 1);
+  assert.equal(a.eraStats.eraLinesBlocked, 1);
+  assert.deepEqual(a.legacyV38Stats(), { eraLinesBlocked: 1 });
+  assert.equal(Object.hasOwn(r, "v38QualityStats"), false);
 }
 
 {
@@ -132,4 +133,4 @@ assert.ok(v41QualityCompat.includes('from "./index_v41_lively_ambient_compat.js"
 assert.ok(v39World.includes("futureGameProductViolation(text, now, context)"));
 assert.ok(v39World.includes("normalizeEraConsoleLabels(text)"));
 
-console.log("v41 Phase 3D world/date guard authority checks passed after 4D state consolidation");
+console.log("v41 Phase 3D world/date guard authority checks passed after 4F v38 telemetry consolidation");

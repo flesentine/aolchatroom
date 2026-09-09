@@ -134,6 +134,7 @@ const contracts = [
   "world-date-guard-order",
   "world-date-console-normalization",
   "world-date-historical-audit",
+  "v41-v38-era-telemetry-ownership",
   "v41-world-roster-state-ownership",
   "coherence-target-repair",
   "coherence-voice-lock",

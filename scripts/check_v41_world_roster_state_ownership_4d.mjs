@@ -77,14 +77,17 @@ for (const marker of [
   "this.worldGateStats = {",
   "this.captureFixStats = {",
   "this.coherenceStats = {",
+  "this.eraStats = {",
   "this.worldGateStats.futureGameProductLinesBlocked += 1",
   "this.worldGateStats.auditedPublicClaimsBlocked += 1",
   "this.worldGateStats.consoleLabelsNormalized += 1",
   "this.captureFixStats.historicalDateClaimsBlocked += 1",
   "this.coherenceStats.futureEventLinesBlocked += 1",
+  "this.eraStats.eraLinesBlocked += 1",
   "legacyWorldGateStats()",
   "legacyCaptureFixStats()",
   "legacyV39Stats()",
+  "legacyV38Stats()",
   "stateOwnedByAuthority: true"
 ]) {
   assert.ok(world.includes(marker), `4D world/date authority must own marker: ${marker}`);
@@ -110,6 +113,12 @@ assert.deepEqual(
   objectKeys(world, "this.coherenceStats = {"),
   ["futureEventLinesBlocked"],
   "4D future-event telemetry schema must stay exact"
+);
+
+assert.deepEqual(
+  objectKeys(world, "this.eraStats = {"),
+  ["eraLinesBlocked"],
+  "4D retained world/date proof must recognize 4F hard-era telemetry ownership"
 );
 
 for (const marker of [
@@ -179,4 +188,4 @@ assert.ok(phase4a.includes("after 4E background compatibility consolidation"));
 assert.ok(phase4b.includes("after 4E background compatibility consolidation"));
 assert.ok(phase4c.includes("after 4E background compatibility consolidation"));
 
-console.log("v41 Phase 4D world/date and roster state ownership checks passed after 4E background compatibility consolidation");
+console.log("v41 Phase 4D world/date and roster state ownership checks passed after 4F v38 telemetry consolidation");

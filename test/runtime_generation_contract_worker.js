@@ -1696,6 +1696,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
 
     ensure(this.v38TopicCooling instanceof Map, "3F.4 must initialize the v38 topic-cooling map without the retired quality constructor");
     ensure(this.v38QualityStats && typeof this.v38QualityStats === "object", "3F.4 must initialize legacy v38 quality counters");
+    equal(Object.hasOwn(this.v38QualityStats, "eraLinesBlocked"), false, "4F must remove hard-era telemetry from the quality compatibility stats object");
     this.v38TopicCooling.clear();
 
     const detected = this.detectRoomTopicFatigue(now);
@@ -2034,7 +2035,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(authority.worldGateStats.futureGameProductLinesBlocked, 1, "future-game counter must remain legacy-compatible");
     equal(authority.captureFixStats.historicalDateClaimsBlocked, 1, "relative-date counter must remain legacy-compatible");
     equal(authority.coherenceStats.futureEventLinesBlocked, 1, "future-event counter must remain legacy-compatible");
-    equal(this.v38QualityStats.eraLinesBlocked, 1, "hard-era counter must remain legacy-compatible");
+    equal(authority.eraStats.eraLinesBlocked, 1, "hard-era counter must remain legacy-compatible through the world/date authority");
 
     const safe = this.lineViolation("playstation rules", now, "", "SegaMan");
     equal(safe, null, "period-safe PlayStation wording must still pass");
@@ -2089,6 +2090,40 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     equal(snapshot.worldDateGuard?.authority, "v41-world-date-guard", "status must expose 3D world/date authority");
     equal(snapshot.policy.layeredWorldDateOrderPreserved, true, "status must expose preserved guard ordering");
     return { audit: true, blockers: audit.blockers };
+  }
+
+
+  async contractV41V38EraTelemetryOwnership() {
+    const now = Date.parse("2026-08-31T13:30:00-07:00");
+    this.reset({ bots: ["SegaMan"] });
+    const authority = this.worldDateGuardAuthority();
+    ensure(authority, "4F world/date authority must be available");
+
+    equal(Object.hasOwn(this.v38QualityStats || {}, "eraLinesBlocked"), false, "4F quality compatibility stats must not own hard-era telemetry");
+    const before = authority.legacyV38Stats().eraLinesBlocked;
+    const violation = this.lineViolation("playstation 4 looks better", now, "gaming", "SegaMan");
+    equal(violation?.kind, "future-era-technology", "4F must preserve hard-era detection");
+    this.noteViolation(violation, "pre-display", "SegaMan");
+
+    equal(authority.eraStats.eraLinesBlocked, before + 1, "4F world/date authority must own hard-era telemetry writes");
+    equal(authority.legacyV38Stats().eraLinesBlocked, before + 1, "4F legacy v38 bridge must expose authority telemetry");
+
+    const legacy = this.v38Snapshot(now);
+    equal(legacy.stats?.eraLinesBlocked, before + 1, "4F v38 snapshot must preserve eraLinesBlocked field");
+    equal(
+      legacy.stats?.topicFatigueActivations,
+      this.v38QualityStats.topicFatigueActivations,
+      "4F v38 snapshot must continue composing topic-fatigue telemetry from the quality owner"
+    );
+
+    const v41 = this.v41Snapshot(now);
+    equal(v41.worldDateGuard?.eraStats?.eraLinesBlocked, before + 1, "4F v41 snapshot must expose authority-owned hard-era telemetry");
+
+    return {
+      stateOwnedByWorldDateAuthority: true,
+      retiredQualityCrossWriteAbsent: true,
+      legacyV38SnapshotPreserved: true
+    };
   }
 
   async contractV41WorldRosterStateOwnership() {
@@ -2455,6 +2490,7 @@ export class RuntimeGenerationContractRoom extends ProductionChatRoom {
     if (name === "world-date-guard-order") return this.contractWorldDateGuardOrder();
     if (name === "world-date-console-normalization") return this.contractWorldDateConsoleNormalization();
     if (name === "world-date-historical-audit") return this.contractWorldDateHistoricalAudit();
+    if (name === "v41-v38-era-telemetry-ownership") return this.contractV41V38EraTelemetryOwnership();
     if (name === "v41-world-roster-state-ownership") return this.contractV41WorldRosterStateOwnership();
     if (name === "coherence-target-repair") return this.contractCoherenceTargetRepair();
     if (name === "coherence-voice-lock") return this.contractCoherenceVoiceLock();
