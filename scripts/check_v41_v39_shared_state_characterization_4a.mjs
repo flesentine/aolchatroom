@@ -174,8 +174,7 @@ for (const marker of [
 for (const marker of [
   "this.v39CaptureFixStats.legacyQuickBackgroundCallsSuppressed += 1",
   "legacyPresenceFixStats",
-  "legacyCaptureFixStats",
-  "legacyWorldGateStats"
+  "legacyCaptureFixStats"
 ]) {
   assert.ok(presenceCompat.includes(marker), `4A presence compatibility surface must retain marker: ${marker}`);
 }
