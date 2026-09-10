@@ -103,20 +103,26 @@ export class AmbiguitySafeWikidataPublicFactResolver extends WikidataPublicFactR
       const exact = (searchData?.search || [])
         .filter((item) => item?.id && exactSearchMatch(item, subject))
         .slice(0, 8);
+      const exactIds = exact.map((item) => item.id);
 
-      if (exact.length <= 1) {
-        verdict = { ok: true, reason: "source-entity-unique", candidateEntityIds: exact.map((item) => item.id) };
+      if (exact.length === 1 && exactIds[0] === selectedEntityId) {
+        verdict = { ok: true, reason: "source-entity-unique", candidateEntityIds: exactIds };
+      } else if (exact.length <= 1) {
+        verdict = {
+          ok: false,
+          reason: "source-selected-entity-unverified",
+          candidateEntityIds: exactIds
+        };
       } else {
-        const ids = exact.map((item) => item.id);
         const entityData = await this.requestJson({
           action: "wbgetentities",
-          ids: ids.join("|"),
+          ids: exactIds.join("|"),
           props: "claims",
           languages: "en"
         });
         const entities = responseEntities(entityData);
-        const relationBearing = ids.filter((id) => entityCarriesRelation(entities[id], propertyIds));
-        verdict = relationBearing.length <= 1 && relationBearing.includes(selectedEntityId)
+        const relationBearing = exactIds.filter((id) => entityCarriesRelation(entities[id], propertyIds));
+        verdict = relationBearing.length === 1 && relationBearing[0] === selectedEntityId
           ? { ok: true, reason: "source-relation-disambiguated", candidateEntityIds: relationBearing }
           : {
               ok: false,
@@ -164,6 +170,7 @@ export class AmbiguitySafeWikidataPublicFactResolver extends WikidataPublicFactR
       ...super.snapshot(),
       ambiguity: {
         exactSameLabelRelationCollisionFailsClosed: true,
+        selectedEntityMustRemainStableAcrossVerification: true,
         verdictCacheSize: this.v41AmbiguityVerdicts.size,
         verdictTtlMs: this.v41AmbiguityVerdictTtlMs,
         stats: { ...this.v41AmbiguityStats }
