@@ -10,11 +10,9 @@ const PUBLIC_MEDIA = [
     director: "Roland Emmerich",
     releaseAnswer: "july 3, 1996"
   },
-  { title: "Jack", releaseDate: "1996-08-09", aliases: [/\bjack\b/i] },
   { title: "Escape from L.A.", releaseDate: "1996-08-09", aliases: [/\bescape from l\.?a\.?\b/i] },
   { title: "Tin Cup", releaseDate: "1996-08-16", aliases: [/\btin cup\b/i] },
-  { title: "Space Jam", releaseDate: "1996-11-15", aliases: [/\bspace jam\b/i] },
-  { title: "Scream", releaseDate: "1996-12-20", aliases: [/\bscream\b/i] }
+  { title: "Space Jam", releaseDate: "1996-11-15", aliases: [/\bspace jam\b/i] }
 ];
 
 const CAST_QUERY = /\b(?:who\s+(?:stars?|starred)(?:\s+in)?|who(?:'s|\s+is|\s+was)\s+in|cast\s+(?:of|for))\b/i;
@@ -25,6 +23,11 @@ const UNCERTAINTY = /\b(?:idk|i\s+don'?t\s+know|dunno|not\s+sure|no\s+idea|could
 const CORRECTION = /\b(?:you(?:'re|\s+are)\s+right|my\s+bad|oops|sorry|i\s+got\s+that\s+wrong|i\s+mixed\s+that\s+up|yeah.{0,30}\bwrong)\b/i;
 const RATIONALIZATION = /\b(?:i\s+meant|what\s+i\s+meant|meant\s+the|meant\s+another)\b/i;
 const PRONOUN_TITLE = /^(?:that|it|this|that\s+one|this\s+one|that\s+movie|this\s+movie|the\s+movie)$/i;
+const CAST_GLUE = new Set([
+  "a", "actually", "and", "are", "cast", "definitely", "dude", "he", "in", "is", "it", "its", "lol",
+  "movie", "my", "oh", "oops", "right", "stars", "starred", "the", "they", "those", "yeah", "yep", "you're",
+  "youre", "your", "bad"
+]);
 
 function clean(value, max = 520) {
   return String(value || "").replace(/\s+/g, " ").trim().slice(0, max);
@@ -32,6 +35,13 @@ function clean(value, max = 520) {
 
 function normalize(value) {
   return clean(value, 900).toLowerCase().replace(/[’]/g, "'");
+}
+
+function wordTokens(value) {
+  return normalize(value)
+    .replace(/[^a-z0-9']+/g, " ")
+    .split(/\s+/)
+    .filter(Boolean);
 }
 
 function mediaInText(text) {
@@ -188,12 +198,28 @@ export function planWithPublicMediaGrounding(plan, scope) {
   };
 }
 
+function castAnswerSatisfied(scope, surface) {
+  const cast = Array.isArray(scope?.media?.cast) ? scope.media.cast : [];
+  if (cast.length < 2) return false;
+
+  const normalized = normalize(surface);
+  const matched = cast.filter((name) => normalized.includes(normalize(name)));
+  if (matched.length < Math.min(2, cast.length)) return false;
+
+  // A partially correct list must not smuggle an invented actor through the gate.
+  // Known names, the movie title, and ordinary chat glue are the only alpha tokens
+  // allowed in a trusted cast answer. Anything else fails closed to the deterministic
+  // catalog-backed fallback.
+  const allowed = new Set(CAST_GLUE);
+  for (const name of cast) for (const token of wordTokens(name)) allowed.add(token);
+  for (const token of wordTokens(scope.title)) allowed.add(token);
+  return wordTokens(surface).every((token) => allowed.has(token));
+}
+
 function trustedAnswerSatisfied(scope, surface) {
   if (!scope?.media || !scope.available) return false;
   const value = normalize(surface);
-  if (scope.kind === "cast") {
-    return (scope.media.cast || []).some((name) => value.includes(normalize(name)));
-  }
+  if (scope.kind === "cast") return castAnswerSatisfied(scope, surface);
   if (scope.kind === "director") return Boolean(scope.media.director && value.includes(normalize(scope.media.director)));
   if (scope.kind === "release") {
     return /\b(?:july\s+3|7\/3|1996)\b/i.test(surface) && Boolean(scope.media.releaseAnswer);
