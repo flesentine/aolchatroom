@@ -105,7 +105,15 @@ const wrappedByV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator
   && v41LivelyCompatRuntime.includes('from "./index_v41_human_director_compat.js"')
   && v41HumanDirectorCompatRuntime.includes('from "./index_v41_free_providers_compat.js"');
 const v41GenerationRuntime = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
-const wrappedByV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+const v41PublicFactRuntime = fs.readFileSync(new URL("../src/index_v41_public_fact_grounding.js", import.meta.url), "utf8");
+const v41PublicFactHardenedRuntime = fs.readFileSync(new URL("../src/index_v41_public_fact_grounding_hardened.js", import.meta.url), "utf8");
+const v41GenerationRoot = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+  || (
+    wrangler.includes('"main": "src/index_v41_public_fact_grounding_hardened.js"')
+    && v41PublicFactHardenedRuntime.includes('from "./index_v41_public_fact_grounding.js"')
+    && v41PublicFactRuntime.includes('from "./index_v41_generation_contract.js"')
+  );
+const wrappedByV41Generation = v41GenerationRoot
   && wrangler.includes('"DEPLOY_VERSION": "41"')
   && (
     v41GenerationRuntime.includes('from "./index_v41_scene_coordinator.js"')

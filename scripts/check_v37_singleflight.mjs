@@ -136,6 +136,8 @@ const v41Url = new URL("../src/index_v41_scene_coordinator.js", import.meta.url)
 const v41ReconnectUrl = new URL("../src/index_v41_human_reconnect.js", import.meta.url);
 const v41CoherenceUrl = new URL("../src/index_v41_coherence_repair.js", import.meta.url);
 const v41GenerationUrl = new URL("../src/index_v41_generation_contract.js", import.meta.url);
+const v41PublicFactUrl = new URL("../src/index_v41_public_fact_grounding.js", import.meta.url);
+const v41PublicFactHardenedUrl = new URL("../src/index_v41_public_fact_grounding_hardened.js", import.meta.url);
 const v38Entrypoint = fs.existsSync(v38Url) ? fs.readFileSync(v38Url, "utf8") : "";
 const wrappedV38 = wrangler.includes('"main": "src/index_v38_quality_guard.js"')
   && wrangler.includes('"DEPLOY_VERSION": "38"')
@@ -187,7 +189,15 @@ const wrappedV41 = wrangler.includes('"main": "src/index_v41_scene_coordinator.j
 const v41ReconnectEntrypoint = fs.existsSync(v41ReconnectUrl) ? fs.readFileSync(v41ReconnectUrl, "utf8") : "";
 const v41CoherenceEntrypoint = fs.existsSync(v41CoherenceUrl) ? fs.readFileSync(v41CoherenceUrl, "utf8") : "";
 const v41GenerationEntrypoint = fs.existsSync(v41GenerationUrl) ? fs.readFileSync(v41GenerationUrl, "utf8") : "";
-const wrappedV41Generation = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+const v41PublicFactEntrypoint = fs.existsSync(v41PublicFactUrl) ? fs.readFileSync(v41PublicFactUrl, "utf8") : "";
+const v41PublicFactHardenedEntrypoint = fs.existsSync(v41PublicFactHardenedUrl) ? fs.readFileSync(v41PublicFactHardenedUrl, "utf8") : "";
+const v41GenerationRoot = wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+  || (
+    wrangler.includes('"main": "src/index_v41_public_fact_grounding_hardened.js"')
+    && v41PublicFactHardenedEntrypoint.includes('from "./index_v41_public_fact_grounding.js"')
+    && v41PublicFactEntrypoint.includes('from "./index_v41_generation_contract.js"')
+  );
+const wrappedV41Generation = v41GenerationRoot
   && wrangler.includes('"DEPLOY_VERSION": "41"')
   && (
     v41GenerationEntrypoint.includes('from "./index_v41_scene_coordinator.js"')

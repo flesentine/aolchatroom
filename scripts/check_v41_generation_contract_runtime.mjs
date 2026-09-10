@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { wranglerSpawnSpec } from "./wrangler_spawn.mjs";
+import "./check_v41_public_fact_grounding.mjs";
 
 const port = 10100 + (process.pid % 300);
 const origin = `http://127.0.0.1:${port}`;
@@ -147,6 +148,7 @@ const contracts = [
   "history-persistence-coalescing",
   "provider-readiness-snapshots-o3",
   "zero-copy-hotpaths-o4",
+  "public-fact-grounding",
   "status"
 ];
 

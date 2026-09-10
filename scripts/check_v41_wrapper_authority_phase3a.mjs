@@ -35,10 +35,20 @@ const v41WorldDate = read("src/index_v41_world_date_guard.js");
 const v41Roster = read("src/index_v41_bot_roster_reentry.js");
 const v41GenerationBase = read("src/index_v41_generation_contract_base.js");
 const v41Generation = read("src/index_v41_generation_contract.js");
+const v41PublicFact = read("src/index_v41_public_fact_grounding.js");
+const v41PublicFactHardened = read("src/index_v41_public_fact_grounding_hardened.js");
 const wrangler = read("wrangler.jsonc");
 
-// Production still enters through the Phase 2 v41 wrapper.
-assert.ok(wrangler.includes('"main": "src/index_v41_generation_contract.js"'));
+// Production still enters the frozen Phase 2 v41 generation contract, either
+// directly or through the final public-fact wrappers.
+const directGenerationRoot = wrangler.includes('"main": "src/index_v41_generation_contract.js"');
+const publicFactRoot = wrangler.includes('"main": "src/index_v41_public_fact_grounding_hardened.js"')
+  && v41PublicFactHardened.includes('from "./index_v41_public_fact_grounding.js"')
+  && v41PublicFact.includes('from "./index_v41_generation_contract.js"');
+assert.ok(
+  directGenerationRoot || publicFactRoot,
+  "production must enter the frozen Phase 2 generation contract directly or through the final public-fact wrappers"
+);
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
 // The inherited chain remains explicit. Phase 3A is characterization-only.
