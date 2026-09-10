@@ -34,7 +34,7 @@
     "OPENROUTER_MODEL": "openrouter/free",
     "HF_MODEL": "openai/gpt-oss-120b:cheapest",
     "CEREBRAS_MODEL": "gpt-oss-120b",
-    "COHERE_MODEL": "command-r7b-12b-12-2024",
+    "COHERE_MODEL": "command-r7b-12-2024",
     "ALLOW_DEV_TRIAL_PROVIDERS": "0",
     "SIMULATED_DATE": "November 22, 1996",
     "DEPLOY_VERSION": "41"
