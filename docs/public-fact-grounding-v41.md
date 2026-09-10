@@ -16,18 +16,19 @@ Direct recognized public-fact questions now pass through a generic structured gr
 2. Resolve an explicit subject from the human message, or use the Director subject/recent conversation when the human says “that” or “it.”
 3. Resolve the subject and relation through Wikidata’s structured API.
 4. Require an exact label/alias search match and an entity that actually carries the requested relation.
-5. Check the subject against the simulated-date boundary.
-6. For historically mutable relations, require statement-level temporal evidence rather than importing current state.
-7. Give the verified fact packet to the existing character Voice plan.
-8. Validate the generated surface before display so the model cannot add an unsupported name/date/company.
-9. If validation fails, use the existing deterministic primary-response fallback slot with the verified structured fact.
-10. If the source cannot verify the fact safely, fail closed to natural uncertainty instead of guessing.
+5. Re-verify same-label candidates: relation-based disambiguation is trusted only when exactly one exact candidate carries the requested property; collisions fail closed.
+6. Check the subject against the simulated-date boundary.
+7. For historically mutable relations, require statement-level temporal evidence rather than importing current state.
+8. Give the verified fact packet to the existing character Voice plan.
+9. Validate the generated surface before display so the model cannot add an unsupported name/date/company.
+10. If validation fails, use the existing deterministic primary-response fallback slot with the verified structured fact.
+11. If the source cannot verify the fact safely, fail closed to natural uncertainty instead of guessing.
 
 No extra LLM/judge-model call is added. The additional work is structured-data lookup only.
 
 ## Structured source
 
-The source is the Wikidata Wikibase API (`wbsearchentities` + `wbgetentities`). Resolver results are cached in the Durable Object instance to avoid repeated lookups for the same subject/relation.
+The source is the Wikidata Wikibase API (`wbsearchentities` + `wbgetentities`). Resolver results and ambiguity verdicts are cached in the Durable Object instance to avoid repeated lookups for the same subject/relation.
 
 Production code contains property/relation definitions, not entity facts.
 
@@ -66,9 +67,11 @@ Recognized mutable/current questions that do not yet have safe temporal semantic
 
 ## Entity resolution
 
-Fuzzy guesses are not accepted as truth. A search candidate must match the requested subject by exact normalized label, exact alias, or exact Wikidata search match. If several entities share a label, the resolver chooses an exact candidate that actually exposes the requested property.
+Fuzzy guesses are not accepted as truth. A search candidate must match the requested subject by exact normalized label, exact alias, or exact Wikidata search match.
 
-This is important for ambiguous names: a film and a holiday may share a label, but only the film carries a cast relation.
+If several exact entities share a label, the runtime may disambiguate them only when exactly one candidate carries the requested relation. A film and a holiday named *Independence Day* are therefore resolvable for a cast question because only the film has cast members. If two exact works share a title and both carry the requested relation—for example, both have directors—the lookup is considered ambiguous and fails closed to uncertainty rather than trusting search order.
+
+The ambiguity verification also requires the selected entity ID to remain the same between the base lookup and the verification lookup. If source ordering/data changes mid-resolution, the result fails closed rather than silently switching entities.
 
 An explicit subject in the current human question always takes priority over recent chat. “Who stars in Mystery Movie XYZ?” cannot inherit facts from a previously discussed movie.
 
@@ -84,24 +87,25 @@ A factual challenge remains bound to the same subject and relation. “I meant a
 
 ## Source failure and unknown facts
 
-A timeout, HTTP error, ambiguous entity, missing requested property, missing historical evidence, or unsupported relation never authorizes the model to fill in the blank from memory.
+A timeout, HTTP error, ambiguous entity, missing requested property, missing historical evidence, unsupported relation, or source inconsistency never authorizes the model to fill in the blank from memory.
 
 The character may still respond naturally, but only with tightly constrained uncertainty such as “not sure, i dont wanna make that up.” A hedged guess such as “not sure, but Tom Hanks…” is rejected.
 
 ## Test strategy
 
-CI uses a fake Wikidata service so correctness does not depend on the public network. The fixture spans unrelated domains:
+CI uses fake Wikidata services so correctness does not depend on the public network. The fixtures span unrelated domains:
 
 - *Independence Day* cast — regression for the reported incident
 - *Enter Sandman* performer
 - *Quake* developer and historically filtered platforms
 - Apple Computer founders
 - a post-1996 future title
-- ambiguous same-label entities
+- a same-label non-relation entity that can safely be disambiguated
+- two same-title pre-1996 works that both carry the same requested relation and therefore must fail closed
 - source outage
 - recognized unsupported/current-role facts
 
-The real Worker contract runs the actual final public-fact wrapper and proves the generic authority composes with the existing v41 Voice/generation/fallback stack.
+The real Worker contract runs the actual final ambiguity-safe public-fact wrapper and proves the generic authority composes with the existing v41 Voice/generation/fallback stack.
 
 ## Preserved behavior
 
@@ -110,4 +114,4 @@ The real Worker contract runs the actual final public-fact wrapper and proves th
 - Background ambient chat does not perform public-fact lookups.
 - Scene, reconnect, persistence, browser capture, and O1–O5 behavior are unchanged.
 - No extra provider/judge-model call is introduced.
-- If the structured fact source is down, chat continues safely with uncertainty.
+- If the structured fact source is down or ambiguous, chat continues safely with uncertainty.
