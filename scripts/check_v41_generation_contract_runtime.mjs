@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawn } from "node:child_process";
 import { wranglerSpawnSpec } from "./wrangler_spawn.mjs";
 import "./check_v41_public_media_fact_grounding.mjs";
+import "./check_v41_public_media_fact_grounding_edges.mjs";
 
 const port = 10100 + (process.pid % 300);
 const origin = `http://127.0.0.1:${port}`;
