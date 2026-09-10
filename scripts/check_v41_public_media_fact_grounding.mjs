@@ -4,7 +4,8 @@ import {
   deterministicPublicMediaLine,
   evaluatePublicMediaSurface,
   planWithPublicMediaGrounding,
-  publicMediaFactScope
+  publicMediaFactScope,
+  publicMediaCatalogSnapshot
 } from "../src/public_media_fact_grounding_v41.js";
 
 const eraDateKey = "1996-09-09";
@@ -42,9 +43,19 @@ assert.equal(
   "wrong actor names must not pass a grounded cast question"
 );
 assert.equal(
+  evaluatePublicMediaSurface(castScope, "will smith and al pacino").ok,
+  false,
+  "one correct actor must not let a mixed hallucinated cast pass"
+);
+assert.equal(
+  evaluatePublicMediaSurface(castScope, "will smith, jeff goldblum and al pacino").ok,
+  false,
+  "two correct names must not smuggle an extra invented actor through the cast gate"
+);
+assert.equal(
   evaluatePublicMediaSurface(castScope, "will smith and jeff goldblum").ok,
   true,
-  "trusted principal cast must satisfy the cast gate"
+  "multiple trusted principal cast names must satisfy the cast gate"
 );
 
 const directPlan = {
@@ -107,9 +118,9 @@ assert.equal(
   "a vague invented excuse must not count as factual repair"
 );
 assert.equal(
-  evaluatePublicMediaSurface(challengeScope, "yeah you're right, my bad, will smith is in independence day").ok,
+  evaluatePublicMediaSurface(challengeScope, "yeah you're right, my bad, will smith and jeff goldblum are in independence day").ok,
   true,
-  "a correction grounded in trusted cast facts should pass"
+  "a correction grounded in multiple trusted cast facts should pass"
 );
 
 const challengeFallback = deterministicPublicMediaLine(challengeScope, {
@@ -156,6 +167,10 @@ assert.equal(futureScope?.title, "Space Jam");
 assert.equal(futureScope?.available, false);
 assert.equal(evaluatePublicMediaSurface(futureScope, "michael jordan").ok, false);
 assert.equal(evaluatePublicMediaSurface(futureScope, "not sure, never heard of it").ok, true);
+
+const catalog = publicMediaCatalogSnapshot();
+assert.equal(catalog.some((row) => row.title === "Jack"), false, "ambiguous one-word Jack alias must not enter recent-title inference");
+assert.equal(catalog.some((row) => row.title === "Scream"), false, "ambiguous one-word Scream alias must not enter recent-title inference");
 
 const production = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
 assert.ok(production.includes("planWithPublicMediaGrounding(plan, mediaScope)"));
