@@ -7,8 +7,16 @@ import {
 } from "./era_fallback_v41.js";
 import {
   evaluateHumanReplanPrimaryResponse,
-  evaluatePrimaryHumanVoice
+  evaluatePrimaryHumanVoice,
+  humanReplanPrimaryObligation
 } from "./generation_contract_v41_identity_choice_guard.js";
+import {
+  deterministicPublicMediaLine,
+  evaluatePublicMediaSurface,
+  planWithPublicMediaGrounding,
+  publicMediaCatalogSnapshot,
+  publicMediaFactScope
+} from "./public_media_fact_grounding_v41.js";
 import {
   CoalescingHistoryWriter,
   V41_HISTORY_LIMIT
@@ -25,22 +33,96 @@ export class ChatRoom extends Phase2ChatRoom {
       write: (rows) => this.ctx.storage.put("history", rows),
       limit: V41_HISTORY_LIMIT
     });
+    this.v41PublicMediaStats = {
+      scopesDetected: 0,
+      trustedScopes: 0,
+      providerSurfacesAccepted: 0,
+      providerSurfacesRejected: 0,
+      groundedFallbacks: 0,
+      uncertaintyFallbacks: 0,
+      challengeRationalizationsBlocked: 0
+    };
+    this.v41LastPublicMediaGrounding = null;
   }
 
   persistHistory() {
     return this.v41HistoryWriter.request();
   }
 
+  v41PublicMediaScope(human) {
+    return publicMediaFactScope({
+      human,
+      history: this.history || [],
+      eraDateKey: typeof this.currentEraDate === "function" ? this.currentEraDate() : ""
+    });
+  }
+
+  notePublicMediaGrounding(scope, evaluation, surface = "", fallback = null) {
+    if (!scope || !evaluation?.enforced) return;
+    this.v41PublicMediaStats.scopesDetected += 1;
+    if (scope.trusted) this.v41PublicMediaStats.trustedScopes += 1;
+    if (evaluation.ok) this.v41PublicMediaStats.providerSurfacesAccepted += 1;
+    else {
+      this.v41PublicMediaStats.providerSurfacesRejected += 1;
+      if (evaluation.reason === "public-media-challenge-rationalization") {
+        this.v41PublicMediaStats.challengeRationalizationsBlocked += 1;
+      }
+    }
+    this.v41LastPublicMediaGrounding = {
+      at: Date.now(),
+      ok: Boolean(evaluation.ok),
+      reason: evaluation.reason || "",
+      type: scope.type,
+      kind: scope.kind,
+      title: scope.title,
+      trusted: Boolean(scope.trusted),
+      available: Boolean(scope.available),
+      source: scope.source || "",
+      surface: String(surface || "").replace(/\s+/g, " ").trim().slice(0, 220),
+      fallback: fallback ? {
+        speaker: fallback.speaker || "",
+        target: fallback.target || "room",
+        text: String(fallback.text || "").replace(/\s+/g, " ").trim().slice(0, 220)
+      } : null
+    };
+  }
+
   async voiceBrainPlan(plan, active, human = null) {
-    const voiced = await V41CoherenceChatRoom.prototype.voiceBrainPlan.call(this, plan, active, human);
-    const evaluation = evaluatePrimaryHumanVoice({
-      plan,
+    const mediaScope = this.v41PublicMediaScope(human);
+    const voicePlan = mediaScope ? planWithPublicMediaGrounding(plan, mediaScope) : plan;
+    const voiced = await V41CoherenceChatRoom.prototype.voiceBrainPlan.call(this, voicePlan, active, human);
+    let evaluation = evaluatePrimaryHumanVoice({
+      plan: voicePlan,
       lines: voiced,
       human,
       history: this.history || [],
       eraDateKey: typeof this.currentEraDate === "function" ? this.currentEraDate() : ""
     });
-    this.noteGenerationContract(evaluation, plan, voiced, human);
+
+    if (mediaScope && evaluation.enforced && evaluation.ok) {
+      const mediaEvaluation = evaluatePublicMediaSurface(mediaScope, voiced?.[0]?.text || "");
+      if (!mediaEvaluation.ok) {
+        evaluation = {
+          ...evaluation,
+          ok: false,
+          reason: mediaEvaluation.reason,
+          evidence: {
+            ...(evaluation.evidence || {}),
+            publicMedia: {
+              type: mediaScope.type,
+              kind: mediaScope.kind,
+              title: mediaScope.title,
+              trusted: Boolean(mediaScope.trusted),
+              available: Boolean(mediaScope.available),
+              source: mediaScope.source || ""
+            }
+          }
+        };
+      }
+      this.notePublicMediaGrounding(mediaScope, mediaEvaluation, voiced?.[0]?.text || "", null);
+    }
+
+    this.noteGenerationContract(evaluation, voicePlan, voiced, human);
     if (!evaluation.enforced || evaluation.ok) return voiced;
 
     this.broadcast?.({
@@ -60,8 +142,40 @@ export class ChatRoom extends Phase2ChatRoom {
   }
 
   v41DeterministicHumanFallback(human) {
-    const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
     const eraDateKey = typeof this.currentEraDate === "function" ? this.currentEraDate() : "";
+    const mediaScope = this.v41PublicMediaScope(human);
+    if (mediaScope) {
+      const obligation = humanReplanPrimaryObligation({ human, history: this.history || [] });
+      if (obligation.enforced && obligation.speaker && obligation.target) {
+        const grounded = deterministicPublicMediaLine(mediaScope, {
+          speaker: obligation.speaker,
+          target: obligation.target
+        });
+        const mediaEvaluation = evaluatePublicMediaSurface(mediaScope, grounded?.text || "");
+        if (grounded && mediaEvaluation.ok) {
+          this.v41PublicMediaStats.groundedFallbacks += 1;
+          if (!mediaScope.trusted) this.v41PublicMediaStats.uncertaintyFallbacks += 1;
+          if (this.v41LastPublicMediaGrounding) {
+            this.v41LastPublicMediaGrounding = {
+              ...this.v41LastPublicMediaGrounding,
+              fallback: {
+                speaker: grounded.speaker,
+                target: grounded.target,
+                text: grounded.text
+              }
+            };
+          }
+          return periodSafeHumanFallbackLines(
+            [grounded],
+            human,
+            eraDateKey,
+            this.v41EraFallbackScope(human)
+          );
+        }
+      }
+    }
+
+    const fallback = ContinuityFallbackChatRoom.prototype.builtInHumanReply.call(this, human) || [];
     return periodSafeHumanFallbackLines(fallback, human, eraDateKey, this.v41EraFallbackScope(human));
   }
 
@@ -158,6 +272,11 @@ export class ChatRoom extends Phase2ChatRoom {
           humanReplanFailClosedConsumes: Number(stats.humanReplanFailClosedConsumes || 0)
         }
       },
+      publicMediaFactGrounding: {
+        stats: { ...this.v41PublicMediaStats },
+        last: this.v41LastPublicMediaGrounding,
+        catalog: publicMediaCatalogSnapshot()
+      },
       historyPersistence: this.v41HistoryWriter?.snapshot?.() || null,
       policy: {
         ...(snapshot.policy || {}),
@@ -172,7 +291,11 @@ export class ChatRoom extends Phase2ChatRoom {
         degradedHumanFallbackDefersToSealed1996World: true,
         degradedHumanFallbackPreservesPhase2BPrimarySlot: true,
         historyPersistenceSingleFlight: true,
-        historyPersistenceSchemaPreserved: true
+        historyPersistenceSchemaPreserved: true,
+        directPublicMediaFactsMustBeGrounded: true,
+        unknownPublicMediaDetailsFailClosedToUncertainty: true,
+        factualChallengeCannotInventReplacementTitle: true,
+        publicMediaGroundingUsesNoAdditionalProviderCall: true
       }
     };
   }
