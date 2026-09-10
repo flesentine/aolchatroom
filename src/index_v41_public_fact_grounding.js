@@ -17,6 +17,10 @@ import {
   publicFactRequest,
   unresolvedPublicFactScope
 } from "./public_fact_grounding_v41.js";
+import {
+  unsupportedPublicFactPolicySnapshot,
+  unsupportedPublicFactScope
+} from "./public_fact_unsupported_guard_v41.js";
 
 export default worker;
 
@@ -54,18 +58,23 @@ export class ChatRoom extends GenerationContractChatRoom {
   }
 
   async v41ResolvePublicFactScope(plan, human) {
+    const eraDateKey = this.v41EraDateKey();
     const request = publicFactRequest({
       human,
       plan,
       history: this.history || [],
       previousScope: this.v41LastPublicFactScope
     });
-    if (!request) return null;
-
-    this.v41PublicFactStats.requestsDetected += 1;
-    const scope = await this.v41PublicFactResolver.resolve(request, this.v41EraDateKey());
+    let scope = request
+      ? await this.v41PublicFactResolver.resolve(request, eraDateKey)
+      : unsupportedPublicFactScope({
+          human,
+          eraDateKey,
+          previousScope: this.v41LastPublicFactScope
+        });
     if (!scope) return null;
 
+    this.v41PublicFactStats.requestsDetected += 1;
     const firstMove = Array.isArray(plan?.moves) ? plan.moves[0] : null;
     Object.assign(scope, {
       humanMessageId: clean(human?.messageId, 100),
@@ -189,7 +198,7 @@ export class ChatRoom extends GenerationContractChatRoom {
       });
       factScope = request
         ? unresolvedPublicFactScope(request, eraDateKey, "fallback-source-not-resolved")
-        : null;
+        : unsupportedPublicFactScope({ human, eraDateKey, previousScope: factScope });
     }
 
     if (factScope) {
@@ -257,13 +266,16 @@ export class ChatRoom extends GenerationContractChatRoom {
           sourcePropertyId: this.v41LastPublicFactScope.sourcePropertyId
         } : null,
         resolver: this.v41PublicFactResolver?.snapshot?.() || null,
-        policy: publicFactPolicySnapshot()
+        policy: {
+          ...publicFactPolicySnapshot(),
+          ...unsupportedPublicFactPolicySnapshot()
+        }
       },
       policy: {
         ...(snapshot.policy || {}),
         directPublicFactsUseStructuredGrounding: true,
         publicFactSourceIsExternalStructuredData: true,
-        unsupportedPublicFactsFailClosedToUncertainty: true,
+        recognizedUnsupportedPublicFactsFailClosedToUncertainty: true,
         historicallyAmbiguousRelationsFailClosed: true,
         publicFactChallengeCannotInventReplacementSubject: true,
         publicFactGroundingUsesNoAdditionalProviderCall: true
