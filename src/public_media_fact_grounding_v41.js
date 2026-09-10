@@ -16,7 +16,7 @@ const PUBLIC_MEDIA = [
 
 const CAST_QUERY = /\b(?:who\s+(?:stars?|starred)(?:\s+in)?|who(?:'s|\s+is|\s+was|\s+are)\s+in|who\s+are\s+the\s+actors?|what\s+actors?\s+(?:are|were)\s+in|actors?\s+(?:in|from)|cast\s+(?:of|for))\b/i;
 const DIRECTOR_QUERY = /\b(?:who\s+directed|who(?:'s|\s+is|\s+was)\s+the\s+director|director\s+(?:of|for))\b/i;
-const RELEASE_QUERY = /\b(?:when\s+(?:did|does|was|is).{0,70}(?:come\s+out|open|release)|what\s+year.{0,70}(?:come\s+out|open|release)|release\s+date)\b/i;
+const RELEASE_QUERY = /\b(?:when\s+(?:did|does|was|is).{0,70}(?:come\s+out|open|release(?:d)?)|what\s+year.{0,70}(?:come\s+out|open|release(?:d)?)|release\s+date)\b/i;
 const ERROR_CHALLENGE = /\b(?:that(?:'s|\s+is)\s+wrong|i\s+think\s+that(?:'s|\s+is)\s+wrong|you(?:'re|\s+are)\s+wrong|are\s+you\s+sure|you\s+sure|not\s+in\s+(?:that|the)\s+movie|not\s+in\s+that|we\s+were\s+talking\s+about|how\s+could\s+you\s+mix|mix(?:ed)?\s+that\s+up|got\s+that\s+wrong|that(?:'s|\s+is)\s+not\s+right)\b/i;
 const UNCERTAINTY = /\b(?:idk|i\s+don'?t\s+know|dunno|not\s+sure|no\s+idea|couldn'?t\s+tell\s+ya|dont\s+wanna\s+guess|don'?t\s+wanna\s+guess|don'?t\s+wanna\s+make\s+that\s+up|dont\s+wanna\s+make\s+that\s+up)\b/i;
 const CORRECTION = /\b(?:you(?:'re|\s+are)\s+right|my\s+bad|oops|sorry|i\s+got\s+that\s+wrong|i\s+mixed\s+that\s+up|yeah.{0,30}\bwrong)\b/i;
@@ -33,6 +33,11 @@ const DIRECTOR_GLUE = new Set([
 ]);
 const RELEASE_GLUE = new Set([
   "actually", "came", "come", "it", "on", "opened", "out", "release", "released", "the", "was", "yeah"
+]);
+const UNCERTAINTY_GLUE = new Set([
+  "about", "couldn't", "couldnt", "dude", "dunno", "guess", "heard", "honestly", "i", "idk", "it", "know", "make",
+  "movie", "never", "no", "not", "of", "sorry", "sure", "tell", "that", "this", "up", "wanna", "ya", "dont",
+  "don't"
 ]);
 
 function clean(value, max = 520) {
@@ -255,6 +260,12 @@ function releaseAnswerSatisfied(scope, surface) {
   return tokensAllowed(surface, RELEASE_GLUE, [expected, scope.title]);
 }
 
+function safeUncertaintySurface(scope, surface) {
+  const text = clean(surface, 700);
+  if (!UNCERTAINTY.test(text)) return false;
+  return tokensAllowed(text, UNCERTAINTY_GLUE, [scope?.title || ""]);
+}
+
 function trustedAnswerSatisfied(scope, surface) {
   if (!scope?.media || !scope.available) return false;
   if (scope.kind === "cast") return castAnswerSatisfied(scope, surface);
@@ -269,7 +280,7 @@ export function evaluatePublicMediaSurface(scope, surface = "") {
   if (!text) return { ok: false, enforced: true, reason: "public-media-empty" };
 
   if (!scope.available || !scope.trusted) {
-    return UNCERTAINTY.test(text)
+    return safeUncertaintySurface(scope, text)
       ? { ok: true, enforced: true, reason: "public-media-unverified-uncertainty" }
       : { ok: false, enforced: true, reason: "public-media-unverified-confident-answer" };
   }
