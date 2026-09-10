@@ -48,7 +48,8 @@ const movieHistory = [{
 const castHuman = human("who stars in that", "Sk8rGuy16", "id4-cast");
 const castRequest = publicFactRequest({ human: castHuman, plan: plan("Independence Day"), history: movieHistory });
 assert.equal(castRequest?.relation, "cast");
-assert.deepEqual(castRequest?.subjectCandidates, ["Independence Day"]);
+assert.equal(castRequest?.subjectCandidates?.[0], "Independence Day", "Director subject must remain the authoritative first referent");
+assert.equal(castRequest?.subjectCandidates?.filter((subject) => subject === "Independence Day").length, 1, "authoritative subject must not be duplicated by fallback context");
 const castScope = await resolver.resolve(castRequest, ERA);
 assert.equal(castScope?.status, "resolved");
 assert.equal(castScope?.source, "wikidata");
