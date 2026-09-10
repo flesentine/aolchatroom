@@ -164,15 +164,21 @@ assert.ok(runtime.includes('from "./index_v39_world_gate.js"'), "frozen v40 must
 const v41Reconnect = fs.readFileSync(new URL("../src/index_v41_human_reconnect.js", import.meta.url), "utf8");
 const v41Coherence = fs.readFileSync(new URL("../src/index_v41_coherence_repair.js", import.meta.url), "utf8");
 const v41Generation = fs.readFileSync(new URL("../src/index_v41_generation_contract.js", import.meta.url), "utf8");
+const v41PublicFact = fs.readFileSync(new URL("../src/index_v41_public_fact_grounding.js", import.meta.url), "utf8");
+const v41PublicFactHardened = fs.readFileSync(new URL("../src/index_v41_public_fact_grounding_hardened.js", import.meta.url), "utf8");
 assert.ok(v41Generation.includes('from "./index_v41_coherence_repair.js"'), "Phase 2 must remain additive above the Phase 3C compatibility wrapper");
 assert.ok(v41Coherence.includes('from "./index_v41_human_reconnect.js"'), "Phase 3C must remain additive above the reconnect authority");
 assert.ok(v41Reconnect.includes('from "./index_v41_scene_coordinator.js"'), "Phase 3B must remain additive above the frozen v41 scene coordinator");
 
 const wrangler = fs.readFileSync(new URL("../wrangler.jsonc", import.meta.url), "utf8");
+const publicFactRoot = wrangler.includes('"main": "src/index_v41_public_fact_grounding_hardened.js"')
+  && v41PublicFactHardened.includes('from "./index_v41_public_fact_grounding.js"')
+  && v41PublicFact.includes('from "./index_v41_generation_contract.js"');
 assert.ok(
   wrangler.includes('"main": "src/index_v41_scene_coordinator.js"')
-  || wrangler.includes('"main": "src/index_v41_generation_contract.js"'),
-  "production must run v40 through the v41 scene coordinator, directly or through the Phase 2A wrapper"
+  || wrangler.includes('"main": "src/index_v41_generation_contract.js"')
+  || publicFactRoot,
+  "production must run v40 through the v41 scene coordinator, directly through Phase 2A, or through the final public-fact wrappers"
 );
 assert.ok(wrangler.includes('"DEPLOY_VERSION": "41"'));
 
